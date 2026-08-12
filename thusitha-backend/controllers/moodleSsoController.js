@@ -66,6 +66,25 @@ exports.getEmbedUrl = async (req, res) => {
     if (page === 'course' && course_id) {
       const moodleCourse = await moodleService.findOrCreateCourse(course_id, course_name);
       if (moodleCourse && moodleCourse.id) {
+        // A Teacher landing on their course page still can't upload anything unless they
+        // actually hold the Teacher (editingteacher) role *in that Moodle course* - having
+        // a Moodle account and the course existing isn't enough. Nothing else in this app
+        // ever enrols a teacher into their own course (only students get auto-enrolled), so
+        // do it here, best-effort: if it fails or they're already enrolled, don't block the
+        // page load over it - just log it, same pattern used for every other Moodle sync.
+        if (req.user.role === 'Teacher') {
+          try {
+            const moodleTeacher = await moodleService.getUserByUsername(username);
+            if (moodleTeacher && moodleTeacher.id) {
+              await moodleService.enrollUser(moodleTeacher.id, moodleCourse.id, 3); // 3 = Teacher (editingteacher)
+            } else {
+              console.warn(`⚠️ [Moodle] No Moodle account found for teacher username "${username}" - cannot grant course edit rights.`);
+            }
+          } catch (enrolErr) {
+            console.warn(`⚠️ [Moodle] Teacher enrolment into course ${moodleCourse.id} skipped:`, enrolErr.message);
+          }
+        }
+
         // Land directly on the course page (not the generic Dashboard) - this shows the
         // section/file list (covers "review uploaded materials") and, once "Turn editing on"
         // is toggled, the "+ Add an activity or resource" links for uploading new ones.
