@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { request } from '../../services/api';
 import { useNotification } from '../../context/NotificationContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 
 const MaterialTab = ({ courses }) => {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [embedUrl, setEmbedUrl] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(false);
   const { showNotification } = useNotification();
 
@@ -26,10 +27,12 @@ const MaterialTab = ({ courses }) => {
     const fetchEmbedUrl = async () => {
       if (!selectedCourse) {
         setEmbedUrl('');
+        setLoadError('');
         return;
       }
 
       setLoading(true);
+      setLoadError('');
       try {
         const courseName = courses.find(c => String(c.course_id) === String(selectedCourse))?.course_name || '';
         const data = await request(`/moodle-sso/embed-url?page=course&course_id=${selectedCourse}&course_name=${encodeURIComponent(courseName)}`);
@@ -37,14 +40,19 @@ const MaterialTab = ({ courses }) => {
         if (data && data.embedUrl) {
           setEmbedUrl(data.embedUrl);
         } else {
+          setEmbedUrl('');
+          setLoadError('Moodle සම්බන්ධතාවය අසාර්ථක විය.');
           showNotification('Moodle සම්බන්ධතාවය අසාර්ථක විය.', 'error');
         }
       } catch (err) {
         if (ignore) return;
         console.error('Failed to fetch Moodle embed URL:', err);
-        showNotification('Moodle වෙත ප්‍රවේශ වීමේදී දෝෂයක් ඇති විය.', 'error');
-        // Fallback generic Moodle URL (relative so it still goes through the same-origin proxy)
-        setEmbedUrl('/moodle/my/');
+        // Show the real reason instead of silently loading Moodle's generic Dashboard,
+        // which looks like a working page but isn't the course the user asked for.
+        const msg = err.message || 'Moodle වෙත ප්‍රවේශ වීමේදී දෝෂයක් ඇති විය.';
+        setEmbedUrl('');
+        setLoadError(msg);
+        showNotification(msg, 'error');
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -91,9 +99,16 @@ const MaterialTab = ({ courses }) => {
           </div>
         )}
 
+        {selectedCourse && !loading && loadError && (
+          <div className="text-center px-6">
+            <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+            <p className="text-lg font-semibold text-gray-700">{loadError}</p>
+          </div>
+        )}
+
         {selectedCourse && embedUrl && (
-          <iframe 
-            src={embedUrl} 
+          <iframe
+            src={embedUrl}
             title="Moodle Course"
             className="w-full h-full border-0"
             onLoad={() => setLoading(false)}

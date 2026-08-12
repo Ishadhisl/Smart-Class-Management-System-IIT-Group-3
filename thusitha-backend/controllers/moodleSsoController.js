@@ -66,9 +66,17 @@ exports.getEmbedUrl = async (req, res) => {
     if (page === 'course' && course_id) {
       const moodleCourse = await moodleService.findOrCreateCourse(course_id, course_name);
       if (moodleCourse && moodleCourse.id) {
+        // Land directly on the course page (not the generic Dashboard) - this shows the
+        // section/file list (covers "review uploaded materials") and, once "Turn editing on"
+        // is toggled, the "+ Add an activity or resource" links for uploading new ones.
         targetUrl = `${moodleBase}/course/view.php?id=${moodleCourse.id}`;
       } else {
-        targetUrl = `${moodleBase}/my/`; // fallback
+        // Don't silently land on the Dashboard - that looks like a working page but isn't
+        // the course, which is exactly the confusing dead-end this is meant to avoid.
+        // moodleService already logs the real Moodle API error to the server console.
+        return res.status(502).json({
+          message: 'Moodle හි මෙම පන්තිය සකස් කිරීමට නොහැකි විය. කරුණාකර Admin අමතන්න.'
+        });
       }
     } else if (page === 'grades' && course_id) {
       const moodleCourse = await moodleService.getCourseByIdnumber(course_id);
