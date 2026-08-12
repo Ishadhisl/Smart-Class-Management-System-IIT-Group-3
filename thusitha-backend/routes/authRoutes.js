@@ -13,9 +13,6 @@ router.post('/forgot-password', authController.forgotPassword);     // Step 1: S
 router.post('/verify-otp', authController.verifyOtp);               // Step 2: Verify OTP
 router.post('/reset-with-otp', authController.resetWithOtp);        // Step 3: New Password
 
-// Forgot Username — WhatsApp lookup by phone number
-router.post('/forgot-username', authController.forgotUsername);
-
 // Protected route for changing password (first-time student login)
 router.post('/change-password', verifyToken, authController.changePassword);
 

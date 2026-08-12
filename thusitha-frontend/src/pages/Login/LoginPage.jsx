@@ -36,15 +36,6 @@ const LoginPage = () => {
   const [fpLoading, setFpLoading] = useState(false);
   const [fpPhoneHint, setFpPhoneHint] = useState('');
 
-  // ═══════════════════════════════════════════
-  // Forgot Username — phone lookup via WhatsApp
-  // ═══════════════════════════════════════════
-  const [showForgotUsername, setShowForgotUsername] = useState(false);
-  const [fuPhone, setFuPhone] = useState('');
-  const [fuLoading, setFuLoading] = useState(false);
-  const [fuSent, setFuSent] = useState(false);
-  const [fuPhoneHint, setFuPhoneHint] = useState('');
-
   // Helper: get and consume the QR return path from sessionStorage (open-redirect safe)
   const consumeReturnPath = () => {
     const stored = sessionStorage.getItem('qr_return_path');
@@ -155,33 +146,7 @@ const LoginPage = () => {
     }
   };
 
-  // Step: Phone submit → username lookup sent via WhatsApp
-  const handleFuSendUsername = async (e) => {
-    e.preventDefault();
-    if (!fuPhone.trim()) { showNotification('දුරකථන අංකය ඇතුළත් කරන්න.', 'error'); return; }
-    setFuLoading(true);
-    try {
-      const res = await request('/auth/forgot-username', {
-        method: 'POST', body: { phone: fuPhone }, noAuth: true
-      });
-      setFuPhoneHint(res.phone_hint || '');
-      setFuSent(true);
-      showNotification('පරිශීලක නාමය WhatsApp මගින් යවන ලදී! 📱');
-    } catch (err) {
-      showNotification(err.message || 'සොයා ගැනීමේ දෝෂයකි.', 'error');
-    } finally {
-      setFuLoading(false);
-    }
-  };
-
-  const resetForgotUsername = () => {
-    setShowForgotUsername(false);
-    setFuPhone(''); setFuSent(false); setFuPhoneHint('');
-  };
-
   const heading =
-    (showForgotUsername && !fuSent && 'Username සොයන්න') ||
-    (showForgotUsername && fuSent && 'WhatsApp පණිවිඩය යවන ලදී') ||
     (forgotStep === 0 && !showPasswordChange && 'පද්ධතියට ඇතුළු වන්න') ||
     (showPasswordChange && 'නව මුරපදයක් සකසන්න') ||
     (forgotStep === 1 && 'Username ඇතුළත් කරන්න') ||
@@ -189,8 +154,6 @@ const LoginPage = () => {
     (forgotStep === 3 && 'නව මුරපදය සකසන්න');
 
   const subheading =
-    (showForgotUsername && !fuSent && 'ලියාපදිංචි කර ඇති දුරකථන අංකය ඇතුළත් කරන්න — ඔබගේ Username WhatsApp මගින් ලැබේ.') ||
-    (showForgotUsername && fuSent && `ඔබගේ WhatsApp ${fuPhoneHint} වෙත Username යවන ලදී.`) ||
     (forgotStep === 0 && !showPasswordChange && 'Thusitha Smart Class Management') ||
     (forgotStep === 1 && 'ඔබගේ Username ඇතුළත් කරන්න — WhatsApp OTP code ලැබේ.') ||
     (forgotStep === 2 && `ඔබගේ WhatsApp ${fpPhoneHint} ලැබෙන 6-digit OTP ඇතුළත් කරන්න.`) ||
@@ -343,7 +306,7 @@ const LoginPage = () => {
 
             <AnimatePresence mode="wait">
               {/* ═══ STEP 0: Normal Login ═══ */}
-              {forgotStep === 0 && !showPasswordChange && !showForgotUsername && (
+              {forgotStep === 0 && !showPasswordChange && (
                 <motion.form
                   key="login"
                   initial={{ opacity: 0, x: -10 }}
@@ -384,14 +347,7 @@ const LoginPage = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between mb-6">
-                    <button
-                      type="button"
-                      onClick={() => setShowForgotUsername(true)}
-                      className="text-xs font-bold text-primary hover:text-primary-dark transition-colors"
-                    >
-                      Username අමතක වූවාද?
-                    </button>
+                  <div className="text-right mb-6">
                     <button
                       type="button"
                       onClick={() => setForgotStep(1)}
@@ -405,50 +361,6 @@ const LoginPage = () => {
                     {loading ? 'පරීක්ෂා කරමින්...' : 'ඇතුළු වන්න'}
                   </Button>
                 </motion.form>
-              )}
-
-              {/* ═══ Forgot Username: Enter Phone ═══ */}
-              {showForgotUsername && !fuSent && (
-                <motion.form
-                  key="fu-phone"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 10 }}
-                  onSubmit={handleFuSendUsername}
-                >
-                  <div className="mb-5">
-                    <Label>දුරකථන අංකය (Phone Number)</Label>
-                    <Input type="tel" required value={fuPhone} onChange={(e) => setFuPhone(e.target.value)} placeholder="07XXXXXXXX" autoFocus />
-                  </div>
-                  <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-success-light/20 text-success-dark text-sm mb-6">
-                    <FaWhatsapp className="text-lg shrink-0 mt-0.5" />
-                    <span>ඔබගේ ගිණුමට සම්බන්ධ WhatsApp number වෙත ඔබගේ Username(s) ලැබේ.</span>
-                  </div>
-                  <Button type="submit" variant="whatsapp" size="lg" fullWidth loading={fuLoading} icon={<FaWhatsapp size={16} />}>
-                    {fuLoading ? 'සොයමින්...' : 'Username WhatsApp මගින් ලබාගන්න'}
-                  </Button>
-                  <Button type="button" variant="outline" size="lg" fullWidth className="mt-3" onClick={resetForgotUsername} icon={<ArrowLeft size={16} />}>
-                    Login වෙත යන්න
-                  </Button>
-                </motion.form>
-              )}
-
-              {/* ═══ Forgot Username: Sent Confirmation ═══ */}
-              {showForgotUsername && fuSent && (
-                <motion.div
-                  key="fu-sent"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 10 }}
-                >
-                  <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-success-light/20 text-success-dark text-sm mb-6">
-                    <FaWhatsapp className="text-lg shrink-0 mt-0.5" />
-                    <span>ඔබගේ Username(s) WhatsApp පණිවිඩය ලෙස යවා ඇත. පරීක්ෂා කර ඇතුළු වන්න.</span>
-                  </div>
-                  <Button type="button" variant="primary" size="lg" fullWidth onClick={resetForgotUsername} icon={<ArrowLeft size={16} />}>
-                    Login වෙත ආපසු
-                  </Button>
-                </motion.div>
               )}
 
               {/* ═══ First-time Password Change ═══ */}
