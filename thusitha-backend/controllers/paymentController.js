@@ -3,6 +3,25 @@ const auditService = require('../utils/auditService');
 const smsService = require('../utils/smsService');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || 'sk_test_51Px_placeholder'); // Use env in prod
 
+// 🔒 Resolves the caller's own student_id (for role 'Student') from their user_id.
+// Returns null if the role isn't 'Student' or no matching Students row exists.
+const resolveOwnStudentId = async (req) => {
+  if (!req.user || req.user.role !== 'Student') return null;
+  const result = await db.pool.query('SELECT student_id FROM Students WHERE user_id = $1', [req.user.userId]);
+  return result.rows[0]?.student_id || null;
+};
+
+// 🔒 Checks whether targetStudentId is one of the logged-in Parent's own children.
+const isOwnChild = async (req, targetStudentId) => {
+  if (!req.user || req.user.role !== 'Parent') return false;
+  const result = await db.pool.query(
+    `SELECT 1 FROM Students s JOIN Parents p ON s.parent_id = p.parent_id
+     WHERE p.user_id = $1 AND s.student_id = $2`,
+    [req.user.userId, targetStudentId]
+  );
+  return result.rows.length > 0;
+};
+
 exports.createStripeSession = async (req, res) => {
   const { student_id, course_id, amount_paid, for_month } = req.body;
 
@@ -20,6 +39,14 @@ exports.createStripeSession = async (req, res) => {
       resolvedStudentId = studentRes.rows[0].student_id;
     }
 
+    // 🔒 Never trust a client-supplied amount for money that gets charged/recorded -
+    // look up the course's real fee and use that instead of req.body.amount_paid.
+    const courseRes = await db.pool.query('SELECT monthly_fee FROM Courses WHERE course_id = $1', [course_id]);
+    if (courseRes.rows.length === 0) {
+      return res.status(404).json({ message: "පාඨමාලාව හමුවුනේ නැත." });
+    }
+    const courseFee = Number(courseRes.rows[0].monthly_fee);
+
     // Check for existing payment
     const existingPayment = await db.pool.query(
       `SELECT * FROM Payments WHERE student_id = $1 AND course_id = $2 AND for_month = $3 AND payment_status IN ('Completed', 'Pending Verification')`,
@@ -31,18 +58,18 @@ exports.createStripeSession = async (req, res) => {
 
     const stripeKey = process.env.STRIPE_SECRET_KEY || 'sk_test_51Px_placeholder';
     const successUrl = `http://localhost:5173/dashboard?payment=success&course=${course_id}&month=${for_month}`;
-    
+
     // If we only have the placeholder key, simulate a dummy sandbox payment success URL
     if (stripeKey === 'sk_test_51Px_placeholder') {
       console.log('⚠️ Using Stripe Sandbox Dummy Mode');
-      
+
       const tempReceipt = `DUMMY-${Date.now().toString().slice(-6)}`;
       const query = `
         INSERT INTO Payments (student_id, course_id, issued_by, amount_paid, payment_method, for_month, receipt_number, payment_status)
         VALUES ($1, $2, NULL, $3, 'Card (Dummy)', $4, $5, 'Completed')
       `;
-      await db.pool.query(query, [resolvedStudentId, course_id, amount_paid, for_month, tempReceipt]);
-      
+      await db.pool.query(query, [resolvedStudentId, course_id, courseFee, for_month, tempReceipt]);
+
       return res.json({ dummy_success: true, message: 'Dummy payment recorded.' });
     }
 
@@ -52,14 +79,14 @@ exports.createStripeSession = async (req, res) => {
         price_data: {
           currency: 'lkr',
           product_data: { name: `Course Payment: ${for_month}` },
-          unit_amount: Math.round(amount_paid * 100), // Stripe expects cents
+          unit_amount: Math.round(courseFee * 100), // Stripe expects cents
         },
         quantity: 1,
       }],
       mode: 'payment',
       success_url: successUrl,
       cancel_url: `http://localhost:5173/dashboard?payment=cancel`,
-      metadata: { student_id: resolvedStudentId, course_id, for_month, amount_paid }
+      metadata: { student_id: resolvedStudentId, course_id, for_month, amount_paid: courseFee }
     });
 
     res.json({ url: session.url });
@@ -120,9 +147,12 @@ exports.getStudentPayments = async (req, res) => {
   let { studentId } = req.params;
   try {
     if (req.user && req.user.role === 'Student') {
-      const studentRes = await db.pool.query('SELECT student_id FROM Students WHERE user_id = $1', [req.user.userId]);
-      if (studentRes.rows.length > 0) {
-        studentId = studentRes.rows[0].student_id;
+      const ownId = await resolveOwnStudentId(req);
+      if (!ownId) return res.status(404).json({ message: "ශිෂ්‍යයා සොයාගත නොහැක." });
+      studentId = ownId;
+    } else if (req.user && req.user.role === 'Parent') {
+      if (!(await isOwnChild(req, studentId))) {
+        return res.status(403).json({ message: "ප්‍රවේශය තහනම්: මෙය ඔබගේ දරුවෙකුගේ ගිණුමක් නොවේ." });
       }
     }
 
@@ -202,6 +232,20 @@ exports.uploadConfirmation = async (req, res) => {
   if (!fileUrl) return res.status(400).json({ message: "කරුණාකර ගෙවීම් පත්‍රිකාව (Slip) උඩුගත කරන්න." });
 
   try {
+    if (req.user && (req.user.role === 'Student' || req.user.role === 'Parent')) {
+      const ownerCheck = await db.pool.query('SELECT student_id FROM Payments WHERE payment_id = $1', [id]);
+      if (ownerCheck.rows.length === 0) return res.status(404).json({ message: "ගෙවීම හමුවුනේ නැත." });
+      const paymentStudentId = ownerCheck.rows[0].student_id;
+
+      const ownId = req.user.role === 'Student' ? await resolveOwnStudentId(req) : null;
+      const authorized = req.user.role === 'Student'
+        ? ownId === paymentStudentId
+        : await isOwnChild(req, paymentStudentId);
+      if (!authorized) {
+        return res.status(403).json({ message: "ප්‍රවේශය තහනම්: මෙය ඔබගේ ගෙවීමක් නොවේ." });
+      }
+    }
+
     await db.pool.query(
       "UPDATE Payments SET confirmation_url = $1, payment_status = 'Pending Verification' WHERE payment_id = $2",
       [fileUrl, id]
@@ -247,6 +291,18 @@ exports.getReceipt = async (req, res) => {
     `;
     const result = await db.pool.query(query, [id]);
     if (result.rows.length === 0) return res.status(404).json({ message: "රසීදුව හමුවුනේ නැත." });
+
+    if (req.user && (req.user.role === 'Student' || req.user.role === 'Parent')) {
+      const paymentStudentId = result.rows[0].student_id;
+      const ownId = req.user.role === 'Student' ? await resolveOwnStudentId(req) : null;
+      const authorized = req.user.role === 'Student'
+        ? ownId === paymentStudentId
+        : await isOwnChild(req, paymentStudentId);
+      if (!authorized) {
+        return res.status(403).json({ message: "ප්‍රවේශය තහනම්: මෙය ඔබගේ රසීදුවක් නොවේ." });
+      }
+    }
+
     res.status(200).json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });

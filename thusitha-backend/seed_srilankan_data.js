@@ -40,9 +40,18 @@ async function seedData() {
     ];
     let teacherIds = [];
     for (let t of teachersList) {
+      // Skip if a teacher with this name already exists - the username always carries a
+      // fresh random suffix, so without this check re-running the script creates a brand
+      // new duplicate Teacher/User row every time instead of reusing the seeded one.
+      const existing = await pool.query('SELECT teacher_id FROM Teachers WHERE teacher_name = $1', [t.name]);
+      if (existing.rows.length > 0) {
+        console.log(`⏭️  Teacher already seeded, skipping: ${t.name}`);
+        teacherIds.push(existing.rows[0].teacher_id);
+        continue;
+      }
       let userRes = await pool.query('INSERT INTO Users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING user_id', [t.user, passwordHash, t.role]);
       let uid = userRes.rows[0].user_id;
-      let tRes = await pool.query('INSERT INTO Teachers (user_id, teacher_name, phone, email, specialization) VALUES ($1, $2, $3, $4, $5) RETURNING teacher_id', 
+      let tRes = await pool.query('INSERT INTO Teachers (user_id, teacher_name, phone, email, specialization) VALUES ($1, $2, $3, $4, $5) RETURNING teacher_id',
         [uid, t.name, '077' + Math.floor(1000000 + Math.random() * 9000000), `${t.user}@test.com`, t.spec]);
       teacherIds.push(tRes.rows[0].teacher_id);
     }

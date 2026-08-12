@@ -65,29 +65,9 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
     );
   }
 
-  const defaultRevenueData = [
-    { month: 'January', total: 45000 },
-    { month: 'February', total: 52000 },
-    { month: 'March', total: 48000 },
-    { month: 'April', total: 61000 },
-    { month: 'May', total: 59000 },
-    { month: 'June', total: 72000 },
-    { month: 'July', total: 85000 },
-    { month: 'August', total: 98000 }
-  ];
-
-  let actualRevenueData = [...defaultRevenueData];
-  if (revenueData && revenueData.length > 0) {
-    actualRevenueData = defaultRevenueData.map(def => {
-      const found = revenueData.find(rev => rev.month.trim() === def.month.trim());
-      return found ? found : def;
-    });
-    revenueData.forEach(rev => {
-      if (!actualRevenueData.find(a => a.month.trim() === rev.month.trim())) {
-        actualRevenueData.push(rev);
-      }
-    });
-  }
+  const isAdminRole = role === 'Admin';
+  const actualRevenueData = Array.isArray(revenueData) ? revenueData : [];
+  const hasRevenueData = actualRevenueData.length > 0;
 
   const chartData = {
     labels: actualRevenueData.map(d => d.month),
@@ -104,14 +84,8 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
     ],
   };
 
-  const defaultAttendanceData = [
-    { class_name: 'Grade 10 Science', total_present: 45, total_students: 50 },
-    { class_name: 'Grade 11 Math', total_present: 38, total_students: 42 },
-    { class_name: 'A/L Physics', total_present: 85, total_students: 90 },
-    { class_name: 'A/L Chemistry', total_present: 78, total_students: 85 }
-  ];
-
-  const actualAttendanceData = (attendanceData && attendanceData.length > 0) ? attendanceData : defaultAttendanceData;
+  const actualAttendanceData = Array.isArray(attendanceData) ? attendanceData : [];
+  const hasAttendanceData = actualAttendanceData.length > 0;
 
   const attendanceDoughnutData = {
     labels: actualAttendanceData.map(d => d.class_name),
@@ -301,14 +275,14 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
             icon: BookOpen, label: 'පන්ති / පරිශීලකයින්', value: userCount,
             gradient: 'from-pink-500 to-rose-600', bgLight: 'bg-pink-50', iconColor: 'text-pink-600'
           },
-          {
+          ...(isAdminRole ? [{
             icon: TrendingUp, label: 'මාසික ආදායම',
-            value: `Rs.${(actualRevenueData[actualRevenueData.length - 1]?.total || 0).toLocaleString()}`,
+            value: hasRevenueData ? `Rs.${(actualRevenueData[actualRevenueData.length - 1]?.total || 0).toLocaleString()}` : 'දත්ත නැත',
             gradient: 'from-emerald-500 to-green-600', bgLight: 'bg-emerald-50', iconColor: 'text-emerald-600'
-          },
+          }] : []),
           {
             icon: CheckCircle, label: 'අද පැමිණීම',
-            value: actualAttendanceData.reduce((sum, d) => sum + (d.total_present || d.count || 0), 0),
+            value: hasAttendanceData ? actualAttendanceData.reduce((sum, d) => sum + (d.total_present || d.count || 0), 0) : 'දත්ත නැත',
             gradient: 'from-amber-500 to-orange-600', bgLight: 'bg-amber-50', iconColor: 'text-amber-600'
           }
         ].map((stat, i) => {
@@ -370,47 +344,55 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="col-span-2 bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-lg border border-white/60">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl text-white shadow-md">
-                <BarChart2 size={22} />
+        {isAdminRole && (
+          <div className="col-span-2 bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-lg border border-white/60">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl text-white shadow-md">
+                  <BarChart2 size={22} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-primary-dark m-0">මාසික ආදායම් විශ්ලේෂණය</h3>
+                  <p className="text-gray-400 text-xs mt-0.5">Revenue Analytics</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-xl font-bold text-primary-dark m-0">මාසික ආදායම් විශ්ලේෂණය</h3>
-                <p className="text-gray-400 text-xs mt-0.5">Revenue Analytics</p>
+              <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                <Activity size={12} /> Live
               </div>
             </div>
-            <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-              <Activity size={12} /> Live
-            </div>
+            {hasRevenueData ? (
+              <div className="h-[350px]">
+                <Bar
+                  data={chartData}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: { position: 'top', labels: { usePointStyle: true, padding: 20 } }
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false },
+                        ticks: { padding: 10 }
+                      },
+                      x: {
+                        grid: { display: false },
+                        ticks: { padding: 5 }
+                      }
+                    }
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="h-[350px] flex items-center justify-center text-gray-400 text-sm font-medium">
+                මෙතෙක් ආදායම් දත්ත සටහන් වී නැත.
+              </div>
+            )}
           </div>
-          <div className="h-[350px]">
-            <Bar
-              data={chartData}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: { position: 'top', labels: { usePointStyle: true, padding: 20 } }
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false },
-                    ticks: { padding: 10 }
-                  },
-                  x: {
-                    grid: { display: false },
-                    ticks: { padding: 5 }
-                  }
-                }
-              }}
-            />
-          </div>
-        </div>
+        )}
 
-        <div className="col-span-1 bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-lg border border-white/60">
+        <div className={isAdminRole ? 'col-span-1 bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-lg border border-white/60' : 'col-span-1 lg:col-span-3 bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-lg border border-white/60'}>
           <div className="flex items-center gap-3 mb-6">
             <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-2.5 rounded-xl text-white shadow-md">
               <CheckCircle size={22} />
@@ -420,22 +402,28 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
               <p className="text-gray-400 text-xs mt-0.5">Today's Attendance</p>
             </div>
           </div>
-          <div className="h-[300px] flex justify-center mt-6">
-            <Doughnut
-              data={attendanceDoughnutData}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '72%',
-                plugins: {
-                  legend: {
-                    position: 'bottom',
-                    labels: { usePointStyle: true, padding: 15, font: { weight: 'bold' } }
+          {hasAttendanceData ? (
+            <div className="h-[300px] flex justify-center mt-6">
+              <Doughnut
+                data={attendanceDoughnutData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  cutout: '72%',
+                  plugins: {
+                    legend: {
+                      position: 'bottom',
+                      labels: { usePointStyle: true, padding: 15, font: { weight: 'bold' } }
+                    }
                   }
-                }
-              }}
-            />
-          </div>
+                }}
+              />
+            </div>
+          ) : (
+            <div className="h-[300px] flex items-center justify-center text-gray-400 text-sm font-medium">
+              අද දින පැමිණීම් දත්ත තවම සටහන් වී නැත.
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

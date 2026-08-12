@@ -27,6 +27,9 @@ exports.createBooking = async (req, res) => {
     }
     // 1. Check if the seat is already booked/occupied
     const seatCheck = await db.pool.query('SELECT seat_status FROM Study_Seats WHERE seat_id = $1', [seat_id]);
+    if (seatCheck.rows.length === 0) {
+      return res.status(404).json({ message: "අසුන හමුවුනේ නැත." });
+    }
     if (seatCheck.rows[0].seat_status !== 'Available') {
       return res.status(400).json({ message: "මෙම අසුන දැනට ලබාගත නොහැක." });
     }
@@ -170,6 +173,15 @@ exports.getBookingStatus = async (req, res) => {
   try {
     const result = await db.pool.query('SELECT * FROM Study_Area_Bookings WHERE booking_id = $1', [id]);
     if (result.rows.length === 0) return res.status(404).json({ message: "Booking not found" });
+
+    // 🛡️ Security Check: Students can only view their own bookings (matches checkIn/checkOut)
+    if (req.user?.role === 'Student') {
+      const studentLookup = await db.pool.query('SELECT student_id FROM Students WHERE user_id = $1', [req.user.userId]);
+      if (studentLookup.rows.length === 0 || result.rows[0].student_id !== studentLookup.rows[0].student_id) {
+        return res.status(403).json({ message: "මෙම වෙන් කිරීම බැලීමට ඔබට අවසර නැත." });
+      }
+    }
+
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });

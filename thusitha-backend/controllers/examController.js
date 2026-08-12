@@ -3,9 +3,33 @@ const auditService = require('../utils/auditService');
 const ExcelJS = require('exceljs'); // Assuming ExcelJS is used for uploadExcelMarks
 const { google } = require('googleapis');
 
+// 🔒 For role 'Teacher': verifies the given course belongs to them. Non-Teachers pass through.
+const isOwnCourse = async (req, courseId) => {
+  if (!req.user || req.user.role !== 'Teacher') return true;
+  const result = await db.pool.query(
+    'SELECT 1 FROM Courses c JOIN Teachers t ON c.teacher_id = t.teacher_id WHERE c.course_id = $1 AND t.user_id = $2',
+    [courseId, req.user.userId]
+  );
+  return result.rows.length > 0;
+};
+
+// 🔒 For role 'Teacher': verifies the exam's course belongs to them. Non-Teachers pass through.
+const isOwnCourseByExam = async (req, examId) => {
+  if (!req.user || req.user.role !== 'Teacher') return true;
+  const result = await db.pool.query(
+    `SELECT 1 FROM Exams e JOIN Courses c ON e.course_id = c.course_id JOIN Teachers t ON c.teacher_id = t.teacher_id
+     WHERE e.exam_id = $1 AND t.user_id = $2`,
+    [examId, req.user.userId]
+  );
+  return result.rows.length > 0;
+};
+
 exports.createExam = async (req, res) => {
   const { course_id, exam_name, exam_date, total_marks, pass_percentage } = req.body;
   try {
+    if (!(await isOwnCourse(req, course_id))) {
+      return res.status(403).json({ message: 'ප්‍රවේශය තහනම්: මෙය ඔබ ඉගැන්වන පන්තියක් නොවේ.' });
+    }
     const result = await db.pool.query(
       'INSERT INTO Exams (course_id, exam_name, exam_date, total_marks, pass_percentage) VALUES ($1, $2, $3, $4, $5) RETURNING *',
       [course_id, exam_name, exam_date, total_marks, pass_percentage]
@@ -50,6 +74,9 @@ exports.getExamResults = async (req, res) => {
       `;
       params = [examId, studentId];
     } else {
+      if (!(await isOwnCourseByExam(req, examId))) {
+        return res.status(403).json({ message: 'ප්‍රවේශය තහනම්: මෙය ඔබ ඉගැන්වන පන්තියක විභාගයක් නොවේ.' });
+      }
       query = `
         SELECT s.qr_code_key as student_id, s.student_name, er.marks
         FROM Exam_Results er
@@ -75,6 +102,9 @@ exports.uploadExcelMarks = async (req, res) => {
   }
 
   try {
+    if (!(await isOwnCourseByExam(req, exam_id))) {
+      return res.status(403).json({ message: 'ප්‍රවේශය තහනම්: මෙය ඔබ ඉගැන්වන පන්තියක විභාගයක් නොවේ.' });
+    }
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(req.file.path);
     const worksheet = workbook.getWorksheet(1);
@@ -188,6 +218,9 @@ exports.updateExam = async (req, res) => {
   const { id } = req.params;
   const { exam_name, exam_date, total_marks, pass_percentage } = req.body;
   try {
+    if (!(await isOwnCourseByExam(req, id))) {
+      return res.status(403).json({ message: 'ප්‍රවේශය තහනම්: මෙය ඔබ ඉගැන්වන පන්තියක විභාගයක් නොවේ.' });
+    }
     const result = await db.pool.query(
       'UPDATE Exams SET exam_name = $1, exam_date = $2, total_marks = $3, pass_percentage = $4 WHERE exam_id = $5 RETURNING *',
       [exam_name, exam_date, total_marks, pass_percentage, id]
@@ -228,6 +261,9 @@ exports.pullGoogleSheetMarks = async (req, res) => {
   }
 
   try {
+    if (!(await isOwnCourseByExam(req, exam_id))) {
+      return res.status(403).json({ message: 'ප්‍රවේශය තහනම්: මෙය ඔබ ඉගැන්වන පන්තියක විභාගයක් නොවේ.' });
+    }
     const sheets = google.sheets({ version: 'v4', auth: process.env.GOOGLE_API_KEY });
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: sheet_id,

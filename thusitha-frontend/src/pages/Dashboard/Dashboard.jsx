@@ -330,15 +330,6 @@ const Dashboard = () => {
       }
 
       setEnrolledCourses([]);
-
-      if (studentData && studentData.length > 0) {
-        const initialAttendance = {};
-        studentData.forEach(student => {
-          const studentKey = student._id || student.studentId;
-          initialAttendance[studentKey] = true;
-        });
-        setAttendanceRecords(initialAttendance);
-      }
     } catch (err) {
       console.error('Dashboard Fetch Error:', err);
       setError('දත්ත ලබා ගැනීමේදී දෝෂයක් සිදුවිය. කරුණාකර පසුව නැවත උත්සාහ කරන්න.');
@@ -1313,21 +1304,10 @@ const Dashboard = () => {
                   : (resolvedPhoto || currentTeacher?.profile_photo_path || null);
 
                 let displayUserCount = classes.length;
-                let displayAttendance = attendanceStats;
-                
+
                 if (isTeacher && currentTeacher) {
                    const myCourses = realCourses.filter(c => c.teacher_id === currentTeacher.teacher_id);
                    displayUserCount = myCourses.length;
-                   if (displayAttendance.length === 0) {
-                       displayAttendance = myCourses.length > 0 ? myCourses.map((c, i) => {
-                           const enrolled = students.filter(s => s.courseName === c.course_name).length;
-                           return {
-                               class_name: c.course_name,
-                               total_present: Math.max(0, enrolled - (i % 3)),
-                               total_students: enrolled || 10
-                           };
-                       }) : [{ class_name: 'කිසිදු පන්තියක් නැත', total_present: 0, total_students: 0 }];
-                   }
                 }
 
                 return (
@@ -1338,7 +1318,7 @@ const Dashboard = () => {
                     userCount={displayUserCount}
                     enrolledCourses={enrolledCourses}
                     revenueData={revenueData}
-                    attendanceData={displayAttendance}
+                    attendanceData={attendanceStats}
                     profilePhotoPath={profilePhotoPath}
                   />
                 );
