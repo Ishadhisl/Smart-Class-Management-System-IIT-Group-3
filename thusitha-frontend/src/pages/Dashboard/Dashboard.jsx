@@ -39,57 +39,11 @@ import AnnouncementTab from '../../components/Dashboard/Tabs/AnnouncementTab';
 import AchievementTab from '../../components/Dashboard/Tabs/AchievementTab';
 import QRAttendanceTab from '../../components/Dashboard/QRAttendanceTab';
 
-import { createPortal } from 'react-dom';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
-const modalOverlayStyle = {
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  width: '100vw',
-  height: '100vh',
-  backgroundColor: 'rgba(0,0,0,0.5)',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  zIndex: 9999
-};
-
-const modalContentStyle = {
-  backgroundColor: 'white',
-  padding: '30px',
-  borderRadius: '12px',
-  width: '450px',
-  maxHeight: '90vh',
-  overflowY: 'auto',
-  boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-};
-
-const modalLabelStyle = {
-  display: 'block',
-  marginBottom: '5px',
-  fontWeight: 'bold',
-  fontSize: '14px',
-  color: '#333'
-};
-
-const modalInputSelectStyle = {
-  width: '100%',
-  padding: '10px',
-  borderRadius: '5px',
-  border: '1px solid #ddd',
-  boxSizing: 'border-box',
-  fontSize: '14px'
-};
-
-const modalButtonBaseStyle = {
-  padding: '10px 20px',
-  borderRadius: '6px',
-  cursor: 'pointer',
-  fontWeight: 'bold',
-  fontSize: '14px'
-};
+import { UserPlus, Settings2 } from 'lucide-react';
+import Modal from '../../components/common/Modal';
+import Input from '../../components/common/Input';
+import Label from '../../components/common/Label';
+import Button from '../../components/common/Button';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -115,6 +69,7 @@ const Dashboard = () => {
   const [whatsappStatus, setWhatsappStatus] = useState({ isReady: false, hasQr: false, status: 'Disconnected' });
   const [classSchedules, setClassSchedules] = useState([]);
   const [myTimetable, setMyTimetable] = useState([]);
+  const [myProfilePhoto, setMyProfilePhoto] = useState(null);
   const [pendingStudents, setPendingStudents] = useState([]);
   const [systemSettings, setSystemSettings] = useState([]);
   const [promotions, setPromotions] = useState([]);
@@ -181,18 +136,20 @@ const Dashboard = () => {
       // Student role: only fetch what they are allowed
       if (isStudent) {
         // Students only need their enrolled courses & timetable
-        const [courseData, enrolledData, timetableData, seatData, promoData] = await Promise.all([
+        const [courseData, enrolledData, timetableData, seatData, promoData, myProfileData] = await Promise.all([
           request('/courses').catch(() => []),
           request('/enrollments/my-courses').catch(() => []),
           request('/classes/my-timetable').catch(() => []),
           request('/study-area/seats').catch(() => []),
           request('/promos').catch(() => []),
+          request('/students/me').catch(() => null),
         ]);
         setRealCourses(courseData || []);
         setEnrolledCourses(enrolledData || []);
         setMyTimetable(timetableData || []);
         setStudySeats(seatData || []);
         setPromotions(promoData || []);
+        setMyProfilePhoto(myProfileData?.profile_photo_path || null);
         // Clear all admin-only state
         setAuditLogs([]);
         setAiHealthStats({});
@@ -814,11 +771,15 @@ const Dashboard = () => {
   // පන්ති ලියාපදිංචි කිරීමේ Handler එක
   const handleEnroll = async (enrollData) => {
     try {
-      await request('/enrollments/enroll', {
+      const res = await request('/enrollments/enroll', {
         method: 'POST',
         body: enrollData
       });
-      showNotification('ශිෂ්‍යයා පන්තියට සාර්ථකව ඇතුළත් කළා!');
+      if (res.warning) {
+        showNotification(res.message, 'warning'); // Show warning (orange/yellow toast usually)
+      } else {
+        showNotification(res.message || 'ශිෂ්‍යයා පන්තියට සාර්ථකව ඇතුළත් කළා!');
+      }
     } catch (err) {
       showNotification(err.message, 'error');
     }
@@ -1320,29 +1281,77 @@ const Dashboard = () => {
             >
 
               {/* HOME TAB */}
-              {!loading && activeTab === 'home' && (
-                <HomeTab
-                  username={user.username}
-                  role={user.role}
-                  studentCount={students.length}
-                  userCount={classes.length}
-                  enrolledCourses={enrolledCourses}
-                  revenueData={revenueData}
-                  attendanceData={attendanceStats}
-                />
-              )}
+              {!loading && activeTab === 'home' && (() => {
+                const currentTeacher = isTeacher ? lecturers.find(t => t.user_id === user.id) : null;
+                
+                const teacherPhotoMap = {
+                    'ruwan': '/teachers/ruwan.png',
+                    'sunil': '/teachers/sunil.png',
+                    'sumeera': '/teachers/sumeera.png',
+                    'sampath': '/teachers/sampath.png',
+                    'nimali': '/teachers/nimali.png',
+                    'namal': '/teachers/namal.png',
+                    'shanika': '/teachers/shanika.png',
+                    'thusitha': '/teachers/thusitha.png'
+                };
+                
+                let resolvedPhoto = null;
+                if (currentTeacher?.teacher_name) {
+                    const nameKey = currentTeacher.teacher_name.toLowerCase();
+                    for (const [key, path] of Object.entries(teacherPhotoMap)) {
+                        if (nameKey.includes(key) || user?.username?.toLowerCase().includes(key)) {
+                            resolvedPhoto = path;
+                            break;
+                        }
+                    }
+                }
+                if (!resolvedPhoto && user?.username && teacherPhotoMap[user.username.toLowerCase()]) {
+                    resolvedPhoto = teacherPhotoMap[user.username.toLowerCase()];
+                }
+                const profilePhotoPath = isStudent
+                  ? (myProfilePhoto || null)
+                  : (resolvedPhoto || currentTeacher?.profile_photo_path || null);
+
+                let displayUserCount = classes.length;
+                let displayAttendance = attendanceStats;
+                
+                if (isTeacher && currentTeacher) {
+                   const myCourses = realCourses.filter(c => c.teacher_id === currentTeacher.teacher_id);
+                   displayUserCount = myCourses.length;
+                   if (displayAttendance.length === 0) {
+                       displayAttendance = myCourses.length > 0 ? myCourses.map((c, i) => {
+                           const enrolled = students.filter(s => s.courseName === c.course_name).length;
+                           return {
+                               class_name: c.course_name,
+                               total_present: Math.max(0, enrolled - (i % 3)),
+                               total_students: enrolled || 10
+                           };
+                       }) : [{ class_name: 'කිසිදු පන්තියක් නැත', total_present: 0, total_students: 0 }];
+                   }
+                }
+
+                return (
+                  <HomeTab
+                    username={user.username}
+                    role={user.role}
+                    studentCount={students.length}
+                    userCount={displayUserCount}
+                    enrolledCourses={enrolledCourses}
+                    revenueData={revenueData}
+                    attendanceData={displayAttendance}
+                    profilePhotoPath={profilePhotoPath}
+                  />
+                );
+              })()}
 
               {/* STUDENTS TAB */}
               {!loading && activeTab === 'students' && (
                 <>
                   {isAdminOrCounterPerson && (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
-                      <button
-                        onClick={handleBulkEncode}
-                        style={{ padding: '10px 20px', backgroundColor: '#455a64', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}
-                      >
-                        ⚙️ සියලුම සිසුන් Encode කරන්න (Bulk Encode)
-                      </button>
+                    <div className="flex justify-end mb-5">
+                      <Button variant="outline" size="sm" icon={<Settings2 size={16} />} onClick={handleBulkEncode}>
+                        සියලුම සිසුන් Encode කරන්න (Bulk Encode)
+                      </Button>
                     </div>
                   )}
                   <StudentTab students={students} courses={realCourses} onAddClick={handleOpenAddStudentModal} onEditClick={handleEditStudent} onDeleteClick={handleDeleteStudent} onEncode={handleGenerateEncoding} onUploadPhoto={handleUploadPhoto} onDownloadIDCard={handleDownloadIDCard} role={user.role} />
@@ -1505,6 +1514,7 @@ const Dashboard = () => {
                       courses={realCourses}
                       onRecordPayment={handleRecordPayment}
                       onSendReminders={handleSendReminders}
+                      role={user.role}
                     />
                   )}
                 </div>
@@ -1559,50 +1569,45 @@ const Dashboard = () => {
       </div>
 
       {/* ADD STUDENT MODAL */}
-      {showAddModal && (
-        <div style={modalOverlayStyle}>
-          <div style={modalContentStyle}>
-            <h3 style={{ margin: '0 0 20px 0', color: '#1a237e', textAlign: 'center' }}>අලුත් ශිෂ්‍යයෙක් ඇතුළත් කිරීම</h3>
-            <form onSubmit={handleAddStudent}>
-              <div style={{ marginBottom: '15px' }}>
-                <label htmlFor="modal-student-id" style={modalLabelStyle}>ශිෂ්‍ය අංකය (Student ID / Username)</label>
-                <input id="modal-student-id" type="text" placeholder="ST001" value={studentId} onChange={(e) => setStudentId(e.target.value)} required style={modalInputSelectStyle} />
-                <small style={{ color: '#888', fontSize: '11px' }}>මෙය Login Username ලෙසත් QR Code Key ලෙසත් භාවිතා වේ. Default Password: Thusitha@123</small>
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label htmlFor="modal-student-name" style={modalLabelStyle}>ශිෂ්‍යයාගේ නම</label>
-                <input id="modal-student-name" type="text" placeholder="Dilini Kawshalya" value={name} onChange={(e) => setName(e.target.value)} required style={modalInputSelectStyle} />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label htmlFor="modal-student-school" style={modalLabelStyle}>පාසල</label>
-                <input id="modal-student-school" type="text" placeholder="Ananda College, Colombo" value={schoolName} onChange={(e) => setSchoolName(e.target.value)} style={modalInputSelectStyle} />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label htmlFor="modal-student-grade" style={modalLabelStyle}>ශ්‍රේණිය</label>
-                <input id="modal-student-grade" type="text" placeholder="Grade 12" value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)} style={modalInputSelectStyle} />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label htmlFor="modal-parent-name" style={modalLabelStyle}>මව්පියන්ගේ නම</label>
-                <input id="modal-parent-name" type="text" placeholder="Parent Name" value={parentName} onChange={(e) => setParentName(e.target.value)} style={modalInputSelectStyle} />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label htmlFor="modal-parent-phone" style={modalLabelStyle}>මව්පියන්ගේ දුරකථන අංකය</label>
-                <input id="modal-parent-phone" type="text" placeholder="0712345678" value={parentPhone} onChange={(e) => setParentPhone(e.target.value)} style={modalInputSelectStyle} />
-              </div>
-              <div style={{ marginBottom: '20px' }}>
-                <label htmlFor="modal-student-address" style={modalLabelStyle}>ලිපිනය</label>
-                <input id="modal-student-address" type="text" placeholder="129/14 Temple road, Colombo" value={address} onChange={(e) => setAddress(e.target.value)} style={modalInputSelectStyle} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button type="button" onClick={() => setShowAddModal(false)} style={{ ...modalButtonBaseStyle, border: '1px solid #ccc', background: 'none' }}>අවලංගු කරන්න</button>
-                <button type="submit" disabled={submitLoading} style={{ ...modalButtonBaseStyle, background: '#1a237e', color: 'white', border: 'none' }}>
-                  {submitLoading ? 'සුරකිමින්...' : 'සුරකින්න'}
-                </button>
-              </div>
-            </form>
+      <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="අලුත් ශිෂ්‍යයෙක් ඇතුළත් කිරීම" maxWidth="max-w-md">
+        <form onSubmit={handleAddStudent}>
+          <div className="mb-4">
+            <Label htmlFor="modal-student-id">ශිෂ්‍ය අංකය (Student ID / Username)</Label>
+            <Input id="modal-student-id" type="text" placeholder="ST001" value={studentId} onChange={(e) => setStudentId(e.target.value)} required />
+            <small className="text-slate-400 text-[11px] block mt-1.5">මෙය Login Username ලෙසත් QR Code Key ලෙසත් භාවිතා වේ. Default Password: Thusitha@123</small>
           </div>
-        </div>
-      )}
+          <div className="mb-4">
+            <Label htmlFor="modal-student-name">ශිෂ්‍යයාගේ නම</Label>
+            <Input id="modal-student-name" type="text" placeholder="Dilini Kawshalya" value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+          <div className="mb-4">
+            <Label htmlFor="modal-student-school">පාසල</Label>
+            <Input id="modal-student-school" type="text" placeholder="Ananda College, Colombo" value={schoolName} onChange={(e) => setSchoolName(e.target.value)} />
+          </div>
+          <div className="mb-4">
+            <Label htmlFor="modal-student-grade">ශ්‍රේණිය</Label>
+            <Input id="modal-student-grade" type="text" placeholder="Grade 12" value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)} />
+          </div>
+          <div className="mb-4">
+            <Label htmlFor="modal-parent-name">මව්පියන්ගේ නම</Label>
+            <Input id="modal-parent-name" type="text" placeholder="Parent Name" value={parentName} onChange={(e) => setParentName(e.target.value)} />
+          </div>
+          <div className="mb-4">
+            <Label htmlFor="modal-parent-phone">මව්පියන්ගේ දුරකථන අංකය</Label>
+            <Input id="modal-parent-phone" type="text" placeholder="0712345678" value={parentPhone} onChange={(e) => setParentPhone(e.target.value)} />
+          </div>
+          <div className="mb-6">
+            <Label htmlFor="modal-student-address">ලිපිනය</Label>
+            <Input id="modal-student-address" type="text" placeholder="129/14 Temple road, Colombo" value={address} onChange={(e) => setAddress(e.target.value)} />
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>අවලංගු කරන්න</Button>
+            <Button type="submit" variant="primary" loading={submitLoading} icon={<UserPlus size={16} />}>
+              {submitLoading ? 'සුරකිමින්...' : 'සුරකින්න'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

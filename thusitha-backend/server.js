@@ -17,21 +17,21 @@ const parentRoutes = require('./routes/parentRoutes');
 const studyAreaRoutes = require('./routes/studyAreaRoutes');
 const examRoutes = require('./routes/examRoutes');
 const smsRoutes = require('./routes/smsRoutes');
-const hallRoutes = require('./routes/hallRoutes'); // New
-const classScheduleRoutes = require('./routes/classScheduleRoutes'); // New
-const cameraZoneRoutes = require('./routes/cameraZoneRoutes'); // New
-const promoRoutes = require('./routes/promoRoutes'); // For Dynamic Flyers
+const hallRoutes = require('./routes/hallRoutes');
+const classScheduleRoutes = require('./routes/classScheduleRoutes');
+const cameraZoneRoutes = require('./routes/cameraZoneRoutes');
+const promoRoutes = require('./routes/promoRoutes');
 const contactRoutes = require('./routes/contactRoutes');
-const settingsRoutes = require('./routes/settingsRoutes'); // New
+const settingsRoutes = require('./routes/settingsRoutes');
 const auditRoutes = require('./routes/auditRoutes');
 const smsService = require('./utils/smsService'); // Import smsService
 const { initWhatsApp } = require('./utils/whatsappService'); // WhatsApp Service
 const { initCronJobs } = require('./utils/cronJobs');
 const materialRoutes = require('./routes/materialRoutes');
 const moodleSsoRoutes = require('./routes/moodleSsoRoutes');
-const announcementRoutes = require('./routes/announcementRoutes'); // New
-const achievementRoutes = require('./routes/achievementRoutes'); // New
-const qrAttendanceRoutes = require('./routes/qrAttendanceRoutes'); // QR Attendance
+const announcementRoutes = require('./routes/announcementRoutes');
+const achievementRoutes = require('./routes/achievementRoutes');
+const qrAttendanceRoutes = require('./routes/qrAttendanceRoutes');
 
 const app = express();
 app.disable('x-powered-by');
@@ -125,19 +125,19 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/parents', parentRoutes);
 app.use('/api/study-area', studyAreaRoutes);
 app.use('/api/exams', examRoutes);
-app.use('/api/halls', hallRoutes); // New
-app.use('/api/classes', classScheduleRoutes); // New
-app.use('/api/camera-zones', cameraZoneRoutes); // New
+app.use('/api/halls', hallRoutes);
+app.use('/api/classes', classScheduleRoutes);
+app.use('/api/camera-zones', cameraZoneRoutes);
 app.use('/api/sms', smsRoutes);
 app.use('/api/promos', promoRoutes);
 app.use('/api/contact', contactRoutes);
-app.use('/api/settings', settingsRoutes); // New
+app.use('/api/settings', settingsRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/materials', materialRoutes);
 app.use('/api/moodle-sso', moodleSsoRoutes);
-app.use('/api/announcements', announcementRoutes); // New
-app.use('/api/achievements', achievementRoutes); // New
-app.use('/api/qr-attendance', qrAttendanceRoutes); // QR Attendance
+app.use('/api/announcements', announcementRoutes);
+app.use('/api/achievements', achievementRoutes);
+app.use('/api/qr-attendance', qrAttendanceRoutes);
 
 const PORT = process.env.PORT || 5000;
 
@@ -211,5 +211,3 @@ console.log('👉 Scan the QR code in the terminal OR visit http://localhost:500
 initWhatsApp();
 
 module.exports = server;
-// restart
-// restart 2

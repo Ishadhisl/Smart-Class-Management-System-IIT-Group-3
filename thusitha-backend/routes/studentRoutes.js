@@ -7,6 +7,9 @@ const upload = require('../middleware/uploadMiddleware');
 // Public route for pre-registration
 router.post('/register-public', studentController.publicRegistration);
 
+// Self-service: logged-in student fetching their own profile (must be before other routes)
+router.get('/me', verifyToken, checkRole(['Student']), studentController.getMyProfile);
+
 // Protected routes (Admin, Counter Person, Teacher roles)
 router.get('/', verifyToken, checkRole(['Admin', 'Counter Person', 'Teacher']), studentController.getAllStudents);
 router.post('/', verifyToken, checkRole(['Admin', 'Counter Person']), studentController.registerStudent);

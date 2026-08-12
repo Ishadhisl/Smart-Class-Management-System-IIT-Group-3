@@ -69,7 +69,14 @@ exports.registerTeacher = async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('❌ Teacher Registration Error:', err.message);
-    res.status(500).json({ error: 'Failed to register teacher', details: err.message });
+    if (err.code === '23505') { // Postgres unique_violation
+      return res.status(409).json({
+        message: 'මෙම පරිශීලක නාමය දැනටමත් වෙනත් ගිණුමක් සඳහා භාවිතයේ ඇත. කරුණාකර වෙනත් Username එකක් උත්සාහ කරන්න.',
+        error: 'Duplicate username',
+        details: err.detail || err.message
+      });
+    }
+    res.status(500).json({ message: 'ගුරුවරයා ලියාපදිංචි කිරීමට නොහැකි විය.', error: 'Failed to register teacher', details: err.message });
   } finally {
     client.release();
   }
@@ -94,18 +101,18 @@ exports.updateTeacher = async (req, res) => {
     let query, params;
     if (new_photo_path) {
       query = `
-        UPDATE Teachers 
-        SET teacher_name = $1, phone = $2, email = $3, specialization = $4, qualifications = $5, bio = $6, profile_photo_path = $7
+        UPDATE Teachers
+        SET teacher_name = $1, phone = $2, email = $3, specialization = $4, qualifications = $5, bio = COALESCE($6, bio), profile_photo_path = $7
         WHERE teacher_id = $8 RETURNING *
       `;
-      params = [teacher_name, phone, email, specialization, qualifications, bio, new_photo_path, id];
+      params = [teacher_name, phone, email, specialization, qualifications, bio || null, new_photo_path, id];
     } else {
       query = `
-        UPDATE Teachers 
-        SET teacher_name = $1, phone = $2, email = $3, specialization = $4, qualifications = $5, bio = $6
+        UPDATE Teachers
+        SET teacher_name = $1, phone = $2, email = $3, specialization = $4, qualifications = $5, bio = COALESCE($6, bio)
         WHERE teacher_id = $7 RETURNING *
       `;
-      params = [teacher_name, phone, email, specialization, qualifications, bio, id];
+      params = [teacher_name, phone, email, specialization, qualifications, bio || null, id];
     }
 
     const result = await db.pool.query(query, params);

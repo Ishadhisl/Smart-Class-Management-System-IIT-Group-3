@@ -191,14 +191,16 @@ exports.approveStudent = async (req, res) => {
     const moodleUserId = await createMoodleAccount({ username, student_name: s.name });
     if (moodleUserId && moodleUserId !== true) {
       await db.pool.query('UPDATE Students SET moodle_user_id = $1 WHERE student_id = $2', [moodleUserId, studentId]);
-      // Attempt auto-enrollment if a course was selected
+      // Attempt auto-enrollment if a course was selected. course_interest is an SCMS
+      // course_id, not a Moodle course id - it must be resolved (and provisioned in
+      // Moodle if this is the first student enrolling in it), not used directly.
       if (s.course_interest) {
         try {
-          // Fallback parsing: if course_interest is an integer, use it. Moodle course IDs are integers.
-          const moodleCourseId = parseInt(s.course_interest);
-          if (!isNaN(moodleCourseId)) {
-            await moodleService.enrollUser(moodleUserId, moodleCourseId);
-            console.log(`✅ [Moodle Sync] Auto-enrolled in course ${moodleCourseId}`);
+          const courseRes = await db.pool.query('SELECT course_name FROM Courses WHERE course_id = $1', [s.course_interest]);
+          const moodleCourse = await moodleService.findOrCreateCourse(s.course_interest, courseRes.rows[0]?.course_name);
+          if (moodleCourse && moodleCourse.id) {
+            await moodleService.enrollUser(moodleUserId, moodleCourse.id);
+            console.log(`✅ [Moodle Sync] Auto-enrolled in course ${s.course_interest} (Moodle course ${moodleCourse.id})`);
           }
         } catch (e) {
           console.error(`❌ [Moodle Sync] Auto-enrollment failed:`, e.message);
@@ -386,6 +388,28 @@ exports.getAllStudents = async (req, res) => {
   } catch (error) {
     console.error('❌ Get All Students Error:', error.message);
     res.status(500).json({ message: "සිසුන් ලබා ගැනීමට නොහැකි විය.", error: error.message });
+  }
+};
+
+// ලොග් වී සිටින සිසුවාගේම ප්‍රොෆයිල් දත්ත ලබා දීම (photo path only)
+exports.getMyProfile = async (req, res) => {
+  try {
+    const result = await db.pool.query(
+      'SELECT student_id, student_name, profile_photo_path FROM Students WHERE user_id = $1',
+      [req.user.userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'ශිෂ්‍ය දත්ත හමුවුනේ නැත.' });
+    }
+    const student = result.rows[0];
+    res.json({
+      student_id: student.student_id,
+      student_name: student.student_name,
+      profile_photo_path: student.profile_photo_path || null
+    });
+  } catch (err) {
+    console.error('❌ Get My Profile Error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 };
 

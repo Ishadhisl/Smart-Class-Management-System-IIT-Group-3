@@ -8,9 +8,43 @@ const TeacherTab = ({ teachers, onAdd, onEdit, onDelete }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     username: '', password: '', teacher_name: '', phone: '', email: '', specialization: '', qualifications: '', photo: null
   });
+
+  const teacherPhotoMap = {
+    'ruwan': '/teachers/ruwan.png',
+    'sunil': '/teachers/sunil.png',
+    'sumeera': '/teachers/sumeera.png',
+    'sampath': '/teachers/sampath.png',
+    'nimali': '/teachers/nimali.png',
+    'namal': '/teachers/namal.png',
+    'shanika': '/teachers/shanika.png',
+    'thusitha': '/teachers/thusitha.png'
+  };
+
+  const getImageUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+    if (path.startsWith('/teachers/') || path.startsWith('/achievers/') || path.startsWith('/flyers/')) return path;
+    const cleanPath = path.replace(/\\/g, '/');
+    const prefix = cleanPath.startsWith('/') ? '' : '/';
+    return `${API_URL}${prefix}${cleanPath}`;
+  };
+
+  const resolveTeacherPhoto = (teacher) => {
+    if (teacher.teacher_name) {
+       const nameKey = teacher.teacher_name.toLowerCase();
+       for (const [key, path] of Object.entries(teacherPhotoMap)) {
+         if (nameKey.includes(key) || (teacher.username && teacher.username.toLowerCase().includes(key))) {
+           return path;
+         }
+       }
+    }
+    if (teacher.profile_photo_path) return getImageUrl(teacher.profile_photo_path);
+    return null;
+  };
 
   const filteredTeachers = teachers.filter(t =>
     (t.teacher_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -24,6 +58,8 @@ const TeacherTab = ({ teachers, onAdd, onEdit, onDelete }) => {
 
   const handleAdd = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const form = new FormData();
       Object.keys(formData).forEach(key => {
@@ -36,11 +72,15 @@ const TeacherTab = ({ teachers, onAdd, onEdit, onDelete }) => {
       resetForm();
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleEdit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const form = new FormData();
       Object.keys(formData).forEach(key => {
@@ -53,6 +93,8 @@ const TeacherTab = ({ teachers, onAdd, onEdit, onDelete }) => {
       resetForm();
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -121,13 +163,13 @@ const TeacherTab = ({ teachers, onAdd, onEdit, onDelete }) => {
         <input id="teacher-photo" type="file" accept="image/*" onChange={(e) => setFormData({...formData, photo: e.target.files && e.target.files[0] ? e.target.files[0] : null})} style={{ ...inputStyle, padding: '5px' }} />
         {isEdit && editingTeacher?.profile_photo_path && (
           <div style={{ marginTop: '5px', fontSize: '12px', color: '#666' }}>
-            දැනට ඇති ඡායාරූපය: <img src={`${API_URL}${editingTeacher.profile_photo_path}`} alt="Current" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '50%', verticalAlign: 'middle', marginLeft: '10px' }} />
+            දැනට ඇති ඡායාරූපය: <img src={getImageUrl(editingTeacher.profile_photo_path)} alt="Current" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '50%', verticalAlign: 'middle', marginLeft: '10px' }} />
           </div>
         )}
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-        <button type="button" onClick={() => { isEdit ? setEditingTeacher(null) : setShowAddModal(false); resetForm(); }} style={{ padding: '10px 20px', border: '1px solid #ccc', background: 'none', borderRadius: '6px', cursor: 'pointer' }}>අවලංගු කරන්න</button>
-        <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>💾 සුරකින්න</button>
+        <button type="button" disabled={isSubmitting} onClick={() => { isEdit ? setEditingTeacher(null) : setShowAddModal(false); resetForm(); }} style={{ padding: '10px 20px', border: '1px solid #ccc', background: 'none', borderRadius: '6px', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.6 : 1 }}>අවලංගු කරන්න</button>
+        <button type="submit" disabled={isSubmitting} style={{ padding: '10px 20px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '6px', cursor: isSubmitting ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: isSubmitting ? 0.6 : 1 }}>{isSubmitting ? '⏳ සුරකිමින්...' : '💾 සුරකින්න'}</button>
       </div>
     </form>
   );
@@ -166,11 +208,10 @@ const TeacherTab = ({ teachers, onAdd, onEdit, onDelete }) => {
             <tr key={teacher.teacher_id || index} style={{ borderBottom: '1px solid #eee' }}>
               <td style={{ padding: '16px', fontWeight: 'bold' }}>{teacher.teacher_id}</td>
               <td style={{ padding: '16px' }}>
-                {teacher.profile_photo_path ? (
-                  <img src={`${API_URL}${teacher.profile_photo_path}`} alt="Teacher" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>👨‍🏫</div>
-                )}
+                {resolveTeacherPhoto(teacher) ? (
+                  <img src={resolveTeacherPhoto(teacher)} alt="Teacher" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} onError={(e) => { e.target.onerror = null; e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
+                ) : null}
+                <div style={{ display: resolveTeacherPhoto(teacher) ? 'none' : 'flex', width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#e0e0e0', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>👨‍🏫</div>
               </td>
               <td style={{ padding: '16px' }}>{teacher.teacher_name}</td>
               <td style={{ padding: '16px' }}>{teacher.phone || 'N/A'}</td>

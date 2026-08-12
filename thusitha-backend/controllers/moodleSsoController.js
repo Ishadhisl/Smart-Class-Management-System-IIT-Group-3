@@ -1,5 +1,19 @@
 const moodleService = require('../utils/moodleService');
 
+// Moodle's own URLs are absolute (http://localhost/moodle/...). The frontend embeds them
+// in an iframe served from a different origin/port, and browsers drop Moodle's session
+// cookie there as a cross-origin cookie. Stripping the scheme+host makes them root-relative
+// so they resolve against the frontend's own origin instead, where Vite proxies /moodle
+// through to the real Moodle server, keeping everything same-origin.
+const toRelativeMoodleUrl = (absoluteUrl) => {
+  try {
+    const parsed = new URL(absoluteUrl);
+    return parsed.pathname + parsed.search + parsed.hash;
+  } catch {
+    return absoluteUrl;
+  }
+};
+
 exports.getSsoUrl = async (req, res) => {
   try {
     const rawUsername = req.user.username;
@@ -17,7 +31,7 @@ exports.getSsoUrl = async (req, res) => {
     const response = await moodleService.getSSOToken(username);
     
     if (response.loginurl) {
-      res.json({ ssoUrl: response.loginurl });
+      res.json({ ssoUrl: toRelativeMoodleUrl(response.loginurl) });
     } else {
       res.status(400).json({ message: "Moodle SSO URL not generated.", details: response });
     }
@@ -29,7 +43,7 @@ exports.getSsoUrl = async (req, res) => {
 
 exports.getEmbedUrl = async (req, res) => {
   try {
-    const { page, course_id } = req.query;
+    const { page, course_id, course_name } = req.query;
     const rawUsername = req.user.username;
     if (!rawUsername) {
       return res.status(400).json({ message: "Username is missing from token." });
@@ -47,10 +61,10 @@ exports.getEmbedUrl = async (req, res) => {
     }
 
     let targetUrl = '';
-    const moodleBase = process.env.MOODLE_URL ? process.env.MOODLE_URL.replace('/webservice/rest/server.php', '') : 'http://localhost/moodle';
+    const moodleBase = '/moodle';
 
     if (page === 'course' && course_id) {
-      const moodleCourse = await moodleService.getCourseByIdnumber(course_id);
+      const moodleCourse = await moodleService.findOrCreateCourse(course_id, course_name);
       if (moodleCourse && moodleCourse.id) {
         targetUrl = `${moodleBase}/course/view.php?id=${moodleCourse.id}`;
       } else {
@@ -70,7 +84,7 @@ exports.getEmbedUrl = async (req, res) => {
     }
 
     // Pass wantsurl parameter to the SSO login url
-    const embedUrl = `${response.loginurl}&wantsurl=${encodeURIComponent(targetUrl)}`;
+    const embedUrl = `${toRelativeMoodleUrl(response.loginurl)}&wantsurl=${encodeURIComponent(targetUrl)}`;
     
     res.json({ embedUrl, targetUrl });
   } catch (error) {

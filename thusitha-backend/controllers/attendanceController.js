@@ -1020,6 +1020,61 @@ exports.uploadCCTVFootage = async (req, res) => {
       );
     }
 
+    // ── NEW: Fetch scanned students with time & status ──────────────────────
+    let scannedStudents = [];
+    let notScannedStudents = [];
+    if (courseId) {
+      try {
+        // ✅ QR scan කළ සිසුන් (today, this course)
+        const scannedRes = await db.pool.query(
+          `SELECT DISTINCT ON (s.student_id)
+                  s.student_id,
+                  s.student_name,
+                  sal.attendance_status,
+                  TO_CHAR(sal.scanned_at AT TIME ZONE 'Asia/Colombo', 'HH12:MI AM') AS scanned_time
+           FROM Students s
+           JOIN Student_Attendance_Logs sal ON s.student_id = sal.student_id
+           WHERE sal.course_id = $1
+             AND sal.scanned_at::date = CURRENT_DATE
+           ORDER BY s.student_id, sal.scanned_at ASC`,
+          [courseId]
+        );
+        scannedStudents = scannedRes.rows.map(r => ({
+          id: r.student_id,
+          name: r.student_name,
+          status: r.attendance_status || 'Present',
+          scanned_time: r.scanned_time
+        }));
+
+        // ❌ Enrolled නමුත් QR scan නොකළ සිසුන් (absent today)
+        const scannedIds = scannedStudents.map(s => s.id);
+        const notScannedRes = await db.pool.query(
+          `SELECT s.student_id, s.student_name
+           FROM Students s
+           JOIN Course_Enrollments ce ON s.student_id = ce.student_id
+           WHERE ce.course_id = $1
+             AND ce.enrollment_status = 'Enrolled'
+             AND s.student_id NOT IN (
+               SELECT DISTINCT sal2.student_id
+               FROM Student_Attendance_Logs sal2
+               WHERE sal2.course_id = $1
+                 AND sal2.scanned_at::date = CURRENT_DATE
+             )
+           ORDER BY s.student_name ASC`,
+          [courseId]
+        );
+        notScannedStudents = notScannedRes.rows.map(r => ({
+          id: r.student_id,
+          name: r.student_name
+        }));
+      } catch (listErr) {
+        // Graceful: student list fetch failure should NOT block the main response
+        console.warn('⚠️ Student list fetch skipped:', listErr.message);
+        scannedStudents = [];
+        notScannedStudents = [];
+      }
+    }
+
     const verificationData = {
       unverified_students: studentsRes.rows.map(s => ({ id: s.student_id, name: s.student_name })),
       zone_details: zoneResults,
@@ -1059,7 +1114,11 @@ exports.uploadCCTVFootage = async (req, res) => {
         mismatch_detected: mismatchDetected,
         threshold: aiThreshold,
         zone_breakdown: zoneResults,
-        verification_data: verificationData
+        verification_data: verificationData,
+        footage_url: filePath,
+        annotated_image_url: null,
+        scanned_students: scannedStudents,
+        not_scanned_students: notScannedStudents
       }
     });
 
@@ -1069,9 +1128,11 @@ exports.uploadCCTVFootage = async (req, res) => {
   }
 };
 
+
 /**
  * 🧬 Verify student face via webcam comparison
  */
+
 exports.verifyFace = async (req, res) => {
   const { student_id, session_id, image_data } = req.body;
 
@@ -1162,10 +1223,49 @@ exports.verifyFace = async (req, res) => {
         );
       }
 
+      // 3. Try to generate annotated CCTV image with student name label (green)
+      // Fetch stored footage URL from Attendance_Master verification_data
+      let annotatedImageUrl = null;
+      try {
+        const masterForAnnotation = await db.pool.query(
+          'SELECT verification_data FROM Attendance_Master WHERE session_id = $1',
+          [session_id]
+        );
+        if (masterForAnnotation.rows.length > 0) {
+          const vData = masterForAnnotation.rows[0].verification_data || {};
+          const footagePath = vData.image_paths ? Object.values(vData.image_paths)[0] : null;
+          const faceEncoding = typeof student.face_encoding === 'string'
+            ? JSON.parse(student.face_encoding)
+            : student.face_encoding;
+
+          if (footagePath && faceEncoding) {
+            const verifyResult = await runAIProcess('verify', {
+              session_id: parseInt(session_id, 10),
+              zones: [{ zone_name: 'Main', camera_url: footagePath }],
+              expected_students: [{
+                student_id: parseInt(student_id, 10),
+                student_name: student.student_name,
+                face_encoding: faceEncoding
+              }]
+            });
+
+            const zoneData = verifyResult.verification_details?.Main;
+            if (zoneData && zoneData.image_url) {
+              annotatedImageUrl = zoneData.image_url;
+            }
+          }
+        }
+      } catch (annotationErr) {
+        // Graceful: annotation failure should NOT block success response
+        console.warn('⚠️ Annotated CCTV image generation skipped:', annotationErr.message);
+      }
+
       return res.status(200).json({
         success: true,
-        message: `✅ ${student.student_name} ගේ අනන්‍යතාවය සාර්ථකව තහවුරු විය.`
+        message: `✅ ${student.student_name} ගේ අනන්‍යතාවය සාර්ථකව තහවුරු විය.`,
+        annotated_image_url: annotatedImageUrl
       });
+
     } else {
       return res.status(400).json({
         error: "මුහුණ ගැලපෙන්නේ නැත. කරුණාකර නැවත උත්සාහ කරන්න."

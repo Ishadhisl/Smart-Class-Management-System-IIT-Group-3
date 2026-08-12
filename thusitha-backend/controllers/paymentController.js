@@ -70,16 +70,32 @@ exports.createStripeSession = async (req, res) => {
 };
 
 exports.recordPayment = async (req, res) => {
-  const { student_id, course_id, amount_paid, payment_method, for_month, receipt_number } = req.body;
+  const { student_id, course_id, amount_paid, payment_method, for_month } = req.body;
   
   // The ID of the Admin/Counter Staff who is logged in
   const issued_by = req.user.userId;
 
-  if (!student_id || !course_id || !amount_paid || !for_month || !receipt_number) {
-    return res.status(400).json({ message: "අත්‍යවශ්‍ය සියලුම දත්ත (ශිෂ්‍යයා, පන්තිය, මුදල, මාසය, රසීදු අංකය) ඇතුළත් කරන්න." });
+  if (!student_id || !course_id || !amount_paid || !for_month) {
+    return res.status(400).json({ message: "අත්‍යවශ්‍ය සියලුම දත්ත (ශිෂ්‍යයා, පන්තිය, මුදල, මාසය) ඇතුළත් කරන්න." });
   }
 
   try {
+    // Check for duplicate payment for same student/course/month
+    const dupCheck = await db.pool.query(
+      `SELECT * FROM Payments WHERE student_id = $1 AND course_id = $2 AND for_month = $3 AND payment_status IN ('Completed', 'Pending Verification')`,
+      [student_id, course_id, for_month]
+    );
+    if (dupCheck.rows.length > 0) {
+      return res.status(400).json({ message: "මෙම මාසය සඳහා අදාළ පන්තියට දැනටමත් ගෙවීමක් කර ඇත." });
+    }
+
+    // Auto-generate receipt number: RCP-YYYYMMDD-XXXXX
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0,10).replace(/-/g,'');
+    const seqResult = await db.pool.query('SELECT COUNT(*) as cnt FROM Payments WHERE DATE(payment_date) = CURRENT_DATE');
+    const seq = String(Number(seqResult.rows[0].cnt) + 1).padStart(5, '0');
+    const receipt_number = `RCP-${dateStr}-${seq}`;
+
     const query = `
       INSERT INTO Payments (student_id, course_id, issued_by, amount_paid, payment_method, for_month, receipt_number, payment_status)
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'Completed')
@@ -93,7 +109,7 @@ exports.recordPayment = async (req, res) => {
       message: 'ගෙවීම සාර්ථකව සටහන් කරන ලදී.',
       payment: result.rows[0]
     });
-    await auditService.logAction(issued_by, req.user.role, 'CREATE', 'Payment', result.rows[0].payment_id, `Recorded payment of Rs.${amount_paid} for student ${student_id} for ${for_month}.`);
+    await auditService.logAction(issued_by, req.user.role, 'CREATE', 'Payment', result.rows[0].payment_id, `Recorded payment of Rs.${amount_paid} for student ${student_id} for ${for_month}. Receipt: ${receipt_number}`);
   } catch (error) {
     console.error('❌ Payment Recording Error:', error.message);
     res.status(500).json({ message: "ගෙවීම් සටහන් කිරීම අසාර්ථකයි.", error: error.message });
@@ -326,6 +342,9 @@ exports.submitManualPayment = async (req, res) => {
  */
 exports.getAllPayments = async (req, res) => {
   const { course_id, for_month, search } = req.query;
+  const role = req.user?.role;
+  const userId = req.user?.userId;
+
   try {
     let query = `
       SELECT p.*, c.course_name, s.student_name, s.qr_code_key, u.username as issued_by_name
@@ -333,10 +352,17 @@ exports.getAllPayments = async (req, res) => {
       JOIN Courses c ON p.course_id = c.course_id
       JOIN Students s ON p.student_id = s.student_id
       LEFT JOIN Users u ON p.issued_by = u.user_id
-      WHERE 1=1
     `;
     const values = [];
     let valIndex = 1;
+
+    if (role === 'Teacher') {
+      query += ` JOIN Teachers t ON c.teacher_id = t.teacher_id WHERE t.user_id = $${valIndex}`;
+      values.push(userId);
+      valIndex++;
+    } else {
+      query += ` WHERE 1=1`;
+    }
 
     if (course_id) {
       query += ` AND p.course_id = $${valIndex}`;

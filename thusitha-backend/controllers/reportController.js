@@ -20,13 +20,29 @@ exports.getMonthlyRevenue = async (req, res) => {
 
 exports.getDailyAttendanceStats = async (req, res) => {
   try {
-    const query = `
-      SELECT attendance_status AS status, COUNT(*) AS count
-      FROM Student_Attendance_Logs
-      WHERE DATE(scanned_at) = CURRENT_DATE
-      GROUP BY attendance_status
+    const role = req.user.role;
+    const userId = req.user.userId;
+
+    let query = `
+      SELECT 
+        c.course_name as class_name,
+        COUNT(CASE WHEN sal.attendance_status IN ('Present', 'Late') THEN 1 END) as total_present,
+        (SELECT COUNT(*) FROM Course_Enrollments ce WHERE ce.course_id = c.course_id) as total_students
+      FROM Student_Attendance_Logs sal
+      JOIN Courses c ON sal.course_id = c.course_id
+      JOIN Teachers t ON c.teacher_id = t.teacher_id
+      WHERE DATE(sal.scanned_at) = CURRENT_DATE
     `;
-    const result = await db.pool.query(query);
+
+    const params = [];
+    if (role === 'Teacher') {
+      query += ` AND t.user_id = $1`;
+      params.push(userId);
+    }
+
+    query += ` GROUP BY c.course_id, c.course_name`;
+
+    const result = await db.pool.query(query, params);
     res.status(200).json(result.rows);
   } catch (error) {
     console.error('❌ Attendance Report Error:', error.message);

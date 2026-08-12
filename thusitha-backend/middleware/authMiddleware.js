@@ -35,10 +35,8 @@ exports.checkRole = (roles) => {
 
     const userRoleLower = req.user.role.trim().toLowerCase();
     const allowedRolesLower = roles.map(r => r.trim().toLowerCase());
-    console.log('CHECK ROLE:', req.user.username, req.user.role, roles);
 
     if (!allowedRolesLower.includes(userRoleLower)) {
-      console.log('ROLE REJECTED:', userRoleLower, 'not in', allowedRolesLower);
       return res.status(403).json({ 
         message: `ප්‍රවේශය තහනම්: මෙම ක්‍රියාව සඳහා ${roles.join(' හෝ ')} අවසරය අවශ්‍ය වේ.` 
       });
