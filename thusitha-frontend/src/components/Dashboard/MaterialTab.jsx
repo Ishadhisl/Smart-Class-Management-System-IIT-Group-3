@@ -15,6 +15,14 @@ const MaterialTab = ({ courses }) => {
   const isStudent = user?.role === 'Student';
 
   useEffect(() => {
+    // Each call below asks Moodle for a fresh single-use SSO login key. StrictMode (and any
+    // unrelated re-render that changes the `courses` reference) re-runs this effect, which
+    // would otherwise fire a second request and load a second iframe src for the same
+    // selection - two overlapping logins race on the same Moodle PHP session and it errors
+    // out ("session mutated after it was closed"). `ignore` discards any response that isn't
+    // from the most recent invocation, so only one embed URL is ever actually navigated to.
+    let ignore = false;
+
     const fetchEmbedUrl = async () => {
       if (!selectedCourse) {
         setEmbedUrl('');
@@ -23,24 +31,28 @@ const MaterialTab = ({ courses }) => {
 
       setLoading(true);
       try {
-        const data = await request(`/moodle-sso/embed-url?page=course&course_id=${selectedCourse}`);
+        const courseName = courses.find(c => String(c.course_id) === String(selectedCourse))?.course_name || '';
+        const data = await request(`/moodle-sso/embed-url?page=course&course_id=${selectedCourse}&course_name=${encodeURIComponent(courseName)}`);
+        if (ignore) return;
         if (data && data.embedUrl) {
           setEmbedUrl(data.embedUrl);
         } else {
           showNotification('Moodle සම්බන්ධතාවය අසාර්ථක විය.', 'error');
         }
       } catch (err) {
+        if (ignore) return;
         console.error('Failed to fetch Moodle embed URL:', err);
         showNotification('Moodle වෙත ප්‍රවේශ වීමේදී දෝෂයක් ඇති විය.', 'error');
-        // Fallback generic Moodle URL
-        setEmbedUrl('http://localhost/moodle/my/');
+        // Fallback generic Moodle URL (relative so it still goes through the same-origin proxy)
+        setEmbedUrl('/moodle/my/');
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     };
 
     fetchEmbedUrl();
-  }, [selectedCourse, showNotification]);
+    return () => { ignore = true; };
+  }, [selectedCourse, showNotification, courses]);
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-glass flex flex-col h-[calc(100vh-120px)]">
