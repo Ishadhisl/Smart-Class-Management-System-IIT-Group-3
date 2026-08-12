@@ -91,7 +91,7 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
     labels: actualAttendanceData.map(d => d.class_name),
     datasets: [
       {
-        data: actualAttendanceData.map(d => d.total_present),
+        data: actualAttendanceData.map(d => Number(d.total_present) || 0),
         backgroundColor: [
           'rgba(16, 185, 129, 0.85)',
           'rgba(245, 158, 11, 0.85)',
@@ -282,7 +282,7 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
           }] : []),
           {
             icon: CheckCircle, label: 'අද පැමිණීම',
-            value: hasAttendanceData ? actualAttendanceData.reduce((sum, d) => sum + (d.total_present || d.count || 0), 0) : 'දත්ත නැත',
+            value: hasAttendanceData ? actualAttendanceData.reduce((sum, d) => sum + (Number(d.total_present ?? d.count) || 0), 0) : 'දත්ත නැත',
             gradient: 'from-amber-500 to-orange-600', bgLight: 'bg-amber-50', iconColor: 'text-amber-600'
           }
         ].map((stat, i) => {
