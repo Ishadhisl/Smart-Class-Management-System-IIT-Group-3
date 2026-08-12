@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Eye, EyeOff, Clock, ArrowLeft, LogIn, KeyRound, ShieldCheck, BookOpen, GraduationCap, Atom, Calculator, PenTool } from 'lucide-react';
+import { FaWhatsapp } from 'react-icons/fa';
 import { useNotification } from '../../context/NotificationContext';
-import { FaEye, FaEyeSlash, FaWhatsapp } from 'react-icons/fa';
 import { authService } from '../../services/authService';
 import { request } from '../../services/api';
-
-const PRIMARY_NAVY = '#070D59';
-const SECONDARY_BLUE = '#1F3C88';
-const WA_GREEN = '#25d366';
+import Card from '../../components/common/Card';
+import Button from '../../components/common/Button';
+import Input from '../../components/common/Input';
+import Label from '../../components/common/Label';
+import FormError from '../../components/common/FormError';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -15,7 +18,6 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const { showNotification } = useNotification();
   const [showPassword, setShowPassword] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
 
   // First-time password change state
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -33,6 +35,15 @@ const LoginPage = () => {
   const [fpConfirmPw, setFpConfirmPw] = useState('');
   const [fpLoading, setFpLoading] = useState(false);
   const [fpPhoneHint, setFpPhoneHint] = useState('');
+
+  // ═══════════════════════════════════════════
+  // Forgot Username — phone lookup via WhatsApp
+  // ═══════════════════════════════════════════
+  const [showForgotUsername, setShowForgotUsername] = useState(false);
+  const [fuPhone, setFuPhone] = useState('');
+  const [fuLoading, setFuLoading] = useState(false);
+  const [fuSent, setFuSent] = useState(false);
+  const [fuPhoneHint, setFuPhoneHint] = useState('');
 
   // Helper: get and consume the QR return path from sessionStorage (open-redirect safe)
   const consumeReturnPath = () => {
@@ -53,7 +64,7 @@ const LoginPage = () => {
     setLoading(true);
     try {
       const data = await authService.login(credentials.username, credentials.password);
-      
+
       if (data.must_change_password) {
         setShowPasswordChange(true);
         showNotification('ඔබ ප්‍රථම වරට Login වෙයි. කරුණාකර නව මුරපදයක් සකසන්න.');
@@ -144,175 +155,417 @@ const LoginPage = () => {
     }
   };
 
-  const inputStyle = {
-    width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box'
+  // Step: Phone submit → username lookup sent via WhatsApp
+  const handleFuSendUsername = async (e) => {
+    e.preventDefault();
+    if (!fuPhone.trim()) { showNotification('දුරකථන අංකය ඇතුළත් කරන්න.', 'error'); return; }
+    setFuLoading(true);
+    try {
+      const res = await request('/auth/forgot-username', {
+        method: 'POST', body: { phone: fuPhone }, noAuth: true
+      });
+      setFuPhoneHint(res.phone_hint || '');
+      setFuSent(true);
+      showNotification('පරිශීලක නාමය WhatsApp මගින් යවන ලදී! 📱');
+    } catch (err) {
+      showNotification(err.message || 'සොයා ගැනීමේ දෝෂයකි.', 'error');
+    } finally {
+      setFuLoading(false);
+    }
   };
-  const labelStyle = { display: 'block', marginBottom: '8px', fontWeight: '500' };
-  const btnStyle = (color, disabled) => ({
-    width: '100%', padding: '14px', backgroundColor: disabled ? '#ccc' : color,
-    color: 'white', border: 'none', borderRadius: '8px',
-    cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: 'bold',
-    fontSize: '16px', transition: 'all 0.3s ease', opacity: disabled ? 0.7 : 1
-  });
 
-  // ═══════════════════════════════════════════
-  // MAIN RENDER
-  // ═══════════════════════════════════════════
+  const resetForgotUsername = () => {
+    setShowForgotUsername(false);
+    setFuPhone(''); setFuSent(false); setFuPhoneHint('');
+  };
+
+  const heading =
+    (showForgotUsername && !fuSent && 'Username සොයන්න') ||
+    (showForgotUsername && fuSent && 'WhatsApp පණිවිඩය යවන ලදී') ||
+    (forgotStep === 0 && !showPasswordChange && 'පද්ධතියට ඇතුළු වන්න') ||
+    (showPasswordChange && 'නව මුරපදයක් සකසන්න') ||
+    (forgotStep === 1 && 'Username ඇතුළත් කරන්න') ||
+    (forgotStep === 2 && 'WhatsApp OTP Enter') ||
+    (forgotStep === 3 && 'නව මුරපදය සකසන්න');
+
+  const subheading =
+    (showForgotUsername && !fuSent && 'ලියාපදිංචි කර ඇති දුරකථන අංකය ඇතුළත් කරන්න — ඔබගේ Username WhatsApp මගින් ලැබේ.') ||
+    (showForgotUsername && fuSent && `ඔබගේ WhatsApp ${fuPhoneHint} වෙත Username යවන ලදී.`) ||
+    (forgotStep === 0 && !showPasswordChange && 'Thusitha Smart Class Management') ||
+    (forgotStep === 1 && 'ඔබගේ Username ඇතුළත් කරන්න — WhatsApp OTP code ලැබේ.') ||
+    (forgotStep === 2 && `ඔබගේ WhatsApp ${fpPhoneHint} ලැබෙන 6-digit OTP ඇතුළත් කරන්න.`) ||
+    (forgotStep === 3 && 'නව ශක්තිමත් මුරපදයක් සකසන්න.');
+
   return (
-    <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f2f5' }}>
-      {/* Breadcrumb */}
-      <div style={{ position: 'absolute', top: '20px', left: '5%', fontSize: '14px', color: '#666', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <button type="button" onClick={() => navigate('/')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: SECONDARY_BLUE, fontWeight: '500', fontFamily: 'inherit', fontSize: 'inherit' }}>
-          මුල් පිටුව
-        </button>
-        <span>&gt;</span>
-        <span style={{ color: PRIMARY_NAVY, fontWeight: 'bold' }}>Login</span>
-      </div>
+    <div className="min-h-screen flex bg-background relative overflow-hidden">
+      {/* Left brand panel — desktop only */}
+      <div className="hidden lg:flex lg:w-2/5 relative overflow-hidden bg-gradient-to-br from-primary-dark via-primary to-primary-light items-center justify-center p-12">
+        {/* Animated gradient overlay */}
+        <motion.div
+          className="absolute inset-0 opacity-30"
+          animate={{
+            background: [
+              'radial-gradient(circle at 20% 50%, rgba(129,140,248,0.4) 0%, transparent 50%)',
+              'radial-gradient(circle at 80% 50%, rgba(129,140,248,0.4) 0%, transparent 50%)',
+              'radial-gradient(circle at 50% 80%, rgba(236,72,153,0.3) 0%, transparent 50%)',
+              'radial-gradient(circle at 20% 50%, rgba(129,140,248,0.4) 0%, transparent 50%)'
+            ]
+          }}
+          transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+        />
 
-      <div style={{ width: '100%', maxWidth: '420px', padding: '40px', backgroundColor: 'white', borderRadius: '15px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <img src="/Project%20LOGO.png" alt="Logo" style={{ width: '80px', marginBottom: '15px' }} />
-          <h2 style={{ margin: 0, color: PRIMARY_NAVY }}>
-            {forgotStep === 0 && !showPasswordChange && 'පද්ධතියට ඇතුළු වන්න'}
-            {showPasswordChange && 'නව මුරපදයක් සකසන්න'}
-            {forgotStep === 1 && '🔐 Username ඇතුළත් කරන්න'}
-            {forgotStep === 2 && '📱 WhatsApp OTP Enter'}
-            {forgotStep === 3 && '🔑 නව මුරපදය සකසන්න'}
-          </h2>
-          <p style={{ color: '#666', fontSize: '14px', marginTop: '8px' }}>
-            {forgotStep === 0 && !showPasswordChange && 'Thusitha Smart Class Management'}
-            {forgotStep === 1 && 'ඔබගේ Username ඇතුළත් කරන්න — WhatsApp OTP code ලැබේ.'}
-            {forgotStep === 2 && `📲 ඔබගේ WhatsApp ${fpPhoneHint} ලැබෙන 6-digit OTP ඇතුළත් කරන්න.`}
-            {forgotStep === 3 && 'නව ශක්තිමත් මුරපදයක් සකසන්න.'}
-          </p>
+        {/* Decorative blurred blobs */}
+        <motion.div
+          animate={{ x: [0, 30, -20, 0], y: [0, -20, 30, 0] }}
+          transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute top-0 right-0 w-72 h-72 bg-secondary/30 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"
+        />
+        <motion.div
+          animate={{ x: [0, -20, 30, 0], y: [0, 30, -20, 0] }}
+          transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute bottom-0 left-0 w-80 h-80 bg-accent/30 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none"
+        />
+        <motion.div
+          animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.4, 0.2] }}
+          transition={{ duration: 6, repeat: Infinity }}
+          className="absolute top-1/3 left-1/4 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none"
+        />
+
+        {/* Floating education icons */}
+        {[BookOpen, GraduationCap, Atom, Calculator, PenTool].map((Icon, i) => (
+          <motion.div
+            key={i}
+            className="absolute text-white/10 pointer-events-none"
+            style={{
+              top: `${15 + i * 18}%`,
+              left: `${10 + (i % 3) * 30}%`,
+            }}
+            animate={{
+              y: [0, -20, 0],
+              rotate: [0, 10, -10, 0],
+              opacity: [0.08, 0.15, 0.08]
+            }}
+            transition={{
+              duration: 4 + i * 1.5,
+              repeat: Infinity,
+              ease: 'easeInOut',
+              delay: i * 0.8
+            }}
+          >
+            <Icon size={30 + i * 8} />
+          </motion.div>
+        ))}
+
+        {/* Animated rings behind logo */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          {[1, 2, 3].map((ring) => (
+            <motion.div
+              key={ring}
+              className="absolute rounded-full border border-white/5"
+              style={{ width: `${ring * 140}px`, height: `${ring * 140}px` }}
+              animate={{ rotate: ring % 2 === 0 ? 360 : -360, scale: [1, 1.05, 1] }}
+              transition={{ duration: 20 + ring * 5, repeat: Infinity, ease: 'linear' }}
+            />
+          ))}
         </div>
 
-        {/* ═══ STEP 0: Normal Login ═══ */}
-        {forgotStep === 0 && !showPasswordChange && (
-          <form onSubmit={handleLogin}>
-            <div style={{ marginBottom: '20px' }}>
-              <label htmlFor="username" style={labelStyle}>පරිශීලක නාමය (Username)</label>
-              <input id="username" type="text" required style={inputStyle}
-                value={credentials.username}
-                onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('password').focus(); } }}
-              />
-            </div>
-            <div style={{ marginBottom: '20px' }}>
-              <label htmlFor="password" style={labelStyle}>මුරපදය (Password)</label>
-              <div style={{ position: 'relative' }}>
-                <input id="password" type={showPassword ? 'text' : 'password'} required
-                  style={{ ...inputStyle, paddingRight: '40px' }}
-                  value={credentials.password}
-                  onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
-                />
-                <button type="button" onClick={() => setShowPassword(p => !p)}
-                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#666', fontSize: '18px' }}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <FaEye /> : <FaEyeSlash />}
-                </button>
-              </div>
-            </div>
-
-            {/* Forgot Password Link */}
-            <div style={{ textAlign: 'right', marginBottom: '20px' }}>
-              <button type="button" onClick={() => setForgotStep(1)}
-                style={{ background: 'none', border: 'none', color: WA_GREEN, cursor: 'pointer', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="relative z-10 text-center text-white max-w-sm"
+        >
+          {/* Logo with glow */}
+          <div className="relative inline-block mb-6">
+            <motion.div
+              className="absolute inset-0 bg-white/20 rounded-2xl blur-xl"
+              animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+              transition={{ duration: 3, repeat: Infinity }}
+            />
+            <img
+              src="/Project%20LOGO.png"
+              alt="Thusitha Academy Logo"
+              className="relative w-24 h-24 mx-auto rounded-2xl bg-white/90 p-3 shadow-glass-hover"
+            />
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-wide mb-3">
+            Thusitha Academy
+          </h1>
+          <p className="text-indigo-100 leading-relaxed mb-6">
+            Smart Class Management System — AI පදනම් වූ පැමිණීම, ගෙවීම් සහ ඉගෙනුම් කළමනාකරණය එකම තැනකින්.
+          </p>
+          {/* Feature pills */}
+          <div className="flex flex-wrap gap-2 justify-center">
+            {['QR Attendance', 'AI Monitoring', 'Easy Payments', 'Digital Learning'].map((feat, i) => (
+              <motion.span
+                key={feat}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 + i * 0.15 }}
+                className="bg-white/10 backdrop-blur-sm text-indigo-100 px-3 py-1.5 rounded-full text-[11px] font-semibold border border-white/10"
               >
-                <FaWhatsapp /> මුරපදය අමතක වූවාද? (WhatsApp OTP)
-              </button>
-            </div>
+                {feat}
+              </motion.span>
+            ))}
+          </div>
+        </motion.div>
+      </div>
 
-            <button type="submit" disabled={loading} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}
-              style={btnStyle(isHovered ? SECONDARY_BLUE : PRIMARY_NAVY, loading)}
+      {/* Right form panel */}
+      <div className="flex-1 flex flex-col items-center justify-center p-6 relative">
+        {/* Mobile compact brand band */}
+        <div className="lg:hidden flex items-center gap-3 mb-6">
+          <img src="/Project%20LOGO.png" alt="Logo" className="w-12 h-12 rounded-xl bg-white shadow-glass p-1.5" />
+          <span className="text-xl font-extrabold text-primary-dark">Thusitha Academy</span>
+        </div>
+
+        <div className="w-full max-w-md">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-sm text-slate-500 mb-4">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="font-medium text-primary hover:text-primary-dark transition-colors"
             >
-              {loading ? 'පරීක්ෂා කරමින්...' : 'ඇතුළු වන්න'}
+              මුල් පිටුව
             </button>
-          </form>
-        )}
+            <span>›</span>
+            <span className="font-bold text-primary-dark">Login</span>
+          </div>
 
-        {/* ═══ First-time Password Change ═══ */}
-        {showPasswordChange && (
-          <form onSubmit={handleChangePassword}>
-            <div style={{ marginBottom: '20px' }}>
-              <label htmlFor="newPassword" style={labelStyle}>නව මුරපදය</label>
-              <input id="newPassword" type="password" required minLength={6} style={inputStyle}
-                value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="අවම අකුරු 6ක්" />
+      <Card padding="p-8 sm:p-10" hover={false} className="!shadow-xl !border-white/60 relative overflow-hidden">
+            {/* Subtle gradient border effect */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-light via-secondary to-accent" />
+            <div className="text-center mb-8">
+              <h2 className="m-0 text-2xl font-bold text-primary-dark">{heading}</h2>
+              <p className="text-slate-500 text-sm mt-2">{subheading}</p>
             </div>
-            <div style={{ marginBottom: '30px' }}>
-              <label htmlFor="confirmPassword" style={labelStyle}>මුරපදය තහවුරු කරන්න</label>
-              <input id="confirmPassword" type="password" required minLength={6} style={inputStyle}
-                value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="නැවත ඇතුළත් කරන්න" />
-            </div>
-            <button type="submit" disabled={changingPassword} style={btnStyle('#2e7d32', changingPassword)}>
-              {changingPassword ? 'සුරකිමින්...' : '🔐 මුරපදය සුරකින්න'}
-            </button>
-          </form>
-        )}
 
-        {/* ═══ STEP 1: Enter Username ═══ */}
-        {forgotStep === 1 && (
-          <form onSubmit={handleFpSendOtp}>
-            <div style={{ marginBottom: '20px' }}>
-              <label style={labelStyle}>👤 Username</label>
-              <input type="text" required style={inputStyle} value={fpUsername} onChange={e => setFpUsername(e.target.value)} placeholder="ඔබගේ username ඇතුළත් කරන්න" autoFocus />
-            </div>
-            <div style={{ padding: '12px', backgroundColor: '#e8f5e9', borderRadius: '8px', marginBottom: '20px', fontSize: '13px', color: '#2e7d32', display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <FaWhatsapp style={{ fontSize: '20px' }} />
-              <span>ඔබගේ ගිණුමට සම්බන්ධ WhatsApp number වෙත OTP code එකක් ලැබේ.</span>
-            </div>
-            <button type="submit" disabled={fpLoading} style={btnStyle(WA_GREEN, fpLoading)}>
-              {fpLoading ? 'OTP යවමින්...' : '💬 WhatsApp OTP Send කරන්න'}
-            </button>
-            <button type="button" onClick={() => setForgotStep(0)} style={{ width: '100%', marginTop: '10px', padding: '12px', background: 'none', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>
-              ← Login වෙත යන්න
-            </button>
-          </form>
-        )}
+            <AnimatePresence mode="wait">
+              {/* ═══ STEP 0: Normal Login ═══ */}
+              {forgotStep === 0 && !showPasswordChange && !showForgotUsername && (
+                <motion.form
+                  key="login"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  onSubmit={handleLogin}
+                >
+                  <div className="mb-5">
+                    <Label htmlFor="username">පරිශීලක නාමය (Username)</Label>
+                    <Input
+                      id="username"
+                      type="text"
+                      required
+                      value={credentials.username}
+                      onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('password').focus(); } }}
+                    />
+                  </div>
+                  <div className="mb-5">
+                    <Label htmlFor="password">මුරපදය (Password)</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        className="pr-11"
+                        value={credentials.password}
+                        onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((p) => !p)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                      </button>
+                    </div>
+                  </div>
 
-        {/* ═══ STEP 2: Enter OTP ═══ */}
-        {forgotStep === 2 && (
-          <form onSubmit={handleFpVerifyOtp}>
-            <div style={{ marginBottom: '20px' }}>
-              <label style={labelStyle}>🔢 WhatsApp OTP Code (6 digits)</label>
-              <input type="text" required maxLength={6} inputMode="numeric" pattern="[0-9]{6}"
-                style={{ ...inputStyle, fontSize: '28px', letterSpacing: '8px', textAlign: 'center', fontWeight: 'bold' }}
-                value={fpOtp} onChange={e => setFpOtp(e.target.value.replace(/\D/g, ''))} placeholder="000000" autoFocus />
-            </div>
-            <div style={{ padding: '10px 14px', backgroundColor: '#fff3e0', borderRadius: '8px', marginBottom: '20px', fontSize: '12px', color: '#e65100' }}>
-              ⏰ OTP code 10 මිනිත්තු ඇතුළත භාවිත නොකළ expire වේ.
-            </div>
-            <button type="submit" disabled={fpLoading || fpOtp.length !== 6} style={btnStyle(PRIMARY_NAVY, fpLoading || fpOtp.length !== 6)}>
-              {fpLoading ? 'Verifying...' : '✅ OTP Verify කරන්න'}
-            </button>
-            <button type="button" onClick={() => { setForgotStep(1); setFpOtp(''); }} style={{ width: '100%', marginTop: '10px', padding: '12px', background: 'none', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>
-              ← OTP නැවත ලබාගන්න
-            </button>
-          </form>
-        )}
+                  <div className="flex items-center justify-between mb-6">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotUsername(true)}
+                      className="text-xs font-bold text-primary hover:text-primary-dark transition-colors"
+                    >
+                      Username අමතක වූවාද?
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForgotStep(1)}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-[#25d366] hover:text-[#1da851] transition-colors"
+                    >
+                      <FaWhatsapp /> මුරපදය අමතක වූවාද? (WhatsApp OTP)
+                    </button>
+                  </div>
 
-        {/* ═══ STEP 3: New Password ═══ */}
-        {forgotStep === 3 && (
-          <form onSubmit={handleFpResetPassword}>
-            <div style={{ marginBottom: '16px' }}>
-              <label style={labelStyle}>🔑 නව මුරපදය</label>
-              <input type="password" required minLength={6} style={inputStyle}
-                value={fpNewPw} onChange={e => setFpNewPw(e.target.value)} placeholder="අවම වශයෙන් අකුරු 6ක්" autoFocus />
-            </div>
-            <div style={{ marginBottom: '24px' }}>
-              <label style={labelStyle}>🔁 නව මුරපදය නැවත ඇතුළත් කරන්න</label>
-              <input type="password" required minLength={6} style={inputStyle}
-                value={fpConfirmPw} onChange={e => setFpConfirmPw(e.target.value)} placeholder="Confirm password" />
-            </div>
-            {fpNewPw && fpConfirmPw && fpNewPw !== fpConfirmPw && (
-              <p style={{ color: '#d32f2f', fontSize: '12px', marginBottom: '12px' }}>⚠️ මුරපද දෙකෙ ගළපෙ නෑ</p>
-            )}
-            <button type="submit" disabled={fpLoading} style={btnStyle('#2e7d32', fpLoading)}>
-              {fpLoading ? 'සුරකිමින්...' : '🔐 මුරපදය Reset කරන්න'}
-            </button>
-          </form>
-        )}
+                  <Button type="submit" variant="primary" size="lg" fullWidth loading={loading} icon={<LogIn size={18} />}>
+                    {loading ? 'පරීක්ෂා කරමින්...' : 'ඇතුළු වන්න'}
+                  </Button>
+                </motion.form>
+              )}
+
+              {/* ═══ Forgot Username: Enter Phone ═══ */}
+              {showForgotUsername && !fuSent && (
+                <motion.form
+                  key="fu-phone"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  onSubmit={handleFuSendUsername}
+                >
+                  <div className="mb-5">
+                    <Label>දුරකථන අංකය (Phone Number)</Label>
+                    <Input type="tel" required value={fuPhone} onChange={(e) => setFuPhone(e.target.value)} placeholder="07XXXXXXXX" autoFocus />
+                  </div>
+                  <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-success-light/20 text-success-dark text-sm mb-6">
+                    <FaWhatsapp className="text-lg shrink-0 mt-0.5" />
+                    <span>ඔබගේ ගිණුමට සම්බන්ධ WhatsApp number වෙත ඔබගේ Username(s) ලැබේ.</span>
+                  </div>
+                  <Button type="submit" variant="whatsapp" size="lg" fullWidth loading={fuLoading} icon={<FaWhatsapp size={16} />}>
+                    {fuLoading ? 'සොයමින්...' : 'Username WhatsApp මගින් ලබාගන්න'}
+                  </Button>
+                  <Button type="button" variant="outline" size="lg" fullWidth className="mt-3" onClick={resetForgotUsername} icon={<ArrowLeft size={16} />}>
+                    Login වෙත යන්න
+                  </Button>
+                </motion.form>
+              )}
+
+              {/* ═══ Forgot Username: Sent Confirmation ═══ */}
+              {showForgotUsername && fuSent && (
+                <motion.div
+                  key="fu-sent"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                >
+                  <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-success-light/20 text-success-dark text-sm mb-6">
+                    <FaWhatsapp className="text-lg shrink-0 mt-0.5" />
+                    <span>ඔබගේ Username(s) WhatsApp පණිවිඩය ලෙස යවා ඇත. පරීක්ෂා කර ඇතුළු වන්න.</span>
+                  </div>
+                  <Button type="button" variant="primary" size="lg" fullWidth onClick={resetForgotUsername} icon={<ArrowLeft size={16} />}>
+                    Login වෙත ආපසු
+                  </Button>
+                </motion.div>
+              )}
+
+              {/* ═══ First-time Password Change ═══ */}
+              {showPasswordChange && (
+                <motion.form
+                  key="pwchange"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  onSubmit={handleChangePassword}
+                >
+                  <div className="mb-5">
+                    <Label htmlFor="newPassword">නව මුරපදය</Label>
+                    <Input id="newPassword" type="password" required minLength={6}
+                      value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="අවම අකුරු 6ක්" />
+                  </div>
+                  <div className="mb-6">
+                    <Label htmlFor="confirmPassword">මුරපදය තහවුරු කරන්න</Label>
+                    <Input id="confirmPassword" type="password" required minLength={6}
+                      value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="නැවත ඇතුළත් කරන්න" />
+                  </div>
+                  <Button type="submit" variant="success" size="lg" fullWidth loading={changingPassword} icon={<KeyRound size={18} />}>
+                    {changingPassword ? 'සුරකිමින්...' : 'මුරපදය සුරකින්න'}
+                  </Button>
+                </motion.form>
+              )}
+
+              {/* ═══ STEP 1: Enter Username ═══ */}
+              {forgotStep === 1 && (
+                <motion.form
+                  key="fp-step1"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  onSubmit={handleFpSendOtp}
+                >
+                  <div className="mb-5">
+                    <Label>Username</Label>
+                    <Input type="text" required value={fpUsername} onChange={(e) => setFpUsername(e.target.value)} placeholder="ඔබගේ username ඇතුළත් කරන්න" autoFocus />
+                  </div>
+                  <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-success-light/20 text-success-dark text-sm mb-6">
+                    <FaWhatsapp className="text-lg shrink-0 mt-0.5" />
+                    <span>ඔබගේ ගිණුමට සම්බන්ධ WhatsApp number වෙත OTP code එකක් ලැබේ.</span>
+                  </div>
+                  <Button type="submit" variant="whatsapp" size="lg" fullWidth loading={fpLoading}
+                    icon={<FaWhatsapp size={16} />}
+                  >
+                    {fpLoading ? 'OTP යවමින්...' : 'WhatsApp OTP Send කරන්න'}
+                  </Button>
+                  <Button type="button" variant="outline" size="lg" fullWidth className="mt-3" onClick={() => setForgotStep(0)} icon={<ArrowLeft size={16} />}>
+                    Login වෙත යන්න
+                  </Button>
+                </motion.form>
+              )}
+
+              {/* ═══ STEP 2: Enter OTP ═══ */}
+              {forgotStep === 2 && (
+                <motion.form
+                  key="fp-step2"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  onSubmit={handleFpVerifyOtp}
+                >
+                  <div className="mb-5">
+                    <Label>WhatsApp OTP Code (6 digits)</Label>
+                    <Input
+                      type="text" required maxLength={6} inputMode="numeric" pattern="[0-9]{6}"
+                      className="text-2xl tracking-[0.5em] text-center font-bold"
+                      value={fpOtp} onChange={(e) => setFpOtp(e.target.value.replace(/\D/g, ''))} placeholder="000000" autoFocus
+                    />
+                  </div>
+                  <div className="flex items-center gap-2.5 p-3 rounded-xl bg-warning-light/20 text-warning-dark text-xs mb-6">
+                    <Clock size={16} className="shrink-0" />
+                    <span>OTP code 10 මිනිත්තු ඇතුළත භාවිත නොකළ expire වේ.</span>
+                  </div>
+                  <Button type="submit" variant="primary" size="lg" fullWidth loading={fpLoading} disabled={fpOtp.length !== 6} icon={<ShieldCheck size={18} />}>
+                    {fpLoading ? 'Verifying...' : 'OTP Verify කරන්න'}
+                  </Button>
+                  <Button type="button" variant="outline" size="lg" fullWidth className="mt-3" onClick={() => { setForgotStep(1); setFpOtp(''); }} icon={<ArrowLeft size={16} />}>
+                    OTP නැවත ලබාගන්න
+                  </Button>
+                </motion.form>
+              )}
+
+              {/* ═══ STEP 3: New Password ═══ */}
+              {forgotStep === 3 && (
+                <motion.form
+                  key="fp-step3"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  onSubmit={handleFpResetPassword}
+                >
+                  <div className="mb-4">
+                    <Label>නව මුරපදය</Label>
+                    <Input type="password" required minLength={6}
+                      value={fpNewPw} onChange={(e) => setFpNewPw(e.target.value)} placeholder="අවම වශයෙන් අකුරු 6ක්" autoFocus />
+                  </div>
+                  <div className="mb-2">
+                    <Label>නව මුරපදය නැවත ඇතුළත් කරන්න</Label>
+                    <Input type="password" required minLength={6}
+                      value={fpConfirmPw} onChange={(e) => setFpConfirmPw(e.target.value)} placeholder="Confirm password" />
+                  </div>
+                  <FormError>
+                    {fpNewPw && fpConfirmPw && fpNewPw !== fpConfirmPw ? 'මුරපද දෙකෙ ගළපෙ නෑ' : null}
+                  </FormError>
+                  <div className="mt-6">
+                    <Button type="submit" variant="success" size="lg" fullWidth loading={fpLoading} icon={<KeyRound size={18} />}>
+                      {fpLoading ? 'සුරකිමින්...' : 'මුරපදය Reset කරන්න'}
+                    </Button>
+                  </div>
+                </motion.form>
+              )}
+            </AnimatePresence>
+          </Card>
+        </div>
       </div>
     </div>
   );

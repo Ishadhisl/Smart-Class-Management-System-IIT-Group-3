@@ -175,6 +175,68 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
+// පරිශීලක නාමය අමතක වීම (Forgot Username) — WhatsApp lookup by phone
+exports.forgotUsername = async (req, res) => {
+  const { phone } = req.body;
+  if (!phone) {
+    return res.status(400).json({ message: 'දුරකථන අංකය ඇතුළත් කරන්න.' });
+  }
+  try {
+    // 1. Any account (Teacher, Counter Person, Parent) whose own phone matches
+    const accountsRes = await db.pool.query(
+      `SELECT u.username, u.role FROM Users u JOIN Teachers t ON t.user_id = u.user_id WHERE t.phone = $1
+       UNION ALL
+       SELECT u.username, u.role FROM Users u JOIN Counter_Person cp ON cp.user_id = u.user_id WHERE cp.phone = $1
+       UNION ALL
+       SELECT u.username, u.role FROM Users u JOIN Parents p ON p.user_id = u.user_id WHERE p.parent_phone = $1`,
+      [phone]
+    );
+
+    // 2. A parent's own children - the only way to recover a Student's username (their
+    // qr_code_key), since students don't have a phone number of their own on file.
+    const childrenRes = await db.pool.query(
+      `SELECT s.qr_code_key, s.student_name FROM Students s
+       JOIN Parents p ON s.parent_id = p.parent_id
+       WHERE p.parent_phone = $1`,
+      [phone]
+    );
+
+    if (accountsRes.rows.length === 0 && childrenRes.rows.length === 0) {
+      return res.status(404).json({ message: 'මෙම දුරකථන අංකයට සම්බන්ධ කිසිදු ගිණුමක් හමුවුනේ නැත.' });
+    }
+
+    const roleLabels = { Admin: 'පරිපාලක', Teacher: 'ගුරු', 'Counter Person': 'කවුන්ටර්', Parent: 'මාපිය' };
+    let lines = accountsRes.rows.map(r => `👤 ${roleLabels[r.role] || r.role}: *${r.username}*`);
+    if (childrenRes.rows.length > 0) {
+      lines = lines.concat(childrenRes.rows.map(c => `🎓 ${c.student_name}: *${c.qr_code_key}*`));
+    }
+
+    const message =
+      `🔑 *Thusitha Institute — පරිශීලක නාමය*\n\n` +
+      `ඔබගේ ගිණුම් සඳහා පරිශීලක නාම මෙසේය:\n\n` +
+      `${lines.join('\n')}\n\n` +
+      `_Thusitha Institute — Smart Class System_`;
+
+    const waResult = await sendWhatsAppMessage(phone, message);
+    if (!waResult.success) {
+      if (waResult.mock) {
+        return res.status(503).json({ message: 'WhatsApp සේවාව දැනට ක්‍රියා විරහිතයි (Not Connected). කරුණාකර Admin අමතන්න.' });
+      }
+      return res.status(500).json({ message: 'WhatsApp පණිවිඩය යැවීමට නොහැකි විය: ' + waResult.error });
+    }
+
+    await auditService.logAction(null, 'System', 'FORGOT_USERNAME', 'User', null, `Username lookup sent to WhatsApp for phone ${phone}`);
+    res.json({
+      success: true,
+      message: 'ඔබගේ පරිශීලක නාමය WhatsApp මගින් යවන ලදී!',
+      phone_hint: phone.length > 6 ? phone.replace(/^(\d{3}).*(\d{3})$/, '$1***$2') : '***'
+    });
+  } catch (err) {
+    console.error('❌ Forgot Username Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // OTP තහවුරු කිරීම (Verify OTP)
 exports.verifyOtp = async (req, res) => {
   const { username, otp } = req.body;
