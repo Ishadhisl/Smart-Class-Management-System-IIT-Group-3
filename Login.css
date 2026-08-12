@@ -1,0 +1,94 @@
+/* මුළු පිටුවේම පෙනුම සකස් කිරීම */
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  width: 100vw;
+  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); /* Modern Dark Gradient */
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+/* මැද තියෙන සුදු පාට Login කොටුව */
+.login-card {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.login-header h2 {
+  margin: 0 0 5px 0;
+  color: #0f2027;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.login-header p {
+  margin: 0 0 30px 0;
+  color: #555;
+  font-size: 14px;
+}
+
+/* Form එක ඇතුළේ තියෙන Input Layouts */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.input-group {
+  text-align: left;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 6px;
+  color: #333;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  font-size: 15px;
+  outline: none;
+  transition: 0.3s;
+  box-sizing: border-box;
+}
+
+/* Input එක ක්ලික් කරපුහම වෙනස් වන වර්ණය */
+.input-group input:focus {
+  border-color: #203a43;
+  box-shadow: 0 0 8px rgba(32, 58, 67, 0.2);
+}
+
+/* Sign In බටන් එකේ ලස්සන */
+.login-btn {
+  background: #203a43;
+  color: white;
+  padding: 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+  margin-top: 10px;
+}
+
+.login-btn:hover {
+  background: #0f2027;
+  transform: translateY(-2px); /* උඩට පොඩ්ඩක් ඉස්සෙන ලස්සන Effect එකක් */
+}
