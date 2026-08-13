@@ -233,8 +233,8 @@ const Dashboard = () => {
         isAdmin
           ? request('/reports/revenue').catch(e => { console.error('Revenue error:', e); return []; })
           : Promise.resolve([]),
-        // Attendance stats: Admin or Teacher
-        isAdminOrTeacher
+        // Attendance stats: Admin, Teacher, or Counter Person
+        isAdminOrTeacherOrCounterPerson
           ? request('/reports/attendance-stats').catch(e => { console.error('Attendance error:', e); return []; })
           : Promise.resolve([]),
         // Contact messages: Admin only

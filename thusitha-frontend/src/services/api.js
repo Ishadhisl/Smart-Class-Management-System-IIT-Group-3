@@ -58,7 +58,27 @@ export const request = async (endpoint, { body, isFormData = false, noAuth = fal
     const contentType = response.headers.get('content-type'); // Get Content-Type header
     if (contentType?.includes('application/json')) { // Use optional chaining
       const errorData = await response.json();
-      throw new Error(errorData.message || errorData.error || `API Error: ${response.status}`);
+      const message = errorData.message || errorData.error || `API Error: ${response.status}`;
+
+      // Distinguish "your session itself is invalid" (missing/expired token - the auth
+      // middleware rejects the request before it ever reaches a route) from a normal,
+      // valid-session permission error (checkRole rejecting a role from one specific
+      // action). Only the former should force a clean re-login - otherwise a Teacher
+      // clicking something Admin-only would get silently logged out instead of just
+      // seeing "you're not allowed to do that".
+      const isAuthFailure = !noAuth && (
+        response.status === 401 ||
+        (response.status === 403 && (message === 'No token provided.' || message === 'Failed to authenticate token.'))
+      );
+      if (isAuthFailure) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          window.location.href = '/login';
+        }
+      }
+
+      throw new Error(message);
     } else {
       throw new Error(`API Error: ${response.status} - Server returned non-JSON response.`);
     }
