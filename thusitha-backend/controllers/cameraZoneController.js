@@ -47,6 +47,9 @@ exports.updateZone = async (req, res) => {
       'UPDATE Camera_Zones SET zone_name = $1, camera_url = $2, position = $3 WHERE zone_id = $4 RETURNING *',
       [zone_name, camera_url, position, zoneId]
     );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'කැමරා කලාපය හමුවුනේ නැත.' });
+    }
     await auditService.logAction(req.user.userId, req.user.role, 'UPDATE', 'Camera_Zone', zoneId, `Updated camera zone: ${zone_name}`);
     res.json({ message: 'කැමරා කලාපය සාර්ථකව යාවත්කාලීන කරන ලදී.', zone: result.rows[0] });
   } catch (err) {
@@ -59,7 +62,10 @@ exports.updateZone = async (req, res) => {
 exports.deleteZone = async (req, res) => {
   const { zoneId } = req.params;
   try {
-    await db.pool.query('DELETE FROM Camera_Zones WHERE zone_id = $1', [zoneId]);
+    const result = await db.pool.query('DELETE FROM Camera_Zones WHERE zone_id = $1 RETURNING *', [zoneId]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'කැමරා කලාපය හමුවුනේ නැත.' });
+    }
     await auditService.logAction(req.user.userId, req.user.role, 'DELETE', 'Camera_Zone', zoneId, `Deleted camera zone ID: ${zoneId}`);
     res.json({ message: 'කැමරා කලාපය සාර්ථකව ඉවත් කරන ලදී.' });
   } catch (err) {

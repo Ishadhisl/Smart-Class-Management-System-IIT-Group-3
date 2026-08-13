@@ -27,6 +27,16 @@ exports.uploadMaterial = async (req, res) => {
     }
     const teacher_id = courseRes.rows[0].teacher_id;
 
+    // 🛡️ A Teacher may only upload materials for a course they actually teach
+    // (Admin can upload for any course).
+    if (req.user.role === 'Teacher') {
+      const ownerCheck = await db.pool.query('SELECT 1 FROM Teachers WHERE teacher_id = $1 AND user_id = $2', [teacher_id, req.user.userId]);
+      if (ownerCheck.rows.length === 0) {
+        if (req.file) fs.unlinkSync(req.file.path);
+        return res.status(403).json({ message: "ඔබ මෙම පන්තියේ ගුරුවරයා නොවේ. (You do not teach this course)" });
+      }
+    }
+
     const query = `
       INSERT INTO Learning_Materials (course_id, teacher_id, material_title, material_type, uploaded_file)
       VALUES ($1, $2, $3, $4, $5)

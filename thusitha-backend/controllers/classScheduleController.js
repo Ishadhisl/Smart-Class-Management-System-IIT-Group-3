@@ -21,11 +21,13 @@ const checkConflict = async (client, { hall_id, lecturer_id, day_of_week, start_
         (cs.end_time > $2 AND cs.end_time <= $3) -- New schedule ends within existing
       )
       AND (cs.hall_id = $4 OR (c.teacher_id IS NOT NULL AND c.teacher_id = $5))
-      ${exclude_schedule_id ? `AND cs.schedule_id != ${exclude_schedule_id}` : ''}
+      ${exclude_schedule_id ? 'AND cs.schedule_id != $6' : ''}
     LIMIT 1;
   `;
 
-  const conflictResult = await client.query(conflictQuery, [day_of_week, start_time, end_time, hall_id, lecturer_id]);
+  const params = [day_of_week, start_time, end_time, hall_id, lecturer_id];
+  if (exclude_schedule_id) params.push(exclude_schedule_id);
+  const conflictResult = await client.query(conflictQuery, params);
   return conflictResult.rows[0];
 };
 
@@ -46,6 +48,7 @@ exports.createClassSchedule = async (req, res) => {
     // 💡 Conflict Prevention Logic
     const conflict = await checkConflict(client, { hall_id, lecturer_id, day_of_week: normalizedDay, start_time, end_time });
     if (conflict) {
+      await client.query('ROLLBACK');
       return res.status(409).json({ error: `කාලසටහන ගැටුමක් ඇත: ${conflict.class_name} (${conflict.lecturer_name} / ${conflict.hall_name})` });
     }
 
@@ -144,6 +147,7 @@ exports.updateClassSchedule = async (req, res) => {
     // 💡 Conflict Prevention Logic (excluding current schedule)
     const conflict = await checkConflict(client, { hall_id, lecturer_id, day_of_week: normalizedDay, start_time, end_time, exclude_schedule_id: id });
     if (conflict) {
+      await client.query('ROLLBACK');
       return res.status(409).json({ error: `කාලසටහන ගැටුමක් ඇත: ${conflict.class_name} (${conflict.lecturer_name} / ${conflict.hall_name})` });
     }
 
