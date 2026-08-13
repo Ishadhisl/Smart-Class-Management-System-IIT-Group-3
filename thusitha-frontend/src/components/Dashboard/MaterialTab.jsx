@@ -11,7 +11,7 @@ const MaterialTab = ({ courses }) => {
   const [loading, setLoading] = useState(false);
   const { showNotification } = useNotification();
 
-  const userData = localStorage.getItem('user');
+  const userData = sessionStorage.getItem('user');
   const user = userData ? JSON.parse(userData) : null;
   const isStudent = user?.role === 'Student';
 

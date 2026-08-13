@@ -48,7 +48,7 @@ import Button from '../../components/common/Button';
 const Dashboard = () => {
   const navigate = useNavigate();
   const { showNotification } = useNotification();
-  const userData = localStorage.getItem('user');
+  const userData = sessionStorage.getItem('user');
   const user = userData ? JSON.parse(userData) : null;
 
   const [activeTab, setActiveTab] = useState('home');
@@ -1210,8 +1210,7 @@ const Dashboard = () => {
 
 
   const handleLogout = () => {
-    localStorage.removeItem('token'); // Remove token from localStorage
-    localStorage.clear();
+    sessionStorage.clear();
     navigate('/');
   };
 

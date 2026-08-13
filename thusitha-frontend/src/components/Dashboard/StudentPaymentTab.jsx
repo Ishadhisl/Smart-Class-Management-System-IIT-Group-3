@@ -12,7 +12,7 @@ const StudentPaymentTab = ({ courses }) => {
   const [selectedMonth, setSelectedMonth] = useState('');
   const [uploadFile, setUploadFile] = useState(null);
   
-  const user = JSON.parse(localStorage.getItem('user'));
+  const user = JSON.parse(sessionStorage.getItem('user'));
 
   useEffect(() => {
     fetchPayments();

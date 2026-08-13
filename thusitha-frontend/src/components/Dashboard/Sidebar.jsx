@@ -14,7 +14,7 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role }) => {
   const [sidebarWidth, setSidebarWidth] = useState(288); // Default 72rem = 288px
   const [isResizing, setIsResizing] = useState(false);
 
-  const userData = localStorage.getItem('user');
+  const userData = sessionStorage.getItem('user');
   const user = userData ? JSON.parse(userData) : null;
 
   useEffect(() => {
@@ -94,8 +94,9 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role }) => {
       )}
       
       {/* Collapse Toggle */}
-      <button 
+      <button
         onClick={() => setIsCollapsed(!isCollapsed)}
+        aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         className="absolute -right-3 top-8 bg-white text-primary rounded-full p-1.5 shadow-glass z-50 hover:scale-110 transition-transform"
       >
         {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}

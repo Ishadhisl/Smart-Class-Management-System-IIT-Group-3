@@ -29,7 +29,10 @@ export const request = async (endpoint, { body, isFormData = false, noAuth = fal
     headers['Content-Type'] = 'application/json';
   }
 
-  const token = localStorage.getItem('token');
+  // sessionStorage (not localStorage) so each browser tab keeps its own independent login -
+  // localStorage is shared across every tab of the same origin, so logging into a different
+  // account in one tab would silently switch the session in every other open tab too.
+  const token = sessionStorage.getItem('token');
   if (token && !noAuth) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -71,8 +74,8 @@ export const request = async (endpoint, { body, isFormData = false, noAuth = fal
         (response.status === 403 && (message === 'No token provided.' || message === 'Failed to authenticate token.'))
       );
       if (isAuthFailure) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
           window.location.href = '/login';
         }

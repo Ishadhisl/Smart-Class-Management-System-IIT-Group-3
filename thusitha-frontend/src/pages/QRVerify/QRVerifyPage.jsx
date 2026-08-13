@@ -96,7 +96,7 @@ const QRVerifyPage = () => {
   const [errorMsg, setErrorMsg]     = useState('');
   const hasAttempted = useRef(false);
 
-  const isAuthenticated = () => !!localStorage.getItem('token');
+  const isAuthenticated = () => !!sessionStorage.getItem('token');
 
   // ── Handle redirect if not logged in ─────────────────────────────────────────
   const redirectToLogin = () => {
@@ -142,7 +142,7 @@ const QRVerifyPage = () => {
         msg.toLowerCase().includes('token') ||
         msg.toLowerCase().includes('unauthorized')
       ) {
-        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
         redirectToLogin();
         return;
       }
@@ -156,7 +156,7 @@ const QRVerifyPage = () => {
       } else if (msg.includes('QR_INVALID') || msg.toLowerCase().includes('invalid')) {
         setUiState(STATES.QR_INVALID);
       } else if (msg.includes('FORBIDDEN') || msg.includes('Student')) {
-        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
         setUiState(STATES.FORBIDDEN);
       } else if (!navigator.onLine) {
         setUiState(STATES.NETWORK_ERROR);
