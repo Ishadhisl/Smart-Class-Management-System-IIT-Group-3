@@ -5,6 +5,7 @@ const { verifyToken, checkRole } = require('../middleware/authMiddleware');
 
 // Protected routes for various reports
 router.get('/revenue', verifyToken, checkRole(['Admin']), reportController.getMonthlyRevenue);
+router.get('/current-month-revenue', verifyToken, checkRole(['Admin', 'Counter Person', 'Teacher']), reportController.getCurrentMonthRevenue);
 router.get('/attendance-stats', verifyToken, checkRole(['Admin', 'Teacher', 'Counter Person']), reportController.getDailyAttendanceStats);
 router.get('/punctuality', verifyToken, checkRole(['Admin', 'Teacher']), reportController.getStudentPunctuality);
 router.get('/hall-utilization', verifyToken, checkRole(['Admin']), reportController.getHallUtilization);

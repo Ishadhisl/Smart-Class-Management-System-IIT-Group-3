@@ -63,6 +63,7 @@ const Dashboard = () => {
   const [halls, setHalls] = useState([]);
   const [parents, setParents] = useState([]);
   const [revenueData, setRevenueData] = useState([]);
+  const [currentMonthRevenue, setCurrentMonthRevenue] = useState(null);
   const [inquiries, setInquiries] = useState([]);
   const [attendanceStats, setAttendanceStats] = useState([]);
   const [smsLogs, setSmsLogs] = useState([]);
@@ -165,6 +166,7 @@ const Dashboard = () => {
         setSubjects([]);
         setHalls([]);
         setRevenueData([]);
+        setCurrentMonthRevenue(null);
         setAttendanceStats([]);
         setInquiries([]);
         setSmsLogs([]);
@@ -190,6 +192,7 @@ const Dashboard = () => {
         subjectData,
         hallData,
         revData,
+        currentMonthRevData,
         attData,
         msgData,
         seatData,
@@ -233,6 +236,10 @@ const Dashboard = () => {
         isAdmin
           ? request('/reports/revenue').catch(e => { console.error('Revenue error:', e); return []; })
           : Promise.resolve([]),
+        // This month's income: Admin/Counter Person (institute-wide) or Teacher (their own courses)
+        isAdminOrTeacherOrCounterPerson
+          ? request('/reports/current-month-revenue').catch(e => { console.error('Current month revenue error:', e); return null; })
+          : Promise.resolve(null),
         // Attendance stats: Admin, Teacher, or Counter Person
         isAdminOrTeacherOrCounterPerson
           ? request('/reports/attendance-stats').catch(e => { console.error('Attendance error:', e); return []; })
@@ -275,6 +282,7 @@ const Dashboard = () => {
       setSubjects(subjectData || []);
       setHalls(hallData || []);
       setRevenueData(revData || []);
+      setCurrentMonthRevenue(currentMonthRevData?.total ?? null);
       setAttendanceStats(attData || []);
       setInquiries(msgData || []);
       setStudySeats(seatData || []);
@@ -1318,6 +1326,7 @@ const Dashboard = () => {
                     userCount={displayUserCount}
                     enrolledCourses={enrolledCourses}
                     revenueData={revenueData}
+                    currentMonthRevenue={currentMonthRevenue}
                     attendanceData={attendanceStats}
                     profilePhotoPath={profilePhotoPath}
                   />

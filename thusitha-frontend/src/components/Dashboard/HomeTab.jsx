@@ -28,7 +28,7 @@ const getImageUrl = (path) => {
   return `${API_URL}${prefix}${cleanPath}`;
 };
 
-const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, revenueData, attendanceData, profilePhotoPath }) => {
+const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, revenueData, currentMonthRevenue, attendanceData, profilePhotoPath }) => {
   const isStudent = role === 'Student';
   const isParent = role === 'Parent';
   const greeting = useMemo(() => getGreeting(), []);
@@ -66,6 +66,8 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
   }
 
   const isAdminRole = role === 'Admin';
+  const canSeeIncome = role === 'Admin' || role === 'Counter Person' || role === 'Teacher';
+  const hasCurrentMonthRevenue = typeof currentMonthRevenue === 'number';
   const actualRevenueData = Array.isArray(revenueData) ? revenueData : [];
   const hasRevenueData = actualRevenueData.length > 0;
 
@@ -275,9 +277,9 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
             icon: BookOpen, label: 'පන්ති / පරිශීලකයින්', value: userCount,
             gradient: 'from-pink-500 to-rose-600', bgLight: 'bg-pink-50', iconColor: 'text-pink-600'
           },
-          ...(isAdminRole ? [{
-            icon: TrendingUp, label: 'මාසික ආදායම',
-            value: hasRevenueData ? `Rs.${(actualRevenueData[actualRevenueData.length - 1]?.total || 0).toLocaleString()}` : 'දත්ත නැත',
+          ...(canSeeIncome ? [{
+            icon: TrendingUp, label: 'මෙම මාසයේ ආදායම',
+            value: hasCurrentMonthRevenue ? `Rs.${currentMonthRevenue.toLocaleString()}` : 'දත්ත නැත',
             gradient: 'from-emerald-500 to-green-600', bgLight: 'bg-emerald-50', iconColor: 'text-emerald-600'
           }] : []),
           {
@@ -442,6 +444,7 @@ HomeTab.propTypes = {
       total: PropTypes.number.isRequired,
     })
   ).isRequired,
+  currentMonthRevenue: PropTypes.number,
   attendanceData: PropTypes.arrayOf(
     PropTypes.shape({
       class_name: PropTypes.string,

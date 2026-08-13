@@ -3,7 +3,7 @@ const db = require('../db');
 exports.getMonthlyRevenue = async (req, res) => {
   try {
     const query = `
-      SELECT 
+      SELECT
         TO_CHAR(payment_date, 'Month') AS month,
         SUM(amount_paid) AS total
       FROM Payments
@@ -15,6 +15,34 @@ exports.getMonthlyRevenue = async (req, res) => {
   } catch (error) {
     console.error('❌ Report Error:', error.message);
     res.status(500).json({ message: "වාර්තා ලබා ගැනීමට නොහැකි විය.", error: error.message });
+  }
+};
+
+// 💰 Current calendar month's income - Admin/Counter Person see the institute-wide total,
+// a Teacher sees only what their own courses brought in this month.
+exports.getCurrentMonthRevenue = async (req, res) => {
+  try {
+    const { role, userId } = req.user;
+    let query = `SELECT COALESCE(SUM(p.amount_paid), 0) AS total FROM Payments p`;
+    const params = [];
+
+    if (role === 'Teacher') {
+      query += `
+        JOIN Courses c ON p.course_id = c.course_id
+        JOIN Teachers t ON c.teacher_id = t.teacher_id
+        WHERE t.user_id = $1
+          AND date_trunc('month', p.payment_date) = date_trunc('month', CURRENT_DATE)
+      `;
+      params.push(userId);
+    } else {
+      query += ` WHERE date_trunc('month', p.payment_date) = date_trunc('month', CURRENT_DATE)`;
+    }
+
+    const result = await db.pool.query(query, params);
+    res.status(200).json({ total: Number(result.rows[0].total) || 0 });
+  } catch (error) {
+    console.error('❌ Current Month Revenue Error:', error.message);
+    res.status(500).json({ message: "මාසික ආදායම ලබා ගැනීමට නොහැකි විය.", error: error.message });
   }
 };
 

@@ -8,20 +8,28 @@ const TimetableTab = ({ schedules, role }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Same single-use-SSO-key race as MaterialTab: StrictMode (or an unmount mid-fetch when
+    // the user switches tabs away) can leave a stale response to apply itself after a newer
+    // one already has, or after this tab isn't even showing anymore. `ignore` discards it.
+    let ignore = false;
+
     const fetchEmbedUrl = async () => {
       try {
         const data = await request(`/moodle-sso/embed-url?page=calendar`);
+        if (ignore) return;
         if (data && data.embedUrl) {
           setEmbedUrl(data.embedUrl);
         }
       } catch (err) {
+        if (ignore) return;
         console.error('Failed to fetch Moodle calendar URL:', err);
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     };
 
     fetchEmbedUrl();
+    return () => { ignore = true; };
   }, []);
 
   return (
