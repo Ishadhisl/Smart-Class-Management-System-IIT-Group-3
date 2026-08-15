@@ -17,7 +17,7 @@ const getApiUrl = () => {
     }
   }
 
-  return envUrl || 'http://localhost:5000';
+  return envUrl || 'https://localhost:5000';
 };
 
 export const API_URL = getApiUrl();

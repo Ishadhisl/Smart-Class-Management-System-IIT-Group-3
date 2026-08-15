@@ -2,6 +2,17 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const os = require('os'); // Network IP detection
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
+
+// Same locally-trusted dev certificate the frontend (Vite) uses - see vite.config.js for why:
+// navigator.mediaDevices (webcam access) needs a secure context, and an https frontend page
+// calling this API over plain http would also get blocked by the browser as mixed content.
+const httpsOptions = {
+  key: fs.readFileSync(path.resolve(__dirname, '..', 'certs', 'dev-key.pem')),
+  cert: fs.readFileSync(path.resolve(__dirname, '..', 'certs', 'dev-cert.pem')),
+};
 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -104,11 +115,11 @@ app.get('/api/system/ip', (req, res) => {
     const frontendPort = 5173;
     res.json({
       ip: networkIp || '127.0.0.1',
-      backendUrl: `http://${networkIp || 'localhost'}:${port}`,
-      frontendUrl: `http://${networkIp || 'localhost'}:${frontendPort}`
+      backendUrl: `https://${networkIp || 'localhost'}:${port}`,
+      frontendUrl: `https://${networkIp || 'localhost'}:${frontendPort}`
     });
   } catch (e) {
-    res.json({ ip: '127.0.0.1', backendUrl: 'http://localhost:5000', frontendUrl: 'http://localhost:5173' });
+    res.json({ ip: '127.0.0.1', backendUrl: 'https://localhost:5000', frontendUrl: 'https://localhost:5173' });
   }
 });
 
@@ -160,7 +171,6 @@ app.use((err, req, res, next) => {
 
 const net = require('net');
 const { spawn } = require('child_process');
-const path = require('path');
 
 function startAIServer() {
   const pythonPath = 'python';
@@ -197,8 +207,8 @@ function checkAndStartAIServer() {
   client.connect(8000, '127.0.0.1');
 }
 
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+const server = https.createServer(httpsOptions, app).listen(PORT, () => {
+  console.log(`🚀 Server is running on https://localhost:${PORT}`);
   checkAndStartAIServer();
 });
 
@@ -207,7 +217,7 @@ initCronJobs(); // 💡 Automated tasks enabled
 
 // 📱 Initialize WhatsApp Client
 console.log('📱 Starting WhatsApp Service (whatsapp-web.js)...');
-console.log('👉 Scan the QR code in the terminal OR visit http://localhost:5000/api/sms/whatsapp-qr from Admin dashboard.');
+console.log('👉 Scan the QR code in the terminal OR visit https://localhost:5000/api/sms/whatsapp-qr from Admin dashboard.');
 initWhatsApp();
 
 module.exports = server;

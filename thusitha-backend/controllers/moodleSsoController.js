@@ -111,7 +111,12 @@ exports.getEmbedUrl = async (req, res) => {
     }
 
     // Pass wantsurl parameter to the SSO login url
-    const embedUrl = `${toRelativeMoodleUrl(response.loginurl)}&wantsurl=${encodeURIComponent(targetUrl)}`;
+    const relativeLoginUrl = toRelativeMoodleUrl(response.loginurl);
+    if (!relativeLoginUrl || typeof relativeLoginUrl !== 'string' || !relativeLoginUrl.startsWith('/')) {
+      console.error('❌ Moodle SSO returned an invalid login URL:', response.loginurl);
+      return res.status(502).json({ message: 'Moodle SSO login URL is invalid.' });
+    }
+    const embedUrl = `${relativeLoginUrl}&wantsurl=${encodeURIComponent(targetUrl)}`;
     
     res.json({ embedUrl, targetUrl });
   } catch (error) {

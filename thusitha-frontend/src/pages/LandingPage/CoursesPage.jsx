@@ -1,18 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, GraduationCap, User } from 'lucide-react';
 import { request } from '../../services/api';
+import { useNotification } from '../../context/NotificationContext';
+import Card from '../../components/common/Card';
+import Button from '../../components/common/Button';
+import Input from '../../components/common/Input';
+import Label from '../../components/common/Label';
+import Textarea from '../../components/common/Textarea';
+import Modal from '../../components/common/Modal';
 
 const CoursesPage = () => {
   const navigate = useNavigate();
+  const { showNotification } = useNotification();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Colors from our professional palette
-  const PRIMARY_NAVY = '#070D59';
-  const SECONDARY_BLUE = '#1F3C88';
-  const LIGHT_ACCENT_BLUE = '#5893D4';
-  const [isBackHovered, setIsBackHovered] = useState(false); // Hover state for back button
-  
   // Teacher Registration State
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
   const [teacherRegistering, setTeacherRegistering] = useState(false);
@@ -36,7 +39,7 @@ const CoursesPage = () => {
                           `උගන්වන විෂය: ${teacherForm.subject}\n` +
                           `සුදුසුකම්: ${teacherForm.qualifications}\n` +
                           `හැඳින්වීම: ${teacherForm.bio}`;
-      
+
       await request('/contact/submit', {
         method: 'POST',
         body: {
@@ -47,12 +50,12 @@ const CoursesPage = () => {
           message_text: messageText
         }
       });
-      alert('දේශක ලියාපදිංචි වීමේ අයදුම්පත සාර්ථකව ඉදිරිපත් කරන ලදී! පාලක මඩුල්ල විසින් ඉක්මනින් ඔබව සම්බන්ධ කරගනු ඇත.');
+      showNotification('දේශක ලියාපදිංචි වීමේ අයදුම්පත සාර්ථකව ඉදිරිපත් කරන ලදී! පාලක මඩුල්ල විසින් ඉක්මනින් ඔබව සම්බන්ධ කරගනු ඇත.');
       setIsTeacherModalOpen(false);
       setTeacherForm({ name: '', phone: '', email: '', subject: '', qualifications: '', bio: '' });
     } catch (err) {
       console.error('Teacher registration submit error:', err);
-      alert(err.message || 'ඉදිරිපත් කිරීමට නොහැකි විය. නැවත උත්සාහ කරන්න.');
+      showNotification(err.message || 'ඉදිරිපත් කිරීමට නොහැකි විය. නැවත උත්සාහ කරන්න.', 'error');
     } finally {
       setTeacherRegistering(false);
     }
@@ -80,170 +83,113 @@ const CoursesPage = () => {
   }, []);
 
   return (
-    <div style={{ fontFamily: "'Noto Sans Sinhala', sans-serif", minHeight: '100vh', backgroundColor: '#f5f7fa' }}>
-      {/* Simple Header */}
-      <header style={{ backgroundColor: 'white', padding: '20px 5%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', position: 'sticky', top: 0, zIndex: 100 }}>
-        <button
-          type="button"
-          style={{
-            display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer',
-            background: 'none', border: 'none', padding: 0, fontFamily: 'inherit',
-            color: 'inherit' // Ensure text color is inherited
-          }}
-          onClick={() => navigate('/')}
-        >
-          <img src="/Project%20LOGO.png" alt="Logo" style={{ width: '40px' }} />
-          <h2 style={{ margin: 0, color: PRIMARY_NAVY, fontSize: '20px' }}>Thusitha Smart Academy</h2>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="bg-white/85 backdrop-blur-md px-[5%] py-4 flex justify-between items-center shadow-sm sticky top-0 z-[100] border-b border-indigo-100">
+        <button type="button" className="flex items-center gap-2.5 cursor-pointer bg-transparent border-none p-0" onClick={() => navigate('/')}>
+          <img src="/Project%20LOGO.png" alt="Logo" className="w-10" />
+          <h2 className="m-0 text-primary-dark text-xl font-bold">Thusitha Smart Academy</h2>
         </button>
-        <button 
-          onClick={() => navigate('/')} 
-          onMouseEnter={() => setIsBackHovered(true)}
-          onMouseLeave={() => setIsBackHovered(false)}
-          style={{ 
-            background: isBackHovered ? PRIMARY_NAVY : 'none', 
-            border: `1px solid ${PRIMARY_NAVY}`, 
-            padding: '8px 20px', 
-            borderRadius: '5px', 
-            cursor: 'pointer', 
-            fontWeight: 'bold', 
-            color: isBackHovered ? 'white' : PRIMARY_NAVY, transition: 'all 0.3s ease' }}
-        >
+        <Button variant="outline" size="sm" icon={<ArrowLeft size={16} />} onClick={() => navigate('/')}>
           ආපසු (Back)
-        </button>
+        </Button>
       </header>
 
-      <main style={{ padding: '60px 5%' }}>
-        {/* Navigation Path (Breadcrumbs) */}
-        <div style={{ marginBottom: '20px', fontSize: '14px', color: '#666', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: SECONDARY_BLUE, fontWeight: '500', fontFamily: 'inherit', fontSize: 'inherit' }}
-            aria-label="Go to Home Page"
-          >
+      <main className="px-[5%] py-16">
+        {/* Breadcrumbs */}
+        <div className="mb-5 text-sm text-slate-500 flex items-center gap-2">
+          <button type="button" onClick={() => navigate('/')} className="bg-transparent border-none p-0 cursor-pointer text-primary font-medium" aria-label="Go to Home Page">
             මුල් පිටුව
           </button>
-          <span>&gt;</span>
-          <span style={{ color: PRIMARY_NAVY, fontWeight: 'bold' }}>අපගේ පන්ති</span>
+          <span>›</span>
+          <span className="text-primary-dark font-bold">අපගේ පන්ති</span>
         </div>
 
-        <div style={{ textAlign: 'center', marginBottom: '50px' }}>
-          <h1 style={{ color: PRIMARY_NAVY, fontSize: '36px', marginBottom: '15px' }}>අපගේ පන්ති සහ කාලසටහන්</h1>
-          <p style={{ color: '#666' }}>ඔබට ගැලපෙන විෂය සහ වේලාව තෝරාගන්න. ලියාපදිංචි වීමට පන්තිය මත ක්ලික් කරන්න.</p>
-          <button
-            onClick={() => setIsTeacherModalOpen(true)}
-            style={{
-              marginTop: '15px',
-              padding: '10px 25px',
-              backgroundColor: '#2e7d32',
-              color: 'white',
-              border: 'none',
-              borderRadius: '50px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              fontSize: '15px',
-              transition: 'background-color 0.3s ease',
-              boxShadow: '0 4px 10px rgba(46,125,50,0.2)'
-            }}
-            onMouseEnter={e => e.target.style.backgroundColor = '#1b5e20'}
-            onMouseLeave={e => e.target.style.backgroundColor = '#2e7d32'}
-          >
-            👨‍🏫 දේශකයා (Teacher) ලියාපදිංචි වන්න
-          </button>
+        <div className="text-center mb-12">
+          <h1 className="text-primary-dark text-4xl font-bold mb-4">අපගේ පන්ති සහ කාලසටහන්</h1>
+          <p className="text-slate-500">ඔබට ගැලපෙන විෂය සහ වේලාව තෝරාගන්න. ලියාපදිංචි වීමට පන්තිය මත ක්ලික් කරන්න.</p>
+          <Button variant="success" className="!rounded-full mt-4" icon={<User size={16} />} onClick={() => setIsTeacherModalOpen(true)}>
+            දේශකයා (Teacher) ලියාපදිංචි වන්න
+          </Button>
         </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '50px' }}>පූරණය වෙමින්...</div>
+          <div className="text-center py-12 text-primary">පූරණය වෙමින්...</div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '30px' }}>
+          <div className="grid gap-7" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
             {courses.length > 0 ? courses.map(course => (
-              <div 
-                key={course.course_id}
-                style={{ 
-                  backgroundColor: 'white', 
-                  borderRadius: '15px', 
-                  overflow: 'hidden', 
-                  boxShadow: '0 10px 20px rgba(0,0,0,0.05)',
-                  transition: 'transform 0.3s ease',
-                  border: '1px solid #eee',
-                  display: 'flex',
-                  flexDirection: 'column'
-                }}
-              >
-                <div style={{ backgroundColor: PRIMARY_NAVY, padding: '20px', color: 'white' }}>
-                  <h3 style={{ margin: 0, fontSize: '20px' }}>{course.course_name}</h3>
-                  <div style={{ fontSize: '13px', opacity: 0.8, marginTop: '5px' }}>{course.subject_name}</div>
+              <Card key={course.course_id} hover padding="p-0" className="!rounded-2xl overflow-hidden flex flex-col">
+                <div className="bg-gradient-to-br from-primary-dark to-primary p-5 text-white">
+                  <h3 className="m-0 text-lg font-bold">{course.course_name}</h3>
+                  <div className="text-[13px] opacity-80 mt-1">{course.subject_name}</div>
                 </div>
-                
-                <div style={{ padding: '25px', flexGrow: 1 }}>
-                  <div style={{ marginBottom: '15px' }}>
-                    <small style={{ color: '#888', fontWeight: 'bold', display: 'block' }}>දේශකයා (Teacher)</small>
-                    <div style={{ color: SECONDARY_BLUE, fontSize: '18px', fontWeight: 'bold' }}>{course.lecturer_name || 'විස්තර ලබා ගත නොහැක'}</div>
+
+                <div className="p-6 flex-grow">
+                  <div className="mb-4">
+                    <small className="text-slate-400 font-bold block">දේශකයා (Teacher)</small>
+                    <div className="text-primary text-lg font-bold">{course.lecturer_name || 'විස්තර ලබා ගත නොහැක'}</div>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #eee' }}>
+                  <div className="flex justify-between items-center mt-5 pt-4 border-t border-slate-100">
                     <div>
-                      <small style={{ color: '#888', fontWeight: 'bold', display: 'block' }}>මාසික ගාස්තුව</small>
-                      <div style={{ color: '#2e7d32', fontSize: '20px', fontWeight: '800' }}>Rs. {course.monthly_fee}</div>
+                      <small className="text-slate-400 font-bold block">මාසික ගාස්තුව</small>
+                      <div className="text-success text-xl font-extrabold">Rs. {course.monthly_fee}</div>
                     </div>
-                    <button 
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="!rounded-full"
                       onClick={() => navigate('/', { state: { openRegister: true, courseId: course.course_id } })}
-                      style={{ backgroundColor: LIGHT_ACCENT_BLUE, color: 'white', border: 'none', padding: '10px 20px', borderRadius: '50px', fontWeight: 'bold', cursor: 'pointer' }}
                     >
                       ලියාපදිංචි වන්න
-                    </button>
+                    </Button>
                   </div>
                 </div>
-              </div>
+              </Card>
             )) : (
-              <div style={{ textAlign: 'center', gridColumn: '1 / -1' }}>පන්ති දත්ත සොයාගත නොහැක.</div>
+              <div className="text-center col-span-full text-slate-400">පන්ති දත්ත සොයාගත නොහැක.</div>
             )}
           </div>
         )}
-      {/* Teacher Registration Modal */}
-      {isTeacherModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box' }}>
-          <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '15px', maxWidth: '500px', width: '100%', position: 'relative', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', boxSizing: 'border-box' }}>
-            <button onClick={() => setIsTeacherModalOpen(false)} style={{ position: 'absolute', top: '15px', right: '15px', border: 'none', background: 'none', fontSize: '28px', cursor: 'pointer', color: '#666' }}>&times;</button>
-            <h2 style={{ color: PRIMARY_NAVY, marginBottom: '10px', textAlign: 'center', fontSize: '22px', fontWeight: 'bold' }}>දේශකයා (Teacher) ලියාපදිංචිය</h2>
-            <p style={{ textAlign: 'center', color: '#666', marginBottom: '20px', fontSize: '13px' }}>ඔබේ තොරතුරු ඇතුළත් කර අයදුම්පත ඉදිරිපත් කරන්න.</p>
-            
-            <form onSubmit={handleTeacherRegisterSubmit}>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>නම *</label>
-                <input type="text" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box' }} value={teacherForm.name} onChange={e => setTeacherForm({...teacherForm, name: e.target.value})} required />
-              </div>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>දුරකථනය *</label>
-                  <input type="tel" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box' }} value={teacherForm.phone} onChange={e => setTeacherForm({...teacherForm, phone: e.target.value})} required />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>විෂයය *</label>
-                  <input type="text" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box' }} value={teacherForm.subject} onChange={e => setTeacherForm({...teacherForm, subject: e.target.value})} required />
-                </div>
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>ඊමේල් ලිපිනය</label>
-                <input type="email" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box' }} value={teacherForm.email} onChange={e => setTeacherForm({...teacherForm, email: e.target.value})} />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>සුදුසුකම් *</label>
-                <input type="text" placeholder="BSc, PhD, A/L Physics..." style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box' }} value={teacherForm.qualifications} onChange={e => setTeacherForm({...teacherForm, qualifications: e.target.value})} required />
-              </div>
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>දේශක විස්තරය (Bio) *</label>
-                <textarea rows={4} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box', fontFamily: 'inherit' }} value={teacherForm.bio} onChange={e => setTeacherForm({...teacherForm, bio: e.target.value})} required />
-              </div>
-              
-              <button type="submit" disabled={teacherRegistering} style={{ width: '100%', padding: '14px', backgroundColor: PRIMARY_NAVY, color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', opacity: teacherRegistering ? 0.7 : 1 }}>
-                {teacherRegistering ? 'යවමින් පවතී...' : 'අයදුම්පත ඉදිරිපත් කරන්න'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
       </main>
+
+      {/* Teacher Registration Modal */}
+      <Modal open={isTeacherModalOpen} onClose={() => setIsTeacherModalOpen(false)} title="දේශකයා (Teacher) ලියාපදිංචිය" maxWidth="max-w-lg">
+        <p className="text-center text-slate-500 mb-5 text-[13px]">ඔබේ තොරතුරු ඇතුළත් කර අයදුම්පත ඉදිරිපත් කරන්න.</p>
+
+        <form onSubmit={handleTeacherRegisterSubmit}>
+          <div className="mb-4">
+            <Label>නම *</Label>
+            <Input type="text" value={teacherForm.name} onChange={e => setTeacherForm({ ...teacherForm, name: e.target.value })} required />
+          </div>
+          <div className="flex gap-3 mb-4">
+            <div className="flex-1">
+              <Label>දුරකථනය *</Label>
+              <Input type="tel" value={teacherForm.phone} onChange={e => setTeacherForm({ ...teacherForm, phone: e.target.value })} required />
+            </div>
+            <div className="flex-1">
+              <Label>විෂයය *</Label>
+              <Input type="text" value={teacherForm.subject} onChange={e => setTeacherForm({ ...teacherForm, subject: e.target.value })} required />
+            </div>
+          </div>
+          <div className="mb-4">
+            <Label>ඊමේල් ලිපිනය</Label>
+            <Input type="email" value={teacherForm.email} onChange={e => setTeacherForm({ ...teacherForm, email: e.target.value })} />
+          </div>
+          <div className="mb-4">
+            <Label>සුදුසුකම් *</Label>
+            <Input type="text" placeholder="BSc, PhD, A/L Physics..." value={teacherForm.qualifications} onChange={e => setTeacherForm({ ...teacherForm, qualifications: e.target.value })} required />
+          </div>
+          <div className="mb-6">
+            <Label>දේශක විස්තරය (Bio) *</Label>
+            <Textarea rows={4} value={teacherForm.bio} onChange={e => setTeacherForm({ ...teacherForm, bio: e.target.value })} required />
+          </div>
+
+          <Button type="submit" variant="primary" size="lg" fullWidth loading={teacherRegistering} icon={<GraduationCap size={18} />}>
+            {teacherRegistering ? 'යවමින් පවතී...' : 'අයදුම්පත ඉදිරිපත් කරන්න'}
+          </Button>
+        </form>
+      </Modal>
     </div>
   );
 };

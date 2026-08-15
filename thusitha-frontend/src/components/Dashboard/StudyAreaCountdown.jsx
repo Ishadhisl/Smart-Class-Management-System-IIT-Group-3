@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { request } from '../../services/api';
 
@@ -43,11 +43,11 @@ const StudyAreaCountdown = ({ expectedArrivalTime, bookingId, onExpire }) => {
   }, [expectedArrivalTime, onExpire]);
 
   if (isExpired) {
-    return <span style={{ color: '#d32f2f', fontWeight: 'bold' }}>Auto-cancelling...</span>;
+    return <span className="text-danger font-bold">Auto-cancelling...</span>;
   }
 
   return (
-    <span style={{ color: '#ffeb3b', fontWeight: 'bold', fontSize: '10px' }}>
+    <span className="text-warning font-bold text-[10px]">
       ⏳ {timeLeft}
     </span>
   );

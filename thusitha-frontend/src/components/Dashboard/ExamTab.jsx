@@ -370,8 +370,7 @@ const CreateExamModal = ({ courseId, onClose, onSuccess }) => {
     try {
       await request('/exams', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, course_id: courseId })
+        body: { ...formData, course_id: courseId }
       });
       onSuccess();
     } catch (err) {

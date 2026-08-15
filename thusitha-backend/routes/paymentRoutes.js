@@ -6,7 +6,7 @@ const upload = require('../middleware/uploadMiddleware');
 
 // Protected routes for payment management
 router.post('/', verifyToken, checkRole(['Admin', 'Counter Person']), paymentController.recordPayment);
-router.get('/', verifyToken, checkRole(['Admin', 'Counter Person']), paymentController.getAllPayments);
+router.get('/', verifyToken, checkRole(['Admin', 'Counter Person', 'Teacher']), paymentController.getAllPayments);
 router.post('/create-checkout-session', verifyToken, checkRole(['Student']), paymentController.createStripeSession);
 router.post('/manual', verifyToken, checkRole(['Student']), upload.single('receipt'), paymentController.submitManualPayment);
 router.get('/student/:studentId', verifyToken, checkRole(['Admin', 'Counter Person', 'Parent', 'Student']), paymentController.getStudentPayments);

@@ -37,7 +37,7 @@ const MaterialTab = ({ courses }) => {
         const courseName = courses.find(c => String(c.course_id) === String(selectedCourse))?.course_name || '';
         const data = await request(`/moodle-sso/embed-url?page=course&course_id=${selectedCourse}&course_name=${encodeURIComponent(courseName)}`);
         if (ignore) return;
-        if (data && data.embedUrl) {
+        if (data && data.embedUrl && typeof data.embedUrl === 'string' && data.embedUrl.startsWith('/')) {
           setEmbedUrl(data.embedUrl);
         } else {
           setEmbedUrl('');

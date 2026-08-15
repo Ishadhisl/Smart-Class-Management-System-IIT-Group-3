@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { request } from '../../services/api';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { request, API_URL as API_BASE } from '../../services/api';
 
 const AttendanceValidationTab = ({ halls, activeSessions, onSendAlert, onBulkNotify, onVerifyFace }) => {
   const [sessionId, setSessionId] = useState('');

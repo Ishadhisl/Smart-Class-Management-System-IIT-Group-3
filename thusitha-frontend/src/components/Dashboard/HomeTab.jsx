@@ -199,6 +199,10 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
+  // Admin and Counter Person both see the total non-student account count here; Teacher sees
+  // their own course count instead, so it gets a distinct label.
+  const userCountLabel = role === 'Teacher' ? 'පන්ති' : 'පරිශීලකයින්';
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -274,7 +278,7 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
             gradient: 'from-blue-500 to-indigo-600', bgLight: 'bg-blue-50', iconColor: 'text-blue-600'
           },
           {
-            icon: BookOpen, label: 'පන්ති / පරිශීලකයින්', value: userCount,
+            icon: BookOpen, label: userCountLabel, value: userCount,
             gradient: 'from-pink-500 to-rose-600', bgLight: 'bg-pink-50', iconColor: 'text-pink-600'
           },
           ...(canSeeIncome ? [{

@@ -72,6 +72,20 @@ const FaceVerificationTab = ({ activeSessions, students }) => {
     setError(null);
     setResult(null);
     setPhoto(null);
+
+    // navigator.mediaDevices only exists in a "secure context" (HTTPS, or http://localhost).
+    // This app is also served over the LAN IP (for phone QR scanning), and opening the
+    // dashboard from that IP over plain HTTP silently leaves mediaDevices undefined -
+    // calling .getUserMedia on it then throws instead of hitting the catch block below.
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError(
+        window.isSecureContext
+          ? "මෙම උපාංගය/බ්‍රවුසරය කැමරාවට සහාය නොදක්වයි."
+          : "කැමරාවට ප්‍රවේශය සඳහා මෙම පිටුව http://localhost:5173 හරහා විවෘත කළ යුතුයි (දැනට IP ලිපිනයකින් හෝ HTTPS නොමැතිව විවෘත කර ඇත)."
+      );
+      return;
+    }
+
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: 'user' }
@@ -130,10 +144,19 @@ const FaceVerificationTab = ({ activeSessions, students }) => {
         }
       });
       setResult({ success: true, message: response.message });
+      // Dispatch event so SmartAttendanceLivePanel can update annotated CCTV image
+      window.dispatchEvent(new CustomEvent('faceVerifySuccess', {
+        detail: {
+          session_id: Number(sessionId),
+          student_id: Number(studentId),
+          annotated_image_url: response.annotated_image_url || null
+        }
+      }));
       // Remove verified student from list
       setFilteredStudents(prev => prev.filter(s => s.student_id !== Number(studentId)));
       setStudentId('');
       setPhoto(null);
+
     } catch (err) {
       setError(err.message || 'මුහුණු සත්‍යාපනය අසාර්ථකයි.');
       setResult({ success: false });

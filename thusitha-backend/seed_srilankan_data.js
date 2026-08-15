@@ -30,6 +30,15 @@ async function seedData() {
       console.log('✅ Admin user created: admin / 123456');
     }
 
+    // This script is not idempotent internally (courses/students/payments/etc. all
+    // insert unconditionally), so re-running it after a previous successful seed
+    // duplicates every downstream table, not just Teachers. Bail out early instead.
+    const seedMarker = await pool.query("SELECT 1 FROM Courses WHERE course_name = 'Grade 10 Science - Sunil Perera'");
+    if (seedMarker.rows.length > 0) {
+      console.log('⏭️  Sri Lankan demo data already seeded — skipping to avoid duplicating Courses/Students/Payments/Attendance. Delete the seeded rows first if you want to reseed.');
+      process.exit(0);
+    }
+
     const randStr = Math.random().toString(36).substring(2, 7);
 
     console.log('Inserting Teachers...');

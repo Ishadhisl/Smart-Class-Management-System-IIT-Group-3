@@ -57,7 +57,7 @@ exports.createStripeSession = async (req, res) => {
     }
 
     const stripeKey = process.env.STRIPE_SECRET_KEY || 'sk_test_51Px_placeholder';
-    const successUrl = `http://localhost:5173/dashboard?payment=success&course=${course_id}&month=${for_month}`;
+    const successUrl = `https://localhost:5173/dashboard?payment=success&course=${course_id}&month=${for_month}`;
 
     // If we only have the placeholder key, simulate a dummy sandbox payment success URL
     if (stripeKey === 'sk_test_51Px_placeholder') {
@@ -85,7 +85,7 @@ exports.createStripeSession = async (req, res) => {
       }],
       mode: 'payment',
       success_url: successUrl,
-      cancel_url: `http://localhost:5173/dashboard?payment=cancel`,
+      cancel_url: `https://localhost:5173/dashboard?payment=cancel`,
       metadata: { student_id: resolvedStudentId, course_id, for_month, amount_paid: courseFee }
     });
 

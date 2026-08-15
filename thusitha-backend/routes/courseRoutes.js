@@ -10,5 +10,6 @@ router.get('/', verifyToken, checkRole(['Admin', 'Counter Person', 'Teacher', 'S
 router.post('/', verifyToken, checkRole(['Admin']), courseController.createCourse);
 router.put('/:id', verifyToken, checkRole(['Admin']), courseController.updateCourse);
 router.delete('/:id', verifyToken, checkRole(['Admin']), courseController.deleteCourse);
+router.put('/:id/restore', verifyToken, checkRole(['Admin']), courseController.restoreCourse);
 
 module.exports = router;

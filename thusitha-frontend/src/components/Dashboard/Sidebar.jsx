@@ -145,7 +145,7 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role }) => {
           
           {['Admin', 'Counter Person', 'Teacher'].includes(role) && renderButton('students', <Users size={20}/>, 'ශිෂ්‍ය ලේඛනය')}
           
-          {isAdmin && renderButton('teachers', <Users size={20}/>, 'ගුරු ලේඛනය')}
+          {(isAdmin || isCounterPerson) && renderButton('teachers', <Users size={20}/>, 'ගුරු ලේඛනය')}
 
           {role === 'Counter Person' && renderButton('approvals', <Clock size={20}/>, 'ශිෂ්‍ය අනුමැතිය')}
 

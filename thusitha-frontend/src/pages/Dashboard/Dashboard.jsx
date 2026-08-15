@@ -210,8 +210,8 @@ const Dashboard = () => {
         isStaff
           ? (isTeacher ? studentService.getMyStudents() : studentService.getAllStudents()).catch(e => { console.error('Students error:', e); return []; })
           : Promise.resolve([]),
-        // Classes/Users: Admin only
-        isAdmin
+        // Classes/Users: Admin, Counter Person
+        isAdminOrCounterPerson
           ? classService.getAllClasses().catch(e => { console.error('Classes error:', e); return []; })
           : Promise.resolve([]),
         // Parents: Admin or Counter Person
@@ -220,8 +220,8 @@ const Dashboard = () => {
           : Promise.resolve([]),
         // Courses: All roles
         request('/courses').catch(e => { console.error('Courses error:', e); return []; }),
-        // Teachers: Admin or Teacher
-        isAdminOrTeacher
+        // Teachers: Admin, Teacher, or Counter Person
+        isAdminOrTeacherOrCounterPerson
           ? request('/teachers').catch(e => { console.error('Teachers error:', e); return []; })
           : Promise.resolve([]),
         // Subjects: Admin or Teacher
@@ -1308,7 +1308,7 @@ const Dashboard = () => {
                 }
                 const profilePhotoPath = isStudent
                   ? (myProfilePhoto || null)
-                  : (resolvedPhoto || currentTeacher?.profile_photo_path || null);
+                  : (currentTeacher?.profile_photo_path || resolvedPhoto || null);
 
                 let displayUserCount = classes.length;
 
@@ -1347,9 +1347,10 @@ const Dashboard = () => {
               )}
 
               {/* TEACHERS TAB */}
-              {!loading && activeTab === 'teachers' && isAdmin && (
+              {!loading && activeTab === 'teachers' && isAdminOrCounterPerson && (
                 <TeacherTab
                   teachers={lecturers}
+                  role={user.role}
                   onAdd={handleAddTeacher}
                   onEdit={handleEditTeacher}
                   onDelete={handleDeleteTeacher}

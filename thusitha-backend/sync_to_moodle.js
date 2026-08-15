@@ -34,23 +34,14 @@ async function syncAll() {
 
     for (const course of coursesRes.rows) {
       console.log(`\n📚 Checking Course: ${course.course_name} (Local ID: ${course.course_id})...`);
-      let moodleCourse = await moodleService.getCourseByIdnumber(course.course_id);
-      
-      if (!moodleCourse) {
-        console.log(`  └─ Course does not exist in Moodle. Creating...`);
-        try {
-          const createRes = await moodleService.createCourse(course);
-          if (createRes && createRes.length > 0 && createRes[0].id) {
-            const moodleCourseId = createRes[0].id;
-            courseIdMap[course.course_id] = moodleCourseId;
-            console.log(`  └─ ✅ Created in Moodle. Moodle Course ID: ${moodleCourseId}`);
-          }
-        } catch (err) {
-          console.error(`  └─ ❌ Failed to create course:`, err.message);
+      try {
+        const moodleCourse = await moodleService.findOrCreateCourse(course.course_id, course.course_name);
+        if (moodleCourse && moodleCourse.id) {
+          courseIdMap[course.course_id] = moodleCourse.id;
+          console.log(`  └─ ✅ Moodle Course ID: ${moodleCourse.id}`);
         }
-      } else {
-        courseIdMap[course.course_id] = moodleCourse.id;
-        console.log(`  └─ Course exists. Moodle Course ID: ${moodleCourse.id}`);
+      } catch (err) {
+        console.error(`  └─ ❌ Failed to find/create course:`, err.message);
       }
     }
 
@@ -97,40 +88,33 @@ async function syncAll() {
     console.log(`\nFound ${studentsRes.rows.length} students in local database.`);
     
     for (const student of studentsRes.rows) {
-      let moodleUserId = student.moodle_user_id;
       // Moodle usernames must be lowercase alphanumeric
-      const username = student.username.toLowerCase().replace(/[^a-z0-9]/g, ''); 
-      
-      if (!moodleUserId) {
-        console.log(`\n👤 Syncing Student: ${student.student_name} (${username})...`);
-        const nameParts = student.student_name.split(' ');
-        const firstname = nameParts[0] || username;
-        const lastname = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Student';
-        
-        try {
-          const response = await moodleService.createUser({
-            username: username,
-            password: 'ChangeMe@123',
-            firstname: firstname,
-            lastname: lastname,
-            email: `${username}@thusitha.edu.lk`
-          });
-          
-          if (response && response.length > 0 && response[0].id) {
-            moodleUserId = response[0].id;
+      const username = student.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const nameParts = student.student_name.split(' ');
+      let moodleUserId = student.moodle_user_id;
+
+      // findOrCreateUser looks up by username first, so a student whose Moodle account
+      // already exists (but whose moodle_user_id never got saved back locally - the
+      // original bug here) is found and reused instead of the sync giving up on them.
+      try {
+        const moodleUser = await moodleService.findOrCreateUser({
+          username,
+          firstname: nameParts[0] || username,
+          lastname: nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Student',
+          email: `${username}@thusitha.edu.lk`
+        });
+        if (moodleUser && moodleUser.id) {
+          moodleUserId = moodleUser.id;
+          if (moodleUserId !== student.moodle_user_id) {
             await db.pool.query('UPDATE Students SET moodle_user_id = $1 WHERE student_id = $2', [moodleUserId, student.student_id]);
-            console.log(`  └─ ✅ Created Moodle user with ID: ${moodleUserId}`);
-          } else {
-            console.log(`  └─ ⚠️ Warning: Moodle returned empty response for user creation.`);
           }
-        } catch (err) {
-          console.error(`  └─ ❌ Failed to create Moodle user for ${username}:`, err.message);
-          continue; // skip to next student
+          console.log(`\n👤 ${student.student_name} (${username}) → Moodle user ID: ${moodleUserId}`);
         }
-      } else {
-        console.log(`\n👤 Student ${student.student_name} already has Moodle ID: ${moodleUserId}`);
+      } catch (err) {
+        console.error(`\n👤 ❌ Failed to find/create Moodle user for ${username}:`, err.message);
+        continue; // no Moodle user id at all - nothing to enroll
       }
-      
+
       // 4. Fetch local enrollments and sync with Moodle
       if (moodleUserId) {
         const enrollmentsRes = await db.pool.query(`

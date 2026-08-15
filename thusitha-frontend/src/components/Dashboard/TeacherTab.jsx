@@ -3,7 +3,8 @@ import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
 import { API_URL } from '../../services/api';
 
-const TeacherTab = ({ teachers, onAdd, onEdit, onDelete }) => {
+const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
+  const canEdit = role === 'Admin';
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState(null);
@@ -34,6 +35,7 @@ const TeacherTab = ({ teachers, onAdd, onEdit, onDelete }) => {
   };
 
   const resolveTeacherPhoto = (teacher) => {
+    if (teacher.profile_photo_path) return getImageUrl(teacher.profile_photo_path);
     if (teacher.teacher_name) {
        const nameKey = teacher.teacher_name.toLowerCase();
        for (const [key, path] of Object.entries(teacherPhotoMap)) {
@@ -42,7 +44,6 @@ const TeacherTab = ({ teachers, onAdd, onEdit, onDelete }) => {
          }
        }
     }
-    if (teacher.profile_photo_path) return getImageUrl(teacher.profile_photo_path);
     return null;
   };
 
@@ -178,9 +179,11 @@ const TeacherTab = ({ teachers, onAdd, onEdit, onDelete }) => {
     <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', minHeight: '500px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h3 style={{ color: '#1a237e', margin: 0 }}>👨‍🏫 ගුරු ලේඛනය</h3>
-        <button type="button" onClick={() => setShowAddModal(true)} style={{ padding: '10px 15px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
-          ➕ අලුත් ගුරුවරයෙක් එකතු කරන්න
-        </button>
+        {canEdit && (
+          <button type="button" onClick={() => setShowAddModal(true)} style={{ padding: '10px 15px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
+            ➕ අලුත් ගුරුවරයෙක් එකතු කරන්න
+          </button>
+        )}
       </div>
 
       <div style={{ marginBottom: '20px' }}>
@@ -197,12 +200,12 @@ const TeacherTab = ({ teachers, onAdd, onEdit, onDelete }) => {
             <th style={{ padding: '16px' }}>ඊමේල්</th>
             <th style={{ padding: '16px' }}>විෂය</th>
             <th style={{ padding: '16px' }}>සුදුසුකම්</th>
-            <th style={{ padding: '16px' }}>ක්‍රියාමාර්ග</th>
+            {canEdit && <th style={{ padding: '16px' }}>ක්‍රියාමාර්ග</th>}
           </tr>
         </thead>
         <tbody>
           {filteredTeachers.length === 0 && (
-            <tr><td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>ගුරුවරුන් හමුවුණේ නැත.</td></tr>
+            <tr><td colSpan={canEdit ? "8" : "7"} style={{ textAlign: 'center', padding: '20px' }}>ගුරුවරුන් හමුවුණේ නැත.</td></tr>
           )}
           {filteredTeachers.map((teacher, index) => (
             <tr key={teacher.teacher_id || index} style={{ borderBottom: '1px solid #eee' }}>
@@ -218,12 +221,14 @@ const TeacherTab = ({ teachers, onAdd, onEdit, onDelete }) => {
               <td style={{ padding: '16px' }}>{teacher.email || 'N/A'}</td>
               <td style={{ padding: '16px' }}>{teacher.specialization || 'N/A'}</td>
               <td style={{ padding: '16px' }}>{teacher.qualifications || 'N/A'}</td>
-              <td style={{ padding: '16px' }}>
-                <div style={{ display: 'flex', gap: '5px' }}>
-                  <button onClick={() => openEditModal(teacher)} style={{ padding: '5px 10px', backgroundColor: '#ffd600', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>සංස්කරණය</button>
-                  <button onClick={() => setConfirmDeleteId(teacher.teacher_id)} style={{ padding: '5px 10px', backgroundColor: '#ff1744', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>ඉවත් කරන්න</button>
-                </div>
-              </td>
+              {canEdit && (
+                <td style={{ padding: '16px' }}>
+                  <div style={{ display: 'flex', gap: '5px' }}>
+                    <button onClick={() => openEditModal(teacher)} style={{ padding: '5px 10px', backgroundColor: '#ffd600', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>සංස්කරණය</button>
+                    <button onClick={() => setConfirmDeleteId(teacher.teacher_id)} style={{ padding: '5px 10px', backgroundColor: '#ff1744', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>ඉවත් කරන්න</button>
+                  </div>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -272,6 +277,7 @@ const TeacherTab = ({ teachers, onAdd, onEdit, onDelete }) => {
 
 TeacherTab.propTypes = {
   teachers: PropTypes.array.isRequired,
+  role: PropTypes.string,
   onAdd: PropTypes.func.isRequired,
   onEdit: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,

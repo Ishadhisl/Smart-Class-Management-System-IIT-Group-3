@@ -9,10 +9,22 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions }) => {
   const [error, setError] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewType, setPreviewType] = useState(null);
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      
+      // Release old preview URL to avoid memory leaks
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      
+      const newPreviewUrl = URL.createObjectURL(file);
+      setPreviewUrl(newPreviewUrl);
+      setPreviewType(file.type.startsWith('video/') ? 'video' : 'image');
     }
   };
 
@@ -52,7 +64,6 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions }) => {
         threshold: innerData.threshold ?? 0
       });
       
-      setSelectedFile(null);
     } catch (err) {
       setError(err.message || 'CCTV upload failed');
     } finally {
@@ -195,6 +206,33 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions }) => {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── MEDIA PREVIEW SECTION ─────────────────────── */}
+      {previewUrl && liveData && (
+        <div style={{ ...cardStyle, marginTop: '25px', textAlign: 'center' }}>
+          <h4 style={{ color: '#1a237e', marginBottom: '15px', fontSize: '18px' }}>
+            {previewType === 'video' ? '📹 Uploaded Video' : '📷 Uploaded Image'}
+          </h4>
+          <div style={{ display: 'inline-block', border: '2px solid #ddd', borderRadius: '10px', overflow: 'hidden', backgroundColor: '#000' }}>
+            {previewType === 'video' ? (
+              <video 
+                src={previewUrl} 
+                controls 
+                autoPlay 
+                muted 
+                loop
+                style={{ maxWidth: '100%', maxHeight: '400px', display: 'block' }} 
+              />
+            ) : (
+              <img 
+                src={previewUrl} 
+                alt="Uploaded CCTV Preview" 
+                style={{ maxWidth: '100%', maxHeight: '400px', display: 'block' }} 
+              />
+            )}
+          </div>
         </div>
       )}
     </div>

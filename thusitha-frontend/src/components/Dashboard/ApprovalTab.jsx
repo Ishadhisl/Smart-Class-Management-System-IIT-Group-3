@@ -1,57 +1,67 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import PropTypes from 'prop-types';
+import { Clock, CheckCircle } from 'lucide-react';
+import { useNotification } from '../../context/NotificationContext';
+import Card from '../common/Card';
+import Input from '../common/Input';
+import Button from '../common/Button';
+import { Table, THead, TBody, TRow, TH, TD } from '../common/Table';
 
 const ApprovalTab = ({ pendingStudents, onApprove }) => {
   const [qrInputs, setQrInputs] = useState({});
+  const { showNotification } = useNotification();
 
   const handleApproveClick = (id) => {
     const qr = qrInputs[id];
-    if (!qr) return alert('කරුණාකර QR ID එක ඇතුළත් කරන්න.');
+    if (!qr) return showNotification('කරුණාකර QR ID එක ඇතුළත් කරන්න.', 'error');
     onApprove(id, qr);
   };
 
   return (
-    <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-      <h3 style={{ color: '#1a237e', marginBottom: '20px' }}>⏳ ශිෂ්‍ය අනුමැතිය (Pending Approvals)</h3>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ backgroundColor: '#f5f5f5', textAlign: 'left' }}>
-            <th style={{ padding: '12px' }}>නම</th>
-            <th style={{ padding: '12px' }}>ශ්‍රේණිය/පාසල</th>
-            <th style={{ padding: '12px' }}>Interested Course</th>
-            <th style={{ padding: '12px' }}>QR ID එක ඇතුළත් කරන්න</th>
-            <th style={{ padding: '12px' }}>Action</th>
-          </tr>
-        </thead>
-        <tbody>
+    <Card padding="p-6" hover={false}>
+      <h3 className="text-primary-dark font-bold text-lg mb-5 flex items-center gap-2">
+        <Clock size={20} /> ශිෂ්‍ය අනුමැතිය (Pending Approvals)
+      </h3>
+      <Table>
+        <THead>
+          <TRow>
+            <TH>නම</TH>
+            <TH>ශ්‍රේණිය/පාසල</TH>
+            <TH>Interested Course</TH>
+            <TH>QR ID එක ඇතුළත් කරන්න</TH>
+            <TH>Action</TH>
+          </TRow>
+        </THead>
+        <TBody>
           {pendingStudents.map(s => (
-            <tr key={s.id} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: '12px' }}>{s.name}<br/><small>{s.phone}</small></td>
-              <td style={{ padding: '12px' }}>{s.grade}<br/><small>{s.school}</small></td>
-              <td style={{ padding: '12px' }}><span style={{ padding: '4px 8px', backgroundColor: '#e8eaf6', borderRadius: '4px', fontSize: '12px' }}>{s.course_interest || 'General'}</span></td>
-              <td style={{ padding: '12px' }}>
-                <input 
-                  type="text" 
+            <TRow key={s.id}>
+              <TD>{s.name}<br /><small className="text-slate-400">{s.phone}</small></TD>
+              <TD>{s.grade}<br /><small className="text-slate-400">{s.school}</small></TD>
+              <TD><span className="px-2 py-1 bg-indigo-50 text-primary rounded text-xs font-semibold">{s.course_interest || 'General'}</span></TD>
+              <TD>
+                <label htmlFor={`qr-input-${s.id}`} className="sr-only">QR ID for {s.name}</label>
+                <Input
+                  id={`qr-input-${s.id}`}
+                  type="text"
                   placeholder="Scan or Enter QR"
                   value={qrInputs[s.id] || ''}
-                  onChange={(e) => setQrInputs({...qrInputs, [s.id]: e.target.value})}
-                  style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  onChange={(e) => setQrInputs({ ...qrInputs, [s.id]: e.target.value })}
+                  className="!py-2 !w-48"
                 />
-              </td>
-              <td style={{ padding: '12px' }}>
-                <button 
-                  onClick={() => handleApproveClick(s.id)}
-                  style={{ padding: '8px 15px', backgroundColor: '#2e7d32', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
-                >Approve</button>
-              </td>
-            </tr>
+              </TD>
+              <TD>
+                <Button variant="success" size="sm" icon={<CheckCircle size={14} />} onClick={() => handleApproveClick(s.id)}>
+                  Approve
+                </Button>
+              </TD>
+            </TRow>
           ))}
           {pendingStudents.length === 0 && (
-            <tr><td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: '#666' }}>දැනට අනුමැතිය සඳහා සිසුන් නැත.</td></tr>
+            <TRow><TD className="text-center py-8 text-slate-400" colSpan="5">දැනට අනුමැතිය සඳහා සිසුන් නැත.</TD></TRow>
           )}
-        </tbody>
-      </table>
-    </div>
+        </TBody>
+      </Table>
+    </Card>
   );
 };
 

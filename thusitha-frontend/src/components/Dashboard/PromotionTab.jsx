@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
 import { useNotification } from '../../context/NotificationContext';
+import { API_URL } from '../../services/api';
 
 const PromotionTab = ({ promos, onCreate, onUpdate, onDelete }) => {
   const { showNotification } = useNotification();
@@ -16,11 +17,8 @@ const PromotionTab = ({ promos, onCreate, onUpdate, onDelete }) => {
     if (normalizedUrl.startsWith('http://') || normalizedUrl.startsWith('https://')) {
       return normalizedUrl;
     }
-    const baseUrl = import.meta.env.VITE_API_URL.endsWith('/') 
-      ? import.meta.env.VITE_API_URL.slice(0, -1) 
-      : import.meta.env.VITE_API_URL;
     const path = normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
-    return `${baseUrl}${path}`;
+    return `${API_URL}${path}`;
   };
 
   const handleFileChange = (e) => {

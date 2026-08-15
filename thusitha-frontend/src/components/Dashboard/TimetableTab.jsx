@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { request } from '../../services/api';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 
 const TimetableTab = ({ schedules, role }) => {
   const [embedUrl, setEmbedUrl] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -14,15 +15,22 @@ const TimetableTab = ({ schedules, role }) => {
     let ignore = false;
 
     const fetchEmbedUrl = async () => {
+      setLoadError('');
       try {
         const data = await request(`/moodle-sso/embed-url?page=calendar`);
         if (ignore) return;
-        if (data && data.embedUrl) {
+        if (data && data.embedUrl && typeof data.embedUrl === 'string' && data.embedUrl.startsWith('/')) {
           setEmbedUrl(data.embedUrl);
+        } else {
+          setEmbedUrl('');
+          setLoadError('Moodle Calendar සම්බන්ධතාවය අසාර්ථක විය.');
         }
       } catch (err) {
         if (ignore) return;
         console.error('Failed to fetch Moodle calendar URL:', err);
+        const msg = err.message || 'Moodle වෙත ප්‍රවේශ වීමේදී දෝෂයක් ඇති විය.';
+        setEmbedUrl('');
+        setLoadError(msg);
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -49,6 +57,13 @@ const TimetableTab = ({ schedules, role }) => {
           </div>
         )}
 
+        {!loading && loadError && (
+          <div className="text-center px-6">
+            <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+            <p className="text-lg font-semibold text-gray-700">{loadError}</p>
+          </div>
+        )}
+
         {embedUrl ? (
           <iframe 
             src={embedUrl} 
@@ -57,7 +72,7 @@ const TimetableTab = ({ schedules, role }) => {
             onLoad={() => setLoading(false)}
             allow="fullscreen"
           />
-        ) : !loading && (
+        ) : !loading && !loadError && (
           <div className="text-gray-400 flex flex-col items-center">
             <div className="text-6xl mb-4">📅</div>
             <p className="text-lg font-medium">Moodle Calendar ලබා ගැනීමට නොහැකි විය.</p>

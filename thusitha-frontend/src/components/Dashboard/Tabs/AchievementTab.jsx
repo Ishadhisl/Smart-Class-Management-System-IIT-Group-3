@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { request } from '../../../services/api';
+import { request, API_URL } from '../../../services/api';
 
 export const SearchableSelect = ({ options, value, onChange }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -110,8 +110,8 @@ const AchievementTab = ({ students }) => {
 
       if (editingId) {
         const currentAch = achievements.find(a => a.achievement_id === editingId);
-        if (currentAch && currentAch.photo_path) {
-          data.append('photo_path', currentAch.photo_path);
+        if (currentAch && currentAch.image_url) {
+          data.append('image_url', currentAch.image_url);
         }
         await request(`/achievements/${editingId}`, { method: 'PUT', body: data, isFormData: true });
       } else {
@@ -251,9 +251,9 @@ const AchievementTab = ({ students }) => {
               <tr key={a.achievement_id} style={{ borderBottom: '1px solid #eee' }}>
                 <td style={{ padding: '12px', fontWeight: 'bold' }}>{a.student_name}</td>
                 <td style={{ padding: '12px', textAlign: 'center' }}>
-                  {a.photo_path ? (
-                    <img 
-                      src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${a.photo_path.replace(/\\/g, '/')}`} 
+                  {a.image_url ? (
+                    <img
+                      src={`${API_URL}/${a.image_url.replace(/\\/g, '/')}`}
                       alt={a.title} 
                       style={{ width: '40px', height: '40px', borderRadius: '4px', objectFit: 'cover', border: '1px solid #ddd', display: 'block', margin: '0 auto' }}
                     />

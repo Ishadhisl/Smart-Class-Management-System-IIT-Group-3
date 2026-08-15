@@ -272,6 +272,13 @@ exports.registerStudent = async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('❌ Student Registration Error:', err.message);
+    if (err.code === '23505') { // Postgres unique_violation
+      return res.status(409).json({
+        message: 'මෙම පරිශීලක නාමය හෝ දෙමාපිය දුරකථන අංකය දැනටමත් වෙනත් ගිණුමක් සඳහා භාවිතයේ ඇත. කරුණාකර වෙනත් අගයක් උත්සාහ කරන්න.',
+        error: 'Duplicate username',
+        details: err.detail || err.message
+      });
+    }
     res.status(500).json({ error: 'Failed to register student', details: err.message });
   } finally {
     client.release();

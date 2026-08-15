@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Doughnut } from 'react-chartjs-2';
 import QRCode from 'qrcode';
@@ -11,21 +11,32 @@ const SMSLogTab = ({ logs, onResend, onDelete, onBulkResend, onResendFilteredFai
   const [statusFilter, setStatusFilter] = useState('All');
   const [qrCodeImg, setQrCodeImg] = useState(null);
   const [showQrModal, setShowQrModal] = useState(false);
+  // isReady overrides visibility directly (derived, not synced via effect) so a successful
+  // pairing dismisses the modal the moment the next status poll observes it.
+  const qrModalVisible = showQrModal && !whatsappStatus.isReady;
 
-  const fetchQrCode = async () => {
+  const fetchQrCode = async (isBackgroundRefresh = false) => {
     try {
       const res = await request('/sms/whatsapp-qr');
       if (res.hasQr && res.qr) {
         const url = await QRCode.toDataURL(res.qr);
         setQrCodeImg(url);
         setShowQrModal(true);
-      } else {
+      } else if (!isBackgroundRefresh) {
         alert(res.message || 'QR Code ලබා ගත නොහැක.');
       }
     } catch (e) {
-      alert('QR Code ලබාගැනීමේ දෝෂයක්.');
+      if (!isBackgroundRefresh) alert('QR Code ලබාගැනීමේ දෝෂයක්.');
     }
   };
+
+  // WhatsApp rotates the QR roughly every 20s while unscanned, so keep the displayed
+  // image in sync or a scan attempted on a stale code fails with "Couldn't connect to device".
+  useEffect(() => {
+    if (!qrModalVisible) return undefined;
+    const interval = setInterval(() => fetchQrCode(true), 8000);
+    return () => clearInterval(interval);
+  }, [qrModalVisible]);
 
   const filteredLogs = logs.filter(log => {
     const matchesSearch = log.parent_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -309,7 +320,7 @@ const SMSLogTab = ({ logs, onResend, onDelete, onBulkResend, onResendFilteredFai
         </div>
       )}
       {/* QR Code Modal */}
-      {showQrModal && (
+      {qrModalVisible && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
           <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '15px', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
             <h3 style={{ color: '#1a237e', marginTop: 0 }}>📲 Scan WhatsApp QR</h3>

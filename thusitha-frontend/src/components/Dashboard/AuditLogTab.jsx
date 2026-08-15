@@ -1,63 +1,58 @@
-import React from 'react';
 import PropTypes from 'prop-types';
+import { ScrollText } from 'lucide-react';
+import Card from '../common/Card';
+import { Table, THead, TBody, TRow, TH, TD } from '../common/Table';
 
-const getActionBadgeStyles = (actionType) => {
-  const baseStyles = {
-    padding: '4px 8px',
-    borderRadius: '4px',
-    fontSize: '12px',
-    fontWeight: 'bold',
-  };
-
-  switch (actionType) {
-    case 'CREATE':
-      return { ...baseStyles, backgroundColor: '#e8f5e9', color: '#2e7d32' };
-    case 'UPDATE':
-      return { ...baseStyles, backgroundColor: '#e3f2fd', color: '#1565c0' };
-    case 'DELETE':
-      return { ...baseStyles, backgroundColor: '#ffebee', color: '#d32f2f' };
-    default:
-      return { ...baseStyles, backgroundColor: '#f5f5f5', color: '#333' };
-  }
+const ACTION_BADGE_CLASSES = {
+  CREATE: 'bg-success-light/20 text-success-dark',
+  UPDATE: 'bg-accent-light/20 text-accent-dark',
+  DELETE: 'bg-danger-light/20 text-danger-dark',
 };
+
+const getActionBadgeClass = (actionType) =>
+  ACTION_BADGE_CLASSES[actionType] || 'bg-slate-100 text-slate-600';
 
 const AuditLogTab = ({ logs }) => {
   return (
-    <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-      <h3 style={{ color: '#1a237e', margin: '0 0 20px 0' }}>📋 පද්ධති විගණන වාර්තා (Audit Logs)</h3>
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px' }}>
-        <thead>
-          <tr style={{ backgroundColor: '#f5f5f5', textAlign: 'left' }}>
-            <th style={{ padding: '12px' }}>දිනය සහ වේලාව</th>
-            <th style={{ padding: '12px' }}>ක්‍රියාව සිදු කළේ</th>
-            <th style={{ padding: '12px' }}>ක්‍රියාව</th>
-            <th style={{ padding: '12px' }}>විස්තරය</th>
-            <th style={{ padding: '12px' }}>අදාළ අයිතමය</th>
-          </tr>
-        </thead>
-        <tbody>
-          {logs.length === 0 && <tr><td colSpan="5" style={{ padding: '20px', textAlign: 'center' }}>වාර්තා කිසිවක් නොමැත.</td></tr>}
+    <Card padding="p-6" hover={false}>
+      <h3 className="text-primary-dark font-bold text-lg mb-5 flex items-center gap-2">
+        <ScrollText size={20} /> පද්ධති විගණන වාර්තා (Audit Logs)
+      </h3>
+      <Table>
+        <THead>
+          <TRow>
+            <TH>දිනය සහ වේලාව</TH>
+            <TH>ක්‍රියාව සිදු කළේ</TH>
+            <TH>ක්‍රියාව</TH>
+            <TH>විස්තරය</TH>
+            <TH>අදාළ අයිතමය</TH>
+          </TRow>
+        </THead>
+        <TBody>
+          {logs.length === 0 && (
+            <TRow><TD colSpan="5" className="text-center py-8 text-slate-400">වාර්තා කිසිවක් නොමැත.</TD></TRow>
+          )}
           {logs.map((log) => (
-            <tr key={log.log_id} style={{ borderBottom: '1px solid #eee' }}>
-              <td style={{ padding: '12px', fontSize: '13px' }}>{new Date(log.timestamp).toLocaleString()}</td>
-              <td style={{ padding: '12px' }}>
-                <strong>{log.performed_by_username || 'Public'}</strong><br />
-                <span style={{ fontSize: '12px', color: '#666' }}>{log.user_role}</span>
-              </td>
-              <td style={{ padding: '12px' }}>
-                <span style={getActionBadgeStyles(log.action_type)}>
+            <TRow key={log.log_id}>
+              <TD className="text-[13px]">{new Date(log.timestamp).toLocaleString()}</TD>
+              <TD>
+                <strong className="text-slate-700">{log.performed_by_username || 'Public'}</strong><br />
+                <span className="text-xs text-slate-400">{log.user_role}</span>
+              </TD>
+              <TD>
+                <span className={`px-2 py-1 rounded text-xs font-bold ${getActionBadgeClass(log.action_type)}`}>
                   {log.action_type}
                 </span>
-              </td>
-              <td style={{ padding: '12px', fontSize: '14px', maxWidth: '300px' }}>{log.description}</td>
-              <td style={{ padding: '12px', fontSize: '14px' }}>
+              </TD>
+              <TD className="text-sm max-w-[300px]">{log.description}</TD>
+              <TD className="text-sm">
                 {log.entity_type} {log.entity_id ? `(ID: ${log.entity_id})` : ''}
-              </td>
-            </tr>
+              </TD>
+            </TRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TBody>
+      </Table>
+    </Card>
   );
 };
 

@@ -64,3 +64,9 @@ thusitha-backend/uploads/*
 *.pub
 *.crt
 secrets.yml
+
+# WhatsApp session data (Baileys auth/encryption keys - live credentials, not build output)
+thusitha-backend/whatsapp-session/
+# Leftover from the old whatsapp-web.js library (since replaced by Baileys)
+thusitha-backend/whatsapp-session-test/
+thusitha-backend/.wwebjs_cache/

@@ -3,7 +3,7 @@
  * QR Code scan කර ඕනෑම WhatsApp number වෙත message send කිරීමේ शक्यता.
  */
 
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode-terminal');
 const pino = require('pino');
 
@@ -23,9 +23,11 @@ const initWhatsApp = async () => {
 
     try {
       const { state, saveCreds } = await useMultiFileAuthState('./whatsapp-session');
+      const { version } = await fetchLatestBaileysVersion();
 
       client = makeWASocket({
         auth: state,
+        version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false, // We will handle printing manually below
       });
@@ -44,7 +46,7 @@ const initWhatsApp = async () => {
 
         if (connection === 'close') {
           const statusCode = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.statusCode;
-          const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+          const shouldReconnect = statusCode !== DisconnectReason.loggedOut && statusCode !== 405 && statusCode !== 401;
           
           console.log(`⚠️ WhatsApp Disconnected: statusCode=${statusCode}, shouldReconnect=${shouldReconnect}`);
           isReady = false;
@@ -58,7 +60,19 @@ const initWhatsApp = async () => {
               initWhatsApp();
             }, 5000);
           } else {
-            console.log('🚪 WhatsApp: Logged out successfully. You must scan the QR code again.');
+            console.log('🚪 WhatsApp: Logged out successfully. Cleaning up session and restarting...');
+            const fs = require('fs');
+            if (fs.existsSync('./whatsapp-session')) {
+              try {
+                fs.rmSync('./whatsapp-session', { recursive: true, force: true });
+                console.log('🗑️ WhatsApp: Old session deleted.');
+              } catch (e) {
+                console.error('⚠️ WhatsApp: Failed to delete session folder:', e.message);
+              }
+            }
+            setTimeout(() => {
+              initWhatsApp();
+            }, 3000);
           }
         } else if (connection === 'open') {
           console.log('✅ WhatsApp Client Ready! Messages can now be sent.');
