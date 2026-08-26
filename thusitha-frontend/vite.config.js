@@ -11,10 +11,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // navigator.mediaDevices (webcam access) is available: browsers only expose it in a "secure
 // context" (HTTPS, or plain http://localhost), and this dev server is also reached over the
 // LAN IP by phones for QR scanning, which was silently falling back to an insecure context.
-const httpsConfig = {
-  key: fs.readFileSync(path.resolve(__dirname, '..', 'certs', 'dev-key.pem')),
-  cert: fs.readFileSync(path.resolve(__dirname, '..', 'certs', 'dev-cert.pem')),
-};
+// The cert pair isn't committed to git (local-dev-only), so it won't exist in CI/deploy
+// environments (e.g. Vercel's build) - fall back to no https config there instead of crashing
+// `vite build`, which loads this file too even though it never starts the dev server.
+const devKeyPath = path.resolve(__dirname, '..', 'certs', 'dev-key.pem');
+const devCertPath = path.resolve(__dirname, '..', 'certs', 'dev-cert.pem');
+const httpsConfig = (fs.existsSync(devKeyPath) && fs.existsSync(devCertPath))
+  ? { key: fs.readFileSync(devKeyPath), cert: fs.readFileSync(devCertPath) }
+  : undefined;
 
 // https://vite.dev/config/
 // Hides Moodle's own dashboard chrome when it's embedded in the SCMS admin UI, since the
