@@ -11,6 +11,13 @@ let client = null;
 let isReady = false;
 let qrCodeData = null;
 let initializationPromise = null;
+let reconnectAttempts = 0;
+// An unscanned QR gets disconnected by WhatsApp's servers every ~2-3 minutes, and each
+// reconnect spins up a brand-new Baileys socket (fresh event listeners, a fetchLatestBaileysVersion
+// network call, etc.). Left uncapped, this ran indefinitely on a host nobody was watching and the
+// service OOM-restarted every 20-25 minutes - stop auto-retrying after a while instead; scanning the
+// QR (which resets this counter via a fresh 'open' connection) or restarting the process resumes it.
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 /**
  * WhatsApp Client initialize කිරීම (Server start වූ විට)
@@ -54,11 +61,14 @@ const initWhatsApp = async () => {
           client = null;
           initializationPromise = null;
 
-          if (shouldReconnect) {
-            console.log('🔄 WhatsApp: Attempting reconnect in 5 seconds...');
+          if (shouldReconnect && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            reconnectAttempts++;
+            console.log(`🔄 WhatsApp: Attempting reconnect in 5 seconds... (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
             setTimeout(() => {
               initWhatsApp();
             }, 5000);
+          } else if (shouldReconnect) {
+            console.log('🛑 WhatsApp: Max reconnect attempts reached - giving up until the server restarts.');
           } else {
             console.log('🚪 WhatsApp: Logged out successfully. Cleaning up session and restarting...');
             const fs = require('fs');
@@ -78,6 +88,7 @@ const initWhatsApp = async () => {
           console.log('✅ WhatsApp Client Ready! Messages can now be sent.');
           isReady = true;
           qrCodeData = null;
+          reconnectAttempts = 0;
         }
       });
 
