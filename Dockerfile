@@ -13,7 +13,7 @@
 FROM node:24-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip python3-venv \
+    python3 python3-pip python3-venv python3-dev \
     build-essential cmake libopenblas-dev liblapack-dev libx11-dev libgtk-3-dev \
     && rm -rf /var/lib/apt/lists/*
 
