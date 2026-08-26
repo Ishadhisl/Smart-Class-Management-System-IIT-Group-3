@@ -12,7 +12,7 @@ app = FastAPI(title="Thusitha SCMS - CCTV AI Microservice")
 # Try to load YOLO and Face Recognition
 try:
     from ultralytics import YOLO
-    model = YOLO("yolov8m.pt") # Upgraded to Medium model for better accuracy in dense crowds
+    model = YOLO("yolov8n.pt") # Nano model - fits Render's Starter (512MB) instance; swap back to yolov8m.pt if RAM allows
 except Exception as e:
     model = None
     logging.error(f"Failed to load YOLO model: {e}")
