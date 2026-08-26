@@ -26,6 +26,10 @@ ENV PATH="/opt/venv/bin:$PATH"
 WORKDIR /app
 COPY . .
 
+# dlib's cmake build defaults to one compile job per CPU core, and Render's build
+# machines expose more cores than they give RAM for - that combination OOM-killed the
+# build (8GB+ used). Capping it to 1 job trades build speed for staying under the limit.
+ENV CMAKE_BUILD_PARALLEL_LEVEL=1
 RUN pip install --no-cache-dir -r fastapi_service/requirements.txt
 RUN cd thusitha-backend && npm install --omit=dev
 
