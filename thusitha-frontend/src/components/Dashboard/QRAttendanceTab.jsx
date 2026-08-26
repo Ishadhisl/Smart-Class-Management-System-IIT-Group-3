@@ -70,7 +70,28 @@ const QRAttendanceTab = ({ courses }) => {
   const [networkFrontendUrl, setNetworkFrontendUrl] = useState(null); // real network IP URL
 
   // ── Fetch the machine's real network IP from backend on mount ───────────────
+  // Only meaningful for local/LAN dev (admin PC + student phones on the same WiFi).
+  // On a public deployment (Render/Vercel etc.) /api/system/ip returns the backend
+  // container's internal address, which phones can't reach — use the site's own
+  // public origin instead in that case.
   useEffect(() => {
+    const isLocalOrPrivateHost = (hostname) => {
+      if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
+      if (/^10\.\d+\.\d+\.\d+$/.test(hostname)) return true;
+      if (/^192\.168\.\d+\.\d+$/.test(hostname)) return true;
+      const classB = hostname.match(/^172\.(\d+)\.\d+\.\d+$/);
+      if (classB) {
+        const second = parseInt(classB[1], 10);
+        return second >= 16 && second <= 31;
+      }
+      return false;
+    };
+
+    if (!isLocalOrPrivateHost(window.location.hostname)) {
+      setNetworkFrontendUrl(window.location.origin);
+      return;
+    }
+
     const fetchNetworkIp = async () => {
       try {
         const res = await fetch(`${API_URL}/api/system/ip`);

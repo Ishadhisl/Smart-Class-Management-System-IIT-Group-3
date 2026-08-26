@@ -1,3 +1,4 @@
+const fs = require('node:fs');
 const db = require('../db');
 const auditService = require('../utils/auditService');
 const ExcelJS = require('exceljs'); // Assuming ExcelJS is used for uploadExcelMarks
@@ -103,10 +104,14 @@ exports.uploadExcelMarks = async (req, res) => {
 
   try {
     if (!(await isOwnCourseByExam(req, exam_id))) {
+      fs.unlink(req.file.path, () => {});
       return res.status(403).json({ message: 'ප්‍රවේශය තහනම්: මෙය ඔබ ඉගැන්වන පන්තියක විභාගයක් නොවේ.' });
     }
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(req.file.path);
+    // The workbook is now fully parsed into memory — the file on disk is never read again
+    // regardless of how the rest of this request turns out, so it can be removed immediately.
+    fs.unlink(req.file.path, () => {});
     const worksheet = workbook.getWorksheet(1);
     const marksToInsert = [];
 

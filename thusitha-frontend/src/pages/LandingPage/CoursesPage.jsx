@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, GraduationCap, User } from 'lucide-react';
+import { ArrowLeft, GraduationCap, User, FlaskConical, Atom, Monitor, Calculator, Globe, Microscope, Camera, Award, BookOpen } from 'lucide-react';
 import { request } from '../../services/api';
 import { useNotification } from '../../context/NotificationContext';
 import Card from '../../components/common/Card';
@@ -9,6 +9,28 @@ import Input from '../../components/common/Input';
 import Label from '../../components/common/Label';
 import Textarea from '../../components/common/Textarea';
 import Modal from '../../components/common/Modal';
+
+// Keyword → { icon, gradient } lookup for course header art. Matched against
+// subject_name (falling back to course_name) case-insensitively; first match wins.
+// Falls back to the original default gradient/icon when nothing matches.
+const SUBJECT_THEMES = [
+  { keywords: ['chemistry'], icon: FlaskConical, gradient: 'from-purple-700 to-violet-500' },
+  { keywords: ['physics'], icon: Atom, gradient: 'from-blue-700 to-sky-500' },
+  { keywords: ['ict', 'computer'], icon: Monitor, gradient: 'from-cyan-700 to-teal-500' },
+  { keywords: ['math'], icon: Calculator, gradient: 'from-orange-700 to-amber-500' },
+  { keywords: ['geography'], icon: Globe, gradient: 'from-green-700 to-emerald-500' },
+  { keywords: ['science'], icon: Microscope, gradient: 'from-emerald-700 to-teal-500' },
+  { keywords: ['media'], icon: Camera, gradient: 'from-pink-700 to-rose-500' },
+  { keywords: ['scholarship'], icon: Award, gradient: 'from-amber-700 to-yellow-500' },
+  { keywords: ['sinhala', 'literature'], icon: BookOpen, gradient: 'from-red-700 to-rose-500' },
+];
+const DEFAULT_THEME = { icon: GraduationCap, gradient: 'from-primary-dark to-primary' };
+
+const getCourseTheme = (course) => {
+  const haystack = `${course?.subject_name || ''} ${course?.course_name || ''}`.toLowerCase();
+  const match = SUBJECT_THEMES.find(theme => theme.keywords.some(kw => haystack.includes(kw)));
+  return match || DEFAULT_THEME;
+};
 
 const CoursesPage = () => {
   const navigate = useNavigate();
@@ -117,11 +139,15 @@ const CoursesPage = () => {
           <div className="text-center py-12 text-primary">පූරණය වෙමින්...</div>
         ) : (
           <div className="grid gap-7" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
-            {courses.length > 0 ? courses.map(course => (
+            {courses.length > 0 ? courses.map(course => {
+              const theme = getCourseTheme(course);
+              const ThemeIcon = theme.icon;
+              return (
               <Card key={course.course_id} hover padding="p-0" className="!rounded-2xl overflow-hidden flex flex-col">
-                <div className="bg-gradient-to-br from-primary-dark to-primary p-5 text-white">
-                  <h3 className="m-0 text-lg font-bold">{course.course_name}</h3>
-                  <div className="text-[13px] opacity-80 mt-1">{course.subject_name}</div>
+                <div className={`relative overflow-hidden bg-gradient-to-br ${theme.gradient} p-5 text-white`}>
+                  <ThemeIcon size={96} strokeWidth={1.5} className="absolute -right-4 -bottom-4 opacity-20 pointer-events-none" aria-hidden="true" />
+                  <h3 className="relative m-0 text-lg font-bold">{course.course_name}</h3>
+                  <div className="relative text-[13px] opacity-80 mt-1">{course.subject_name}</div>
                 </div>
 
                 <div className="p-6 flex-grow">
@@ -146,7 +172,8 @@ const CoursesPage = () => {
                   </div>
                 </div>
               </Card>
-            )) : (
+              );
+            }) : (
               <div className="text-center col-span-full text-slate-400">පන්ති දත්ත සොයාගත නොහැක.</div>
             )}
           </div>

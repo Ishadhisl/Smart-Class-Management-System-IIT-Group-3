@@ -1,3 +1,4 @@
+const fs = require('fs');
 const db = require('../db');
 const auditService = require('../utils/auditService');
 const smsService = require('../utils/smsService');
@@ -353,43 +354,61 @@ exports.submitManualPayment = async (req, res) => {
   }
 
   let resolvedStudentId = student_id;
+  const client = await db.pool.connect();
   try {
     if (req.user && req.user.role === 'Student') {
-      const studentRes = await db.pool.query('SELECT student_id FROM Students WHERE user_id = $1', [req.user.userId]);
+      const studentRes = await client.query('SELECT student_id FROM Students WHERE user_id = $1', [req.user.userId]);
       if (studentRes.rows.length === 0) {
         return res.status(404).json({ message: "ශිෂ්‍යයා සොයාගත නොහැක." });
       }
       resolvedStudentId = studentRes.rows[0].student_id;
     }
 
+    await client.query('BEGIN');
+
+    // Serialize concurrent submissions for the same student/course/month so a
+    // double-click (or slow-network double-tap) can't slip two requests past
+    // the existing-payment check before either one commits its INSERT.
+    await client.query(
+      'SELECT pg_advisory_xact_lock(hashtext($1))',
+      [`payment-${resolvedStudentId}-${course_id}-${for_month}`]
+    );
+
     // Check for existing payment
-    const existingPayment = await db.pool.query(
+    const existingPayment = await client.query(
       `SELECT * FROM Payments WHERE student_id = $1 AND course_id = $2 AND for_month = $3 AND payment_status IN ('Completed', 'Pending Verification')`,
       [resolvedStudentId, course_id, for_month]
     );
     if (existingPayment.rows.length > 0) {
+      await client.query('ROLLBACK');
+      // The file for this rejected duplicate submission is never referenced anywhere; remove it.
+      if (req.file) fs.unlink(req.file.path, () => {});
       return res.status(400).json({ message: "මෙම මාසය සඳහා අදාළ පන්තියට දැනටමත් ගෙවීමක් කර ඇත." });
     }
 
     // Generate a temporary receipt number
     const tempReceipt = `MANUAL-${Date.now().toString().slice(-6)}`;
-    
+
     const query = `
       INSERT INTO Payments (student_id, course_id, issued_by, amount_paid, payment_method, for_month, receipt_number, confirmation_url, payment_status)
       VALUES ($1, $2, NULL, $3, 'Bank Transfer', $4, $5, $6, 'Pending Verification')
       RETURNING *
     `;
     const values = [resolvedStudentId, course_id, amount_paid, for_month, tempReceipt, fileUrl];
-    
-    const result = await db.pool.query(query, values);
+
+    const result = await client.query(query, values);
+    await client.query('COMMIT');
 
     res.status(201).json({
       message: 'ගෙවීම් රිසිට් පත සාර්ථකව උඩුගත කරන ලදී. තහවුරු කරන තෙක් රැඳී සිටින්න.',
       payment: result.rows[0]
     });
   } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error('❌ Manual Payment Submission Error:', error.message);
     res.status(500).json({ message: "ගෙවීම ඉදිරිපත් කිරීම අසාර්ථකයි.", error: error.message });
+  } finally {
+    client.release();
   }
 };
 

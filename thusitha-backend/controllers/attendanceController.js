@@ -1104,6 +1104,11 @@ exports.uploadCCTVFootage = async (req, res) => {
       await db.pool.query(suspiciousQuery, [
         session_id, qrCount, totalAIHeadcount, JSON.stringify(zoneResults), JSON.stringify(unverifiedIds), JSON.stringify({ 'Uploaded Footage': filePath })
       ]);
+    } else {
+      // No mismatch means this footage is never referenced again (headcount is already
+      // computed and stored) — only mismatched footage needs to stick around for admin review.
+      const fs = require('node:fs');
+      fs.unlink(req.file.path, () => {});
     }
 
     res.status(200).json({

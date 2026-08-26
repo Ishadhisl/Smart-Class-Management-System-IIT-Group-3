@@ -9,10 +9,13 @@ const path = require('path');
 // Same locally-trusted dev certificate the frontend (Vite) uses - see vite.config.js for why:
 // navigator.mediaDevices (webcam access) needs a secure context, and an https frontend page
 // calling this API over plain http would also get blocked by the browser as mixed content.
-const httpsOptions = {
-  key: fs.readFileSync(path.resolve(__dirname, '..', 'certs', 'dev-key.pem')),
-  cert: fs.readFileSync(path.resolve(__dirname, '..', 'certs', 'dev-cert.pem')),
-};
+// In production this runs behind a reverse proxy (Nginx) that terminates real HTTPS with a
+// trusted cert instead, so the certs/ dev pair won't exist there - fall back to plain HTTP.
+const devKeyPath = path.resolve(__dirname, '..', 'certs', 'dev-key.pem');
+const devCertPath = path.resolve(__dirname, '..', 'certs', 'dev-cert.pem');
+const httpsOptions = (fs.existsSync(devKeyPath) && fs.existsSync(devCertPath))
+  ? { key: fs.readFileSync(devKeyPath), cert: fs.readFileSync(devCertPath) }
+  : null;
 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -69,13 +72,16 @@ const corsOptions = {
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
+    // FRONTEND_URL=* is a literal wildcard (used before the real deploy URL is known) -
+    // without this, "*" would just be compared as a normal string below and match nothing.
+    if (process.env.FRONTEND_URL === '*') return callback(null, true);
     const allowed = [
       process.env.FRONTEND_URL,
       'http://localhost:5173',
       'http://localhost:5174',
       'http://127.0.0.1:5173',
     ].filter(Boolean);
-    
+
     if (allowed.includes(origin) || isPrivateIP(origin)) {
       return callback(null, true);
     }
@@ -207,8 +213,9 @@ function checkAndStartAIServer() {
   client.connect(8000, '127.0.0.1');
 }
 
-const server = https.createServer(httpsOptions, app).listen(PORT, () => {
-  console.log(`🚀 Server is running on https://localhost:${PORT}`);
+const server = (httpsOptions ? https.createServer(httpsOptions, app) : app).listen(PORT, () => {
+  const scheme = httpsOptions ? 'https' : 'http';
+  console.log(`🚀 Server is running on ${scheme}://localhost:${PORT}`);
   checkAndStartAIServer();
 });
 
