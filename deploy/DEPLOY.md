@@ -81,12 +81,15 @@ Moodle: local XAMPP only, not part of this deployment.
 3. **`OTP_Store` table** — added to `schema.sql` §12 and as `database/migration_otp_store.sql`.
 4. **`QRAttendanceTab.jsx`** — public-domain-aware QR target URL.
 5. **`Dockerfile`** / **`.dockerignore`** (repo root) — combined Node + Python image; see §0.
-
-One change **not yet applied**, do it only if needed (§3 explains when):
-
-- **`fastapi_service/main.py:15`** — currently `YOLO("yolov8m.pt")`. If the combined service
-  OOMs on Standard (2GB), change this to `YOLO("yolov8n.pt")` (nano model — smaller memory
-  footprint, slightly less accurate headcount overlay) and redeploy.
+6. **`thusitha-backend/utils/initSchema.js`** — auto-applies `schema.sql` + all migrations on
+   boot, so the Neon DB can't drift from the code (fixes the "column does not exist" 500s that
+   hit achievements / student registration / course lists). §5.3.
+7. **`thusitha-backend/middleware/imageUpload.js`** — Cloudinary-or-local storage for image
+   uploads. §5b.
+8. **`fastapi_service/main.py`** — `YOLO("yolov8n.pt")` (nano, fits smaller instances) and
+   `uvicorn` reload disabled when `ENV=production` (server.js passes this to the child).
+9. **WhatsApp** — Communication Center banner now has a "🔄 නැවත සම්බන්ධ කරන්න" button + phone
+   linking steps; `/api/sms/whatsapp-reconnect` regenerates the QR without a redeploy.
 
 ---
 
@@ -129,9 +132,16 @@ git push <remote> <branch>
    JWT_SECRET     = <generate: openssl rand -base64 48>
    FRONTEND_URL   = https://your-project.vercel.app   (exact origin, no trailing slash — CORS in server.js checks this exactly)
    QR_EXPIRY_MINUTES = 15
+   CLOUDINARY_URL = cloudinary://<key>:<secret>@<cloud>   (optional but recommended — see §5b)
    ```
    `FASTAPI_URL` is **not needed** — it defaults to `http://localhost:8000`, which is correct
    here (§0). Leave `TWILIO_*`, `MOODLE_*` unset.
+
+   **Without a persistent disk (Free instance):** uploaded student photos, achievement images
+   and promo flyers live on the container's ephemeral filesystem and are wiped on every
+   redeploy/restart. Set `CLOUDINARY_URL` (§5b) so those assets persist. The WhatsApp Baileys
+   session still needs a disk or a re-scan after each deploy (the Communication Center banner
+   has a "🔄 නැවත සම්බන්ධ කරන්න" button + step-by-step linking instructions for this).
 5. Deploy. Note the URL (`https://scms-backend-xxxx.onrender.com`).
 6. Once it's up, check the **Logs** tab for `AI Server is already running on port 8000` (or
    the startup line from `fastapi_service`) to confirm the Python side actually came up inside
@@ -144,11 +154,34 @@ git push <remote> <branch>
 
 1. [neon.tech](https://neon.tech) → sign up with GitHub → **Create Project** (`scms-db`).
 2. Copy the connection string (`postgres://user:password@ep-xyz.neon.tech/neondb?sslmode=require`) → this is `DATABASE_URL` in §4.
-3. Neon dashboard → **SQL Editor** → run, in order:
-   - `database/schema.sql` (includes `OTP_Store`)
-   - `database/migration_phase2.sql`
-   - `database/migration_qr_attendance.sql`
-   - `database/migration_2026_06_19_promotions_teacher_profile_photo.sql`
+3. **Nothing to run by hand.** The backend now syncs the schema on every startup —
+   `thusitha-backend/utils/initSchema.js` applies `database/schema.sql` then every
+   `database/migration_*.sql` (all idempotent) before it accepts traffic. Check the Render logs
+   for `initSchema: schema sync complete` after the first deploy. To wipe and start fresh, just
+   drop the Neon database's tables and redeploy.
+
+---
+
+## 5b. Persistent file storage
+
+**If you have a persistent disk mounted at `/app/thusitha-backend/uploads`** (paid instance,
+this plan's §4.3): you're done — uploads land there and survive redeploys. Skip Cloudinary.
+Also set `WHATSAPP_SESSION_DIR=/app/thusitha-backend/uploads/.wa-session` so the WhatsApp
+link survives redeploys too (the session folder is otherwise outside the disk mount).
+
+**If you're on Free/Starter with no disk**, use Cloudinary's free tier instead:
+
+1. [cloudinary.com](https://cloudinary.com) → sign up → **Dashboard** → copy the **API
+   Environment variable** value (`CLOUDINARY_URL=cloudinary://<key>:<secret>@<cloud>`).
+2. Render → `scms-backend` → **Environment** → add `CLOUDINARY_URL` (just the value).
+3. Redeploy. `thusitha-backend/middleware/imageUpload.js` detects the var and routes those four
+   upload types to Cloudinary; without it, uploads fall back to the local `uploads/` folder
+   (correct for local dev). Document uploads (exam Excel, materials, payment slips) always stay
+   on local disk — they're processed and deleted immediately, so ephemerality is fine.
+
+Alternative (no code, costs money): switch to any paid Render instance and add a disk at mount
+path `/app/thusitha-backend/uploads` (and, for one-time WhatsApp linking,
+`/app/thusitha-backend/whatsapp-session`).
 
 ---
 

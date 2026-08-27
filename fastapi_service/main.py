@@ -677,4 +677,7 @@ def run_encode(req: EncodeRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    # reload=True spawns a file-watcher subprocess (extra RAM, needs watchfiles) — only
+    # useful in local dev. server.js sets ENV=production for the hosted container.
+    dev_reload = os.getenv("ENV", "development").lower() != "production"
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=dev_reload)

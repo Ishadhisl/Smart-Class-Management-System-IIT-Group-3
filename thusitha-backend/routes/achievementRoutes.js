@@ -3,7 +3,7 @@ const router = express.Router();
 const achievementController = require('../controllers/achievementController');
 const { verifyToken, checkRole } = require('../middleware/authMiddleware');
 
-const upload = require('../middleware/uploadMiddleware');
+const upload = require('../middleware/imageUpload');
 
 // Public route for landing page
 router.get('/public', achievementController.getPublicAchievements);

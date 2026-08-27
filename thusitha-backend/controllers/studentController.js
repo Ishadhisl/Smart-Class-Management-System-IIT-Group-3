@@ -2,11 +2,27 @@ const db = require('../db');
 const bcrypt = require('bcryptjs');
 const path = require('node:path');
 const fs = require('node:fs');
+const axios = require('axios');
 
 const auditService = require('../utils/auditService');
 const attendanceController = require('./attendanceController');
+const { publicUrl } = require('../middleware/imageUpload');
 
 const moodleService = require('../utils/moodleService');
+
+// The AI /encode endpoint needs a real file on the shared disk. Profile photos are
+// usually local ("/uploads/x.jpg"), but when CLOUDINARY_URL is set they're remote URLs
+// — download those to a temp file first and hand back a cleanup fn.
+async function resolvePhotoToLocalPath(photoPath) {
+  if (/^https?:\/\//i.test(photoPath)) {
+    const tmpAbs = path.resolve(__dirname, '..', 'uploads', `tmp-encode-${Date.now()}-${Math.round(Math.random() * 1e6)}.jpg`);
+    const resp = await axios.get(photoPath, { responseType: 'arraybuffer', timeout: 20000 });
+    fs.writeFileSync(tmpAbs, resp.data);
+    return { absPath: tmpAbs, cleanup: () => fs.existsSync(tmpAbs) && fs.unlinkSync(tmpAbs) };
+  }
+  const absPath = path.resolve(__dirname, '..', photoPath.replace(/^\//, ''));
+  return { absPath, cleanup: () => {} };
+}
 
 // 💡 Moodle Integration
 const createMoodleAccount = async (studentData) => {
@@ -45,22 +61,32 @@ exports.generateFaceEncoding = async (req, res) => {
 
     if (!photoPath) return res.status(400).json({ message: "ශිෂ්‍යයාට ඡායාරූපයක් එක් කර නැත." });
 
-    const absolutePhotoPath = path.resolve(__dirname, '..', photoPath.replace(/^\//, ''));
-    if (!fs.existsSync(absolutePhotoPath)) {
+    let resolved;
+    try {
+      resolved = await resolvePhotoToLocalPath(photoPath);
+    } catch (dlErr) {
+      console.warn('Photo download failed:', dlErr.message);
+      return res.status(400).json({ error: "ඡායාරූප ගොනුව ලබා ගැනීමට නොහැකි විය. කරුණාකර නැවත ඡායාරූපයක් උඩුගත කරන්න." });
+    }
+    if (!fs.existsSync(resolved.absPath)) {
+      resolved.cleanup();
       return res.status(400).json({ error: "ඡායාරූප ගොනුව සේවාදායකයේ හමුවුණේ නැත. කරුණාකර නැවත ඡායාරූපයක් උඩුගත කරන්න." });
     }
-    
+
     let aiResult;
     try {
-      aiResult = await attendanceController.runAIProcess('encode', { image_path: absolutePhotoPath.replace(/\\/g, '/') });
+      aiResult = await attendanceController.runAIProcess('encode', { image_path: resolved.absPath.replace(/\\/g, '/') });
     } catch (aiErr) {
       console.warn('AI Server is offline or failed:', aiErr.message);
       if (aiErr.message.includes("No face found") || aiErr.message.includes("no face found")) {
+        resolved.cleanup();
         return res.status(422).json({ error: "ඡායාරූපයේ මුහුණක් හඳුනා ගැනීමට නොහැකි විය. කරුණාකර වෙනත් පැහැදිලි ඡායාරූපයක් උඩුගත කරන්න." });
       }
-      return res.status(503).json({ error: 'AI පද්ධතිය ක්‍රියාත්මක නොවේ. කරුණාකර AI සේවාදායකය ක්‍රියාත්මක කරන්න.' });
+      resolved.cleanup();
+      return res.status(503).json({ error: 'AI පද්ධතිය ක්‍රියාත්මක නොවේ. කරුණාකර AI සේවාදායකය ක්‍රියාත්මක කරන්න.', ai_offline: true });
     }
-    
+    resolved.cleanup();
+
     if (aiResult.encoding) {
       await db.pool.query('UPDATE Students SET face_encoding = $1 WHERE student_id = $2', [JSON.stringify(aiResult.encoding), studentId]);
       await auditService.logAction(req.user?.userId || null, req.user?.role || 'System', 'UPDATE', 'Student', studentId, 'Pre-calculated face encoding.');
@@ -90,20 +116,33 @@ exports.bulkGenerateEncodings = async (req, res) => {
       return res.json({ message: 'Encoding සඳහා අලුත් ශිෂ්‍යයන් හමුවුනේ නැත.' });
     }
 
+    // Pre-flight: if the AI service isn't reachable, fail loudly instead of running the
+    // whole loop and returning a "success" message that actually encoded nobody.
+    try {
+      await attendanceController.runAIProcess('status', {});
+    } catch (aiErr) {
+      console.warn('Bulk encode aborted — AI service offline:', aiErr.message);
+      return res.status(503).json({
+        error: 'AI පද්ධතිය ක්‍රියාත්මක නොවේ. කරුණාකර AI සේවාදායකය ක්‍රියාත්මක කරන්න.',
+        ai_offline: true
+      });
+    }
+
     let successCount = 0;
     let failCount = 0;
     let missingPhotoCount = 0;
 
     for (const student of students.rows) {
+      let resolved = null;
       try {
-        const absolutePhotoPath = path.resolve(__dirname, '..', student.profile_photo_path.replace(/^\//, ''));
-        if (!fs.existsSync(absolutePhotoPath)) {
-          console.warn(`File missing for student_id=${student.student_id}:`, absolutePhotoPath);
+        resolved = await resolvePhotoToLocalPath(student.profile_photo_path);
+        if (!fs.existsSync(resolved.absPath)) {
+          console.warn(`File missing for student_id=${student.student_id}:`, resolved.absPath);
           missingPhotoCount++;
           failCount++;
           continue;
         }
-        const aiResult = await attendanceController.runAIProcess('encode', { image_path: absolutePhotoPath.replace(/\\/g, '/') });
+        const aiResult = await attendanceController.runAIProcess('encode', { image_path: resolved.absPath.replace(/\\/g, '/') });
         if (aiResult.encoding) {
           await db.pool.query('UPDATE Students SET face_encoding = $1 WHERE student_id = $2', [JSON.stringify(aiResult.encoding), student.student_id]);
           successCount++;
@@ -113,6 +152,8 @@ exports.bulkGenerateEncodings = async (req, res) => {
       } catch (err) {
         console.error(`Encoding failed for student_id=${student.student_id}:`, err.message);
         failCount++;
+      } finally {
+        if (resolved) resolved.cleanup();
       }
     }
 
@@ -426,7 +467,9 @@ exports.uploadPhoto = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: "ඡායාරූපයක් තෝරා නැත." });
   }
-  const photoPath = `/uploads/${req.file.filename}`;
+  // Cloudinary URL in production, "/uploads/<name>" locally. Face encoding is cleared
+  // so it's regenerated from the new photo on the next encode run.
+  const photoPath = publicUrl(req.file);
   try {
     const result = await db.pool.query(
       'UPDATE Students SET profile_photo_path = $1, face_encoding = NULL WHERE student_id = $2 RETURNING *',

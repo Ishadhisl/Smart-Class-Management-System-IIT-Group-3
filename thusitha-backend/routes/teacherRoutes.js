@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const teacherController = require('../controllers/teacherController');
 const { verifyToken, checkRole } = require('../middleware/authMiddleware');
-const upload = require('../middleware/uploadMiddleware');
+const upload = require('../middleware/imageUpload');
 
 router.get('/public', teacherController.getPublicTeachers);
 router.get('/', verifyToken, checkRole(['Admin', 'Teacher', 'Counter Person']), teacherController.getAllTeachers);

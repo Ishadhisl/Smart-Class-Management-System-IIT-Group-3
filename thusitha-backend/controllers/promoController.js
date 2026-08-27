@@ -1,5 +1,6 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
+const { publicUrl } = require('../middleware/imageUpload');
 
 exports.getPromos = async (req, res) => {
   try {
@@ -13,7 +14,7 @@ exports.getPromos = async (req, res) => {
 
 exports.createPromo = async (req, res) => {
   const { title, content_type, description } = req.body;
-  const image_url = req.file ? `uploads/${req.file.filename}` : null; // Construct relative web path with forward slashes
+  const image_url = publicUrl(req.file);
 
   if (!title || !content_type) {
     return res.status(400).json({ message: 'Title and Content Type are required.' });
@@ -50,7 +51,7 @@ exports.deletePromo = async (req, res) => {
 exports.updatePromo = async (req, res) => {
   const { id } = req.params;
   const { title, content_type, description } = req.body;
-  const image_url = req.file ? `uploads/${req.file.filename}` : null;
+  const image_url = publicUrl(req.file);
 
   try {
     let query, values;

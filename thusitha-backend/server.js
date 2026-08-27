@@ -3,8 +3,10 @@ const express = require('express');
 const cors = require('cors');
 const os = require('os'); // Network IP detection
 const https = require('https');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { initSchema } = require('./utils/initSchema');
 
 // Same locally-trusted dev certificate the frontend (Vite) uses - see vite.config.js for why:
 // navigator.mediaDevices (webcam access) needs a secure context, and an https frontend page
@@ -184,17 +186,31 @@ function startAIServer() {
   
   console.log(`🤖 Starting AI Server (Python uvicorn) from: ${scriptPath}`);
   
+  // Capture the child's output (was 'ignore') so Render logs show *why* the AI service
+  // dies — an OOM kill, a missing dep or an import error all looked identical before.
   const pyProcess = spawn(pythonPath, [scriptPath], {
     cwd: path.resolve(__dirname, '..', 'fastapi_service'),
     detached: true,
-    stdio: 'ignore'
+    stdio: ['ignore', 'pipe', 'pipe'],
+    // Tell main.py to skip uvicorn's reload/file-watcher (extra RAM) when we're not in dev.
+    env: { ...process.env, ENV: process.env.NODE_ENV === 'production' ? 'production' : 'development' }
   });
-  
-  pyProcess.unref();
-  
+
+  pyProcess.stdout.on('data', (d) => process.stdout.write(`[AI] ${d}`));
+  pyProcess.stderr.on('data', (d) => process.stderr.write(`[AI] ${d}`));
+
   pyProcess.on('error', (err) => {
     console.error('❌ Failed to start AI Python server:', err.message);
   });
+
+  pyProcess.on('exit', (code, signal) => {
+    console.error(`❌ AI Python server exited (code=${code}, signal=${signal}). ` +
+      `Face-encoding / headcount will be unavailable until it restarts. ` +
+      `If code=null/signal=SIGKILL this is almost certainly an out-of-memory kill — ` +
+      `the AI stack needs a >=2GB instance.`);
+  });
+
+  pyProcess.unref();
 }
 
 function checkAndStartAIServer() {
@@ -213,18 +229,36 @@ function checkAndStartAIServer() {
   client.connect(8000, '127.0.0.1');
 }
 
-const server = (httpsOptions ? https.createServer(httpsOptions, app) : app).listen(PORT, () => {
-  const scheme = httpsOptions ? 'https' : 'http';
-  console.log(`🚀 Server is running on ${scheme}://localhost:${PORT}`);
-  checkAndStartAIServer();
-});
+const server = httpsOptions ? https.createServer(httpsOptions, app) : http.createServer(app);
 
-// Start automated tasks
-initCronJobs(); // 💡 Automated tasks enabled
+async function bootstrap() {
+  // Keep the hosted DB in lock-step with the code before we accept traffic. Skipped
+  // under test (the Jest suites mock the DB and manage their own fixtures).
+  if (process.env.NODE_ENV !== 'test') {
+    try {
+      await initSchema();
+    } catch (err) {
+      console.error('⚠️  Schema sync threw (starting server anyway):', err.message);
+    }
+  }
 
-// 📱 Initialize WhatsApp Client
-console.log('📱 Starting WhatsApp Service (whatsapp-web.js)...');
-console.log('👉 Scan the QR code in the terminal OR visit https://localhost:5000/api/sms/whatsapp-qr from Admin dashboard.');
-initWhatsApp();
+  server.listen(PORT, () => {
+    const scheme = httpsOptions ? 'https' : 'http';
+    console.log(`🚀 Server is running on ${scheme}://localhost:${PORT}`);
+    checkAndStartAIServer();
+  });
+
+  // Start automated tasks
+  initCronJobs(); // 💡 Automated tasks enabled
+
+  // 📱 Initialize WhatsApp Client
+  console.log('📱 Starting WhatsApp Service (Baileys)...');
+  console.log('👉 Link the institute phone from Admin dashboard → සන්නිවේදන මධ්‍යස්ථානය → WhatsApp Connect.');
+  initWhatsApp();
+}
+
+if (process.env.NODE_ENV !== 'test') {
+  bootstrap();
+}
 
 module.exports = server;

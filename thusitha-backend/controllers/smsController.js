@@ -1,7 +1,7 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
 const smsService = require('../utils/smsService');
-const { sendWhatsAppMessage, getQrCode, getStatus, logoutWhatsApp } = require('../utils/whatsappService');
+const { sendWhatsAppMessage, getQrCode, getStatus, logoutWhatsApp, reconnectWhatsApp } = require('../utils/whatsappService');
 
 // ═══════════════════════════════════════════════════════════
 // 📊 WhatsApp Connection Status
@@ -27,6 +27,16 @@ exports.getWhatsAppQr = (req, res) => {
 exports.logoutWhatsApp = async (req, res) => {
   const result = await logoutWhatsApp();
   res.status(200).json(result);
+};
+
+exports.reconnectWhatsApp = async (req, res) => {
+  try {
+    const result = await reconnectWhatsApp();
+    res.status(200).json(result);
+  } catch (err) {
+    console.error('❌ WhatsApp reconnect error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 };
 
 // ═══════════════════════════════════════════════════════════

@@ -1,19 +1,23 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
+const { publicUrl } = require('../middleware/imageUpload');
 
 exports.createAchievement = async (req, res) => {
   const { student_id, title, description, island_rank, achieved_year } = req.body;
-  const image_url = req.file ? `uploads/${req.file.filename}` : null;
+  // multer stores the file under whatever the active storage returns — a local
+  // "uploads/<name>" path in dev, or an absolute Cloudinary URL in production.
+  const image_url = publicUrl(req.file);
+  const year = achieved_year ? parseInt(achieved_year, 10) : new Date().getFullYear();
   try {
     const result = await db.pool.query(
       'INSERT INTO Student_Achievements (student_id, title, description, island_rank, achieved_year, image_url) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [student_id, title, description, island_rank ? parseInt(island_rank) : null, achieved_year ? parseInt(achieved_year) : null, image_url]
+      [student_id, title, description, island_rank ? parseInt(island_rank, 10) : null, year, image_url]
     );
     await auditService.logAction(req.user?.userId, req.user?.role, 'CREATE', 'Student_Achievements', result.rows[0].achievement_id, `Created achievement: ${title}`);
     res.status(201).json({ message: 'ජයග්‍රහණය සාර්ථකව ඇතුළත් කළා!', achievement: result.rows[0] });
   } catch (err) {
     console.error('❌ Create Achievement Error:', err.message);
-    res.status(500).json({ error: 'ජයග්‍රහණය ඇතුළත් කිරීම අසාර්ථකයි.' });
+    res.status(500).json({ error: 'ජයග්‍රහණය ඇතුළත් කිරීම අසාර්ථකයි.', details: err.message });
   }
 };
 
@@ -49,11 +53,12 @@ exports.getPublicAchievements = async (req, res) => {
 exports.updateAchievement = async (req, res) => {
   const { id } = req.params;
   const { student_id, title, description, island_rank, achieved_year } = req.body;
-  const image_url = req.file ? `uploads/${req.file.filename}` : req.body.image_url || null;
+  const image_url = publicUrl(req.file) || req.body.image_url || null;
+  const year = achieved_year ? parseInt(achieved_year, 10) : new Date().getFullYear();
   try {
     const result = await db.pool.query(
       'UPDATE Student_Achievements SET student_id = $1, title = $2, description = $3, island_rank = $4, achieved_year = $5, image_url = COALESCE($6, image_url) WHERE achievement_id = $7 RETURNING *',
-      [student_id, title, description, island_rank ? parseInt(island_rank) : null, achieved_year ? parseInt(achieved_year) : null, image_url, id]
+      [student_id, title, description, island_rank ? parseInt(island_rank, 10) : null, year, image_url, id]
     );
     if (result.rows.length === 0) return res.status(404).json({ message: 'ජයග්‍රහණය හමුවුනේ නැත.' });
     await auditService.logAction(req.user?.userId, req.user?.role, 'UPDATE', 'Student_Achievements', id, `Updated achievement: ${title}`);

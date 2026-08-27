@@ -833,6 +833,14 @@ const Dashboard = () => {
     }
   };
 
+  // AI face-recognition service is offline (503) — not a user error, just unavailable
+  // on this host (e.g. Render free tier can't run the Python/dlib stack).
+  const isAiOfflineError = (err) =>
+    typeof err?.message === 'string' && err.message.includes('AI පද්ධතිය');
+
+  const notifyAiOffline = () =>
+    showNotification('AI මුහුණු හඳුනාගැනීමේ සේවාව මේ මොහොතේ නොමැත — local install එකකින් හෝ AI සේවාව සක්‍රිය කළ සේවාදායකයකින් උත්සාහ කරන්න.', 'info');
+
   // සියලුම සිසුන් Encode කිරීමේ Handler එක
   const handleBulkEncode = async () => {
     try {
@@ -840,6 +848,7 @@ const Dashboard = () => {
       showNotification(response.message);
       fetchDatabaseData();
     } catch (err) {
+      if (isAiOfflineError(err)) return notifyAiOffline();
       showNotification(err.message, 'error');
     }
   };
@@ -888,6 +897,7 @@ const Dashboard = () => {
       showNotification('ශිෂ්‍යයාගේ මුහුණේ දත්ත සාර්ථකව ගණනය කළා!');
       fetchDatabaseData();
     } catch (err) {
+      if (isAiOfflineError(err)) return notifyAiOffline();
       showNotification(err.message, 'error');
     }
   };

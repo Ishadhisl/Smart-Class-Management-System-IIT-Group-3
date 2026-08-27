@@ -10,6 +10,7 @@ const ADMIN_COUNTER = ['Admin', 'Counter Person'];
 // ═══════════════════════════════════════
 router.get('/whatsapp-status', verifyToken, checkRole(ADMIN_COUNTER), smsController.getWhatsAppStatus);
 router.get('/whatsapp-qr', verifyToken, checkRole(ADMIN_COUNTER), smsController.getWhatsAppQr);
+router.post('/whatsapp-reconnect', verifyToken, checkRole(ADMIN_COUNTER), smsController.reconnectWhatsApp);
 router.post('/whatsapp-logout', verifyToken, checkRole(['Admin']), smsController.logoutWhatsApp);
 
 // ═══════════════════════════════════════

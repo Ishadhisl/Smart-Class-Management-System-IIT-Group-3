@@ -129,6 +129,7 @@ const LandingPage = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [achievements, setAchievements] = useState([]);
   const [promoLoading, setPromoLoading] = useState(true);
+  const [brokenPromoIds, setBrokenPromoIds] = useState([]);
 
   // ගුරු මඩුල්ලේ විස්තර (Mock data - පසුව Backend එකෙන් ලබාගත හැක)
   const [currentLecturer, setCurrentLecturer] = useState(0);
@@ -214,24 +215,6 @@ const LandingPage = () => {
   const currentTeacher = lecturersList[currentLecturer];
   const isTeacherPlaceholder = currentTeacher.image.includes('Project%20LOGO.png');
 
-  // Static flyers to show alongside backend promotions
-  const staticFlyers = [
-    {
-      promo_id: 'static-flyer-1',
-      title: '2025 New Intake — Science Classes',
-      description: 'Edexcel, Cambridge සහ National විෂය නිර්දේශය සඳහා විද්‍යා පන්ති.',
-      content_type: 'Flyer',
-      image_url: '/flyers/flyer1.webp'
-    },
-    {
-      promo_id: 'static-flyer-2',
-      title: 'Advanced Level Media 2028 — ශානිකා මදුමාලි',
-      description: 'BA.Hons Kelaniya (P.G.D) Dip EDU — නිසක්මා කුරුණෑගල.',
-      content_type: 'Flyer',
-      image_url: '/flyers/flyer2.png'
-    }
-  ];
-
   // Map student names to their photos for achievements
   const achieverPhotoMap = {
     'Peshala Bandara': '/achievers/peshala.jpg',
@@ -250,13 +233,13 @@ const LandingPage = () => {
     return null;
   };
 
-  // Combine backend promotions (filtered strictly for valid images and removing known broken ones) with static flyers
-  const allPromotions = [...promotions.filter(p => {
-    if (!p.image_url || p.image_url.trim() === '' || p.image_url === 'null' || p.image_url === 'undefined') return false;
-    const titleLower = p.title?.toLowerCase() || '';
-    if (titleLower.includes('2026 a/l new intake') || titleLower.includes('a/l media')) return false;
-    return true;
-  }), ...staticFlyers];
+  // Promotions come purely from the database (Admin → ප්‍රවර්ධන tab). Only skip rows
+  // with no usable image. A card whose image later 404s hides itself via onError below.
+  const allPromotions = promotions.filter(p => {
+    const u = (p.image_url || '').trim();
+    if (u === '' || u === 'null' || u === 'undefined') return false;
+    return !brokenPromoIds.includes(p.promo_id);
+  });
 
   return (
     <div className="text-slate-700 bg-white min-h-screen w-full overflow-x-hidden">
@@ -503,6 +486,7 @@ const LandingPage = () => {
                         src={imgSrc}
                         alt={promo.title}
                         loading="lazy"
+                        onError={() => setBrokenPromoIds((ids) => ids.includes(promo.promo_id) ? ids : [...ids, promo.promo_id])}
                         className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105 bg-indigo-50"
                       />
                       <div className="absolute bottom-3 right-3 bg-black/60 text-white px-2.5 py-1 rounded-full text-[11px] flex items-center gap-1 font-bold">

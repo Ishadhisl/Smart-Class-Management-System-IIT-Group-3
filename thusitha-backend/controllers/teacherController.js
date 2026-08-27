@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 
 const auditService = require('../utils/auditService');
 const moodleService = require('../utils/moodleService');
+const { publicUrl } = require('../middleware/imageUpload');
 
 // 💡 Moodle Integration for Teachers
 const createMoodleAccount = async (teacherData) => {
@@ -33,7 +34,7 @@ const createMoodleAccount = async (teacherData) => {
 };
 exports.registerTeacher = async (req, res) => {
   const { username, password, teacher_name, phone, email, specialization, qualifications } = req.body;
-  const profile_photo_path = req.file ? `/uploads/${req.file.filename}` : null;
+  const profile_photo_path = publicUrl(req.file);
   const client = await db.pool.connect();
 
   try {
@@ -95,7 +96,7 @@ exports.getAllTeachers = async (req, res) => {
 exports.updateTeacher = async (req, res) => {
   const { id } = req.params;
   const { teacher_name, phone, email, specialization, qualifications, bio } = req.body;
-  const new_photo_path = req.file ? `/uploads/${req.file.filename}` : null;
+  const new_photo_path = publicUrl(req.file);
 
   try {
     let query, params;

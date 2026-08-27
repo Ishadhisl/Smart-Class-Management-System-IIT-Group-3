@@ -298,7 +298,8 @@ CREATE TABLE IF NOT EXISTS Student_Achievements (
     title VARCHAR(255) NOT NULL,
     description TEXT,
     island_rank INT,
-    achieved_year INT NOT NULL,
+    achieved_year INT,
+    image_url TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
