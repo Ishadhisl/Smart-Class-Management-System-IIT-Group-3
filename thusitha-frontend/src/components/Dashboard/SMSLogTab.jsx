@@ -16,19 +16,33 @@ const SMSLogTab = ({ logs, onResend, onDelete, onBulkResend, onResendFilteredFai
   const qrModalVisible = showQrModal && !whatsappStatus.isReady;
 
   const [reconnecting, setReconnecting] = useState(false);
+  const [qrStatusText, setQrStatusText] = useState('');
 
-  const fetchQrCode = async (isBackgroundRefresh = false) => {
+  // Open the modal immediately and let the polling effect fill in the QR — a single
+  // fetch often lands in the gap between socket cycles when qrCodeData is momentarily null.
+  const openQrModal = () => {
+    setQrCodeImg(null);
+    setQrStatusText('QR කේතය ලබා ගනිමින්...');
+    setShowQrModal(true);
+  };
+
+  const pollQr = async () => {
     try {
       const res = await request('/sms/whatsapp-qr');
-      if (res.hasQr && res.qr) {
-        const url = await QRCode.toDataURL(res.qr);
-        setQrCodeImg(url);
-        setShowQrModal(true);
-      } else if (!isBackgroundRefresh) {
-        alert(res.message || 'QR Code ලබා ගත නොහැක. "නැවත සම්බන්ධ කරන්න" ඔබන්න.');
+      if (res.isReady) {
+        setShowQrModal(false);
+        return true;
       }
-    } catch (e) {
-      if (!isBackgroundRefresh) alert('QR Code ලබාගැනීමේ දෝෂයක්.');
+      if (res.hasQr && res.qr) {
+        setQrCodeImg(await QRCode.toDataURL(res.qr));
+        setQrStatusText('');
+        return true;
+      }
+      setQrStatusText(res.message || 'QR කේතය සෑදෙමින් පවතී — මොහොතක් රැඳී සිටින්න...');
+      return false;
+    } catch {
+      setQrStatusText('QR ලබාගැනීමේ දෝෂයක් — නැවත උත්සාහ කරමින්...');
+      return false;
     }
   };
 
@@ -36,21 +50,31 @@ const SMSLogTab = ({ logs, onResend, onDelete, onBulkResend, onResendFilteredFai
   // QR is generated — the recovery path when auto-reconnect has given up, without a redeploy.
   const handleReconnect = async () => {
     setReconnecting(true);
+    openQrModal();
     try {
       await request('/sms/whatsapp-reconnect', { method: 'POST' });
-      setTimeout(() => fetchQrCode(false), 3000);
     } catch (e) {
-      alert('නැවත සම්බන්ධ කිරීම අසාර්ථකයි: ' + e.message);
+      setQrStatusText('නැවත සම්බන්ධ කිරීම අසාර්ථකයි: ' + e.message);
     } finally {
       setReconnecting(false);
     }
   };
 
-  // WhatsApp rotates the QR roughly every 20s while unscanned, so keep the displayed
-  // image in sync or a scan attempted on a stale code fails with "Couldn't connect to device".
+  // While the modal is open: poll every 3s. If no QR after ~15s, trigger a reconnect once.
   useEffect(() => {
     if (!qrModalVisible) return undefined;
-    const interval = setInterval(() => fetchQrCode(true), 8000);
+    let tries = 0;
+    let reconnectTried = false;
+    pollQr();
+    const interval = setInterval(async () => {
+      tries += 1;
+      const got = await pollQr();
+      if (!got && !reconnectTried && tries >= 5) {
+        reconnectTried = true;
+        setQrStatusText('QR කේතයක් නැත — නැවත සම්බන්ධ වෙමින්...');
+        request('/sms/whatsapp-reconnect', { method: 'POST' }).catch(() => {});
+      }
+    }, 3000);
     return () => clearInterval(interval);
   }, [qrModalVisible]);
 
@@ -126,7 +150,7 @@ const SMSLogTab = ({ logs, onResend, onDelete, onBulkResend, onResendFilteredFai
                 : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px', flexWrap: 'wrap' }}>
                     <span>{whatsappStatus.hasQr ? '📲 QR Code එක scan කරන්න.' : 'WhatsApp සම්බන්ධ නොවේ.'}</span>
-                    <button onClick={() => fetchQrCode(false)} style={{ padding: '5px 12px', backgroundColor: '#f57c00', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>
+                    <button onClick={openQrModal} style={{ padding: '5px 12px', backgroundColor: '#f57c00', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>
                       QR Code පෙන්වන්න
                     </button>
                     <button onClick={handleReconnect} disabled={reconnecting} style={{ padding: '5px 12px', backgroundColor: '#1565c0', color: 'white', border: 'none', borderRadius: '6px', cursor: reconnecting ? 'wait' : 'pointer', fontSize: '11px', fontWeight: 'bold' }}>
@@ -363,8 +387,18 @@ const SMSLogTab = ({ logs, onResend, onDelete, onBulkResend, onResendFilteredFai
             {qrCodeImg ? (
               <img src={qrCodeImg} alt="WhatsApp QR Code" style={{ width: '250px', height: '250px', margin: '20px auto', display: 'block' }} />
             ) : (
-              <div style={{ padding: '40px' }}>Loading...</div>
+              <div style={{ padding: '40px', color: '#666', fontSize: '14px' }}>
+                <div style={{ fontSize: '32px', marginBottom: '10px' }}>⏳</div>
+                {qrStatusText || 'QR කේතය ලබා ගනිමින්...'}
+              </div>
             )}
+            <button
+              onClick={handleReconnect}
+              disabled={reconnecting}
+              style={{ padding: '8px 16px', backgroundColor: '#1565c0', color: 'white', border: 'none', borderRadius: '8px', cursor: reconnecting ? 'wait' : 'pointer', fontWeight: 'bold', width: '100%', marginBottom: '8px' }}
+            >
+              {reconnecting ? '...' : '🔄 නැවත සම්බන්ධ කර QR අලුත් කරන්න'}
+            </button>
             <button onClick={() => setShowQrModal(false)} style={{ padding: '10px 20px', backgroundColor: '#455a64', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%' }}>
               Close
             </button>

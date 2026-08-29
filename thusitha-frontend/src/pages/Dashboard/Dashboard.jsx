@@ -20,6 +20,7 @@ import EnrollmentTab from '../../components/Dashboard/EnrollmentTab';
 import UserTab from '../../components/Dashboard/UserTab';
 import ApprovalTab from '../../components/Dashboard/ApprovalTab';
 import HomeTab from '../../components/Dashboard/HomeTab';
+import CctvAccessRequestsAdmin from '../../components/Dashboard/CctvAccessRequestsAdmin';
 import StudyAreaTab from '../../components/Dashboard/StudyAreaTab';
 import ExamTab from '../../components/Dashboard/ExamTab';
 import ContactTab from '../../components/Dashboard/ContactTab';
@@ -1328,6 +1329,8 @@ const Dashboard = () => {
                 }
 
                 return (
+                  <>
+                  {isAdmin && <CctvAccessRequestsAdmin />}
                   <HomeTab
                     username={user.username}
                     role={user.role}
@@ -1339,6 +1342,7 @@ const Dashboard = () => {
                     attendanceData={attendanceStats}
                     profilePhotoPath={profilePhotoPath}
                   />
+                  </>
                 );
               })()}
 
@@ -1525,6 +1529,7 @@ const Dashboard = () => {
                   <SmartAttendanceLivePanel
                     halls={halls}
                     activeSessions={classSchedules}
+                    role={user.role}
                   />
                 </div>
               )}

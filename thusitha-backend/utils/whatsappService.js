@@ -39,13 +39,28 @@ const initWhatsApp = async () => {
 
     try {
       const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
-      const { version } = await fetchLatestBaileysVersion();
+
+      // fetchLatestBaileysVersion hits GitHub — on a locked-down host it can hang or
+      // throw, which used to kill init entirely (no socket, no QR ever). Time-box it and
+      // fall back to the version bundled with the installed baileys.
+      let version;
+      try {
+        const res = await Promise.race([
+          fetchLatestBaileysVersion(),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('version fetch timeout')), 8000)),
+        ]);
+        version = res.version;
+      } catch (vErr) {
+        console.warn('⚠️ WhatsApp: using bundled Baileys version -', vErr.message);
+        version = undefined; // makeWASocket falls back to its bundled default
+      }
 
       client = makeWASocket({
         auth: state,
-        version,
+        ...(version ? { version } : {}),
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false, // We will handle printing manually below
+        browser: ['Thusitha SCMS', 'Chrome', '1.0.0'],
       });
 
       client.ev.on('creds.update', saveCreds);

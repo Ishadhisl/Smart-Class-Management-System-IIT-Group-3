@@ -128,16 +128,13 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
   const renderForm = (isEdit) => (
     <form onSubmit={isEdit ? handleEdit : handleAdd}>
       {!isEdit && (
-        <>
-          <div>
-            <label htmlFor="teacher-username" style={labelStyle}>පරිශීලක නාමය (Login Username)</label>
-            <input id="teacher-username" type="text" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} required style={inputStyle} placeholder="teacher01" />
+        <div>
+          <label htmlFor="teacher-username" style={labelStyle}>පරිශීලක නාමය (Login Username)</label>
+          <input id="teacher-username" type="text" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} required style={inputStyle} placeholder="teacher01" />
+          <div style={{ fontSize: '12px', color: '#666', marginTop: '-6px', marginBottom: '12px' }}>
+            ආරම්භක මුරපදය: <b>Teacher@123</b> — ගුරුවරයාට පළමු වර log වී මුරපදය වෙනස් කළ හැක.
           </div>
-          <div>
-            <label htmlFor="teacher-password" style={labelStyle}>මුරපදය <span style={{ fontWeight: 'normal', color: '#888' }}>(හිස්ව තැබුවොත් Teacher@123)</span></label>
-            <input id="teacher-password" type="password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} style={inputStyle} placeholder="Teacher@123" />
-          </div>
-        </>
+        </div>
       )}
       <div>
         <label htmlFor="teacher-name" style={labelStyle}>ගුරුවරයාගේ නම</label>

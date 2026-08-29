@@ -29,6 +29,20 @@ async function runAIProcess(mode, inputData) {
 
 exports.runAIProcess = runAIProcess;
 
+// The AI microservice is optional infra (needs a >=2GB host + the dlib/torch stack).
+// When it's down, every CV endpoint should answer with a calm 503 the UI can show as
+// "AI unavailable" rather than a red 500.
+function isAIUnavailable(err) {
+  const m = String(err && err.message || '');
+  return m.includes('AI Microservice Error')
+    || m.includes('ECONNREFUSED')
+    || m.includes('not installed')
+    || m.includes('socket hang up')
+    || m.includes('timeout');
+}
+const AI_OFFLINE_MESSAGE = 'AI පද්ධතිය ක්‍රියාත්මක නොවේ (මෙම සේවාව සක්‍රිය කළ සේවාදායකයක් අවශ්‍යයි). කරුණාකර පසුව උත්සාහ කරන්න.';
+exports.isAIUnavailable = isAIUnavailable;
+
 /**
  * 🛡️ Industrial Logic: Handles QR code scanning and triggers automatic SMS.
  */
@@ -212,6 +226,9 @@ exports.validateAttendanceWithZones = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Zoned Attendance Error:', error.message);
+    if (isAIUnavailable(error)) {
+      return res.status(503).json({ error: AI_OFFLINE_MESSAGE, ai_offline: true });
+    }
     res.status(500).json({ error: 'කලාපීය පැමිණීම පරීක්ෂා කිරීම අසාර්ථකයි.' });
   }
 };
@@ -678,6 +695,9 @@ exports.checkCCTVOccupancy = async (req, res) => {
     res.status(200).json({ message: "CCTV Occupancy සාර්ථකයි", data: headcountResult });
   } catch (err) {
     console.error('❌ CCTV Occupancy Error:', err.message);
+    if (isAIUnavailable(err)) {
+      return res.status(503).json({ error: AI_OFFLINE_MESSAGE, ai_offline: true });
+    }
     res.status(500).json({ error: err.message });
   }
 };
@@ -967,6 +987,20 @@ exports.uploadCCTVFootage = async (req, res) => {
   }
 
   try {
+    // A Teacher may only run CCTV analysis for a class they have Admin-approved access to.
+    if (req.user.role === 'Teacher') {
+      const cctvAccess = require('./cctvAccessController');
+      const schedRes = await db.pool.query('SELECT course_id FROM Class_Schedules WHERE schedule_id = $1', [session_id]);
+      const cid = schedRes.rows[0]?.course_id;
+      const allowed = await cctvAccess.teacherHasApproval(req.user.userId, cid);
+      if (!allowed) {
+        return res.status(403).json({
+          error: 'මෙම පන්තියේ CCTV දර්ශන බැලීමට පරිපාලක අනුමැතිය අවශ්‍යයි. කරුණාකර පළමුව අවසර ඉල්ලන්න.',
+          needs_approval: true
+        });
+      }
+    }
+
     const filePath = `uploads/${req.file.filename}`;
     
     // Call FastAPI headcount
@@ -1129,6 +1163,9 @@ exports.uploadCCTVFootage = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Upload CCTV error:', error.message);
+    if (isAIUnavailable(error)) {
+      return res.status(503).json({ error: AI_OFFLINE_MESSAGE, ai_offline: true });
+    }
     res.status(500).json({ error: 'CCTV දර්ශන ගණනය කිරීම අසාර්ථකයි.' });
   }
 };
@@ -1281,6 +1318,9 @@ exports.verifyFace = async (req, res) => {
     console.error('❌ verifyFace error:', error.message);
     // Cleanup if exists
     try { if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath); } catch (e) {}
+    if (isAIUnavailable(error)) {
+      return res.status(503).json({ error: AI_OFFLINE_MESSAGE, ai_offline: true });
+    }
     res.status(500).json({ error: error.message });
   }
 };

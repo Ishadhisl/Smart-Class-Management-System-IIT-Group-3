@@ -1,5 +1,18 @@
 const moodleService = require('../utils/moodleService');
 
+// Moodle runs as a local XAMPP instance and is deliberately NOT part of the hosted
+// deployment (deploy/DEPLOY.md). On a host where MOODLE_URL is unset or still points at
+// localhost, short-circuit with a calm "local only" response instead of a 500 from a
+// failed localhost HTTP call.
+const moodleUnavailable = () => {
+  const url = process.env.MOODLE_URL || '';
+  return process.env.NODE_ENV === 'production' && (!url || url.includes('localhost') || url.includes('127.0.0.1'));
+};
+const MOODLE_LOCAL_ONLY = {
+  moodle_disabled: true,
+  message: 'Moodle ඉගෙනුම් කළමනාකරණ පද්ධතිය දේශීය install එකේ පමණක් ලබා ගත හැක (hosted අනුවාදයේ සක්‍රිය නැත).',
+};
+
 // Moodle's own URLs are absolute (http://localhost/moodle/...). The frontend embeds them
 // in an iframe served from a different origin/port, and browsers drop Moodle's session
 // cookie there as a cross-origin cookie. Stripping the scheme+host makes them root-relative
@@ -15,6 +28,7 @@ const toRelativeMoodleUrl = (absoluteUrl) => {
 };
 
 exports.getSsoUrl = async (req, res) => {
+  if (moodleUnavailable()) return res.status(503).json(MOODLE_LOCAL_ONLY);
   try {
     const rawUsername = req.user.username;
     if (!rawUsername) {
@@ -42,6 +56,7 @@ exports.getSsoUrl = async (req, res) => {
 };
 
 exports.getEmbedUrl = async (req, res) => {
+  if (moodleUnavailable()) return res.status(503).json(MOODLE_LOCAL_ONLY);
   try {
     const { page, course_id, course_name } = req.query;
     const rawUsername = req.user.username;

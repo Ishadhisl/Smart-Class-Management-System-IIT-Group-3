@@ -1,16 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { request } from '../../services/api';
 
-const SmartAttendanceLivePanel = ({ halls, activeSessions }) => {
+const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => {
+  const isTeacher = role === 'Teacher';
   const [sessionId, setSessionId] = useState('');
   const [hallId, setHallId] = useState('');
   const [liveData, setLiveData] = useState(null);
   const [error, setError] = useState(null);
+  const [info, setInfo] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewType, setPreviewType] = useState(null);
+
+  // Teacher CCTV-access state
+  const [approvedCourseIds, setApprovedCourseIds] = useState([]);
+  const [myRequests, setMyRequests] = useState([]);
+  const [requesting, setRequesting] = useState(false);
+
+  const loadAccess = useCallback(async () => {
+    if (!isTeacher) return;
+    try {
+      const data = await request('/cctv-access/mine');
+      setApprovedCourseIds(data.approvedCourseIds || []);
+      setMyRequests(data.requests || []);
+    } catch { /* non-fatal */ }
+  }, [isTeacher]);
+
+  useEffect(() => { loadAccess(); }, [loadAccess]);
+
+  const selectedSession = activeSessions.find(s => String(s.schedule_id) === String(sessionId));
+  const selectedCourseId = selectedSession?.course_id ?? null;
+  const teacherApproved = !isTeacher || (selectedCourseId != null && approvedCourseIds.includes(selectedCourseId));
+  const pendingReq = myRequests.find(r => r.course_id === selectedCourseId && r.status === 'Pending');
+
+  const handleRequestAccess = async () => {
+    if (!selectedCourseId) { alert('කරුණාකර පළමුව පන්තියක් තෝරන්න.'); return; }
+    setRequesting(true);
+    try {
+      const res = await request('/cctv-access/request', { method: 'POST', body: { course_id: selectedCourseId } });
+      setInfo(res.message || 'ඉල්ලීම යවන ලදී.');
+      loadAccess();
+    } catch (err) {
+      setError(err.message || 'ඉල්ලීම යැවීම අසාර්ථකයි.');
+    } finally {
+      setRequesting(false);
+    }
+  };
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -40,6 +77,7 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions }) => {
 
     setUploading(true);
     setError(null);
+    setInfo(null);
 
     const formData = new FormData();
     formData.append('cctv_footage', selectedFile);
@@ -65,7 +103,15 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions }) => {
       });
       
     } catch (err) {
-      setError(err.message || 'CCTV upload failed');
+      const msg = err.message || 'CCTV upload failed';
+      if (msg.includes('AI පද්ධතිය')) {
+        setInfo('AI මුහුණු/හිසගණන සේවාව මේ මොහොතේ නොමැත (එය සක්‍රිය කළ සේවාදායකයක් අවශ්‍යයි). කරුණාකර පසුව උත්සාහ කරන්න.');
+      } else if (msg.includes('අනුමැතිය අවශ්‍යයි')) {
+        setInfo(msg);
+        loadAccess();
+      } else {
+        setError(msg);
+      }
     } finally {
       setUploading(false);
     }
@@ -102,6 +148,26 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions }) => {
           </div>
         </div>
 
+        {isTeacher && !teacherApproved ? (
+          <div style={{ backgroundColor: '#fff8e1', padding: '25px', borderRadius: '10px', border: '2px dashed #f57c00', textAlign: 'center' }}>
+            <h4 style={{ color: '#e65100', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold' }}>🔒 CCTV දර්ශන බැලීමට පරිපාලක අනුමැතිය අවශ්‍යයි</h4>
+            {!selectedCourseId ? (
+              <p style={{ fontSize: '14px', color: '#666' }}>කරුණාකර පළමුව ඉහතින් පන්තියක් තෝරන්න.</p>
+            ) : pendingReq ? (
+              <p style={{ fontSize: '14px', color: '#e65100', fontWeight: 'bold' }}>⏳ ඔබගේ ඉල්ලීම පරිපාලක අනුමැතිය සඳහා පොරොත්තුවෙන් ඇත.</p>
+            ) : (
+              <>
+                <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                  "{selectedSession?.course_name}" පන්තියේ CCTV දර්ශන පරීක්ෂා කිරීමට පරිපාලකගෙන් අවසර ඉල්ලන්න.
+                </p>
+                <button onClick={handleRequestAccess} disabled={requesting}
+                  style={{ padding: '12px 30px', backgroundColor: '#e65100', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}>
+                  {requesting ? '...' : '📩 අවසර ඉල්ලන්න (Request Access)'}
+                </button>
+              </>
+            )}
+          </div>
+        ) : (
         <div style={{ backgroundColor: '#f8f9fa', padding: '25px', borderRadius: '10px', border: '2px dashed #1a237e', textAlign: 'center' }}>
           <h4 style={{ color: '#1a237e', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold' }}>📤 CCTV ඡායාරූපය/වීඩියෝව උඩුගත කරන්න (Upload CCTV)</h4>
           <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>
@@ -135,11 +201,18 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions }) => {
             )}
           </div>
         </div>
+        )}
       </div>
 
       {error && (
         <div style={{ padding: '15px', backgroundColor: '#ffebee', color: '#c62828', borderRadius: '8px', marginBottom: '20px', borderLeft: '5px solid #d32f2f' }}>
           ⚠️ දෝෂයකි: {error}
+        </div>
+      )}
+
+      {info && (
+        <div style={{ padding: '15px', backgroundColor: '#e3f2fd', color: '#0277bd', borderRadius: '8px', marginBottom: '20px', borderLeft: '5px solid #0288d1' }}>
+          ℹ️ {info}
         </div>
       )}
 
@@ -242,6 +315,7 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions }) => {
 SmartAttendanceLivePanel.propTypes = {
   halls: PropTypes.array.isRequired,
   activeSessions: PropTypes.array.isRequired,
+  role: PropTypes.string,
 };
 
 export default SmartAttendanceLivePanel;

@@ -49,6 +49,7 @@ const moodleSsoRoutes = require('./routes/moodleSsoRoutes');
 const announcementRoutes = require('./routes/announcementRoutes');
 const achievementRoutes = require('./routes/achievementRoutes');
 const qrAttendanceRoutes = require('./routes/qrAttendanceRoutes');
+const cctvAccessRoutes = require('./routes/cctvAccessRoutes');
 
 const app = express();
 app.disable('x-powered-by');
@@ -158,6 +159,7 @@ app.use('/api/moodle-sso', moodleSsoRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/achievements', achievementRoutes);
 app.use('/api/qr-attendance', qrAttendanceRoutes);
+app.use('/api/cctv-access', cctvAccessRoutes);
 
 const PORT = process.env.PORT || 5000;
 

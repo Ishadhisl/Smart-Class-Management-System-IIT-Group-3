@@ -8,6 +8,7 @@ const MaterialTab = ({ courses }) => {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [embedUrl, setEmbedUrl] = useState('');
   const [loadError, setLoadError] = useState('');
+  const [moodleDisabled, setMoodleDisabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const { showNotification } = useNotification();
 
@@ -47,12 +48,17 @@ const MaterialTab = ({ courses }) => {
       } catch (err) {
         if (ignore) return;
         console.error('Failed to fetch Moodle embed URL:', err);
-        // Show the real reason instead of silently loading Moodle's generic Dashboard,
-        // which looks like a working page but isn't the course the user asked for.
         const msg = err.message || 'Moodle වෙත ප්‍රවේශ වීමේදී දෝෂයක් ඇති විය.';
         setEmbedUrl('');
-        setLoadError(msg);
-        showNotification(msg, 'error');
+        // Moodle is local-XAMPP-only and not part of the hosted deploy — show a calm
+        // "local only" panel, not a red error toast.
+        if (msg.includes('දේශීය install') || msg.toLowerCase().includes('moodle')) {
+          setMoodleDisabled(true);
+          setLoadError('');
+        } else {
+          setLoadError(msg);
+          showNotification(msg, 'error');
+        }
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -103,6 +109,17 @@ const MaterialTab = ({ courses }) => {
           <div className="text-center px-6">
             <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
             <p className="text-lg font-semibold text-gray-700">{loadError}</p>
+          </div>
+        )}
+
+        {moodleDisabled && (
+          <div className="text-center px-6 max-w-md">
+            <div className="text-6xl mb-4">🖥️</div>
+            <p className="text-lg font-semibold text-gray-700 mb-2">Moodle ඉගෙනුම් ද්‍රව්‍ය මොඩියුලය දේශීය install එකේ පමණයි</p>
+            <p className="text-sm text-gray-500">
+              මෙම විශේෂාංගය XAMPP හරහා ධාවනය වන local Moodle සේවාදායකයට සම්බන්ධ වේ.
+              Hosted (Vercel/Render) අනුවාදයේ එය සක්‍රිය නැත. අනෙකුත් සියලු පද්ධති කොටස් සාමාන්‍ය පරිදි ක්‍රියා කරයි.
+            </p>
           </div>
         )}
 
