@@ -180,7 +180,9 @@ exports.sendCustomSms = async (req, res) => {
   }
 
   try {
+    console.log(`🔎🔎🔎 DIAGNOSTIC sendCustomSms called: phone=${phone}`);
     const result = await smsService.sendCustomSMS(phone, message);
+    console.log(`🔎🔎🔎 DIAGNOSTIC sendCustomSMS returned:`, JSON.stringify(result));
     if (result.success) {
       await auditService.logAction(req.user.userId, req.user.role, 'SEND_CUSTOM_WA', 'SMS_Logs', null, `Custom WhatsApp sent to ${phone}.`);
       res.status(200).json({ success: true, message: 'WhatsApp message සාර්ථකව යවන ලදී.' });
