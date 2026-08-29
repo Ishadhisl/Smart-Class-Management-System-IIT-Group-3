@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const auditService = require('../utils/auditService');
 const { sendWhatsAppMessage } = require('../utils/whatsappService');
+const { isUsingDefaultPassword } = require('../utils/authDefaults');
 
 // පරිශීලක ඇතුළත් වීම (Login)
 exports.login = async (req, res) => {
@@ -21,12 +22,9 @@ exports.login = async (req, res) => {
       { expiresIn: '1d' }
     );
 
-    // Check if Student still has default password
-    let mustChangePassword = false;
-    if (user.role === 'Student') {
-      const isDefault = await bcrypt.compare('Thusitha@123', user.password_hash);
-      if (isDefault) mustChangePassword = true;
-    }
+    // Nudge any user still on their role's default password to personalise it.
+    const mustChangePassword = await isUsingDefaultPassword(user.role, user.password_hash)
+      || await bcrypt.compare('Thusitha@123', user.password_hash); // legacy default
 
     // 📋 Industrial Standard: Log the successful login
     await auditService.logAction(user.user_id, user.role, 'LOGIN', 'User', user.user_id, `User ${username} logged into the system.`);

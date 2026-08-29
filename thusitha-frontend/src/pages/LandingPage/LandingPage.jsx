@@ -471,7 +471,10 @@ const LandingPage = () => {
         {!promoLoading && (
           <div className="grid gap-7 justify-center" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 350px), 1fr))' }}>
             {allPromotions.map((promo) => {
-              const imgSrc = promo.image_url?.startsWith('/') ? promo.image_url : getImageUrl(promo.image_url);
+              // Always route through getImageUrl: a stored "/uploads/x.png" is a path on the
+              // BACKEND, not this Vercel origin — the old startsWith('/') shortcut sent it to
+              // the wrong host and every card 404'd.
+              const imgSrc = getImageUrl(promo.image_url);
               return (
                 <motion.button
                   key={promo.promo_id}

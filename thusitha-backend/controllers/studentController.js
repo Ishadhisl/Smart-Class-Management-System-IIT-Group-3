@@ -7,6 +7,7 @@ const axios = require('axios');
 const auditService = require('../utils/auditService');
 const attendanceController = require('./attendanceController');
 const { publicUrl } = require('../middleware/imageUpload');
+const { defaultPasswordFor } = require('../utils/authDefaults');
 
 const moodleService = require('../utils/moodleService');
 
@@ -95,6 +96,10 @@ exports.generateFaceEncoding = async (req, res) => {
       if (aiResult.error.includes("No face found") || aiResult.error.includes("no face found")) {
         return res.status(422).json({ error: "ඡායාරූපයේ මුහුණක් හඳුනා ගැනීමට නොහැකි විය. කරුණාකර වෙනත් පැහැදිලි ඡායාරූපයක් උඩුගත කරන්න." });
       }
+      // face_recognition library not installed in the AI container — same user story as "offline"
+      if (aiResult.error.includes("not installed")) {
+        return res.status(503).json({ error: 'AI පද්ධතිය ක්‍රියාත්මක නොවේ. කරුණාකර AI සේවාදායකය ක්‍රියාත්මක කරන්න.', ai_offline: true });
+      }
       return res.status(400).json({ error: aiResult.error });
     } else {
       return res.status(400).json({ error: "මුහුණේ දත්ත ගණනය කිරීමට නොහැකි විය." });
@@ -116,10 +121,17 @@ exports.bulkGenerateEncodings = async (req, res) => {
       return res.json({ message: 'Encoding සඳහා අලුත් ශිෂ්‍යයන් හමුවුනේ නැත.' });
     }
 
-    // Pre-flight: if the AI service isn't reachable, fail loudly instead of running the
-    // whole loop and returning a "success" message that actually encoded nobody.
+    // Pre-flight: if the AI service isn't reachable (or its face library didn't load),
+    // fail loudly instead of running the whole loop and returning a "success" message
+    // that actually encoded nobody.
     try {
-      await attendanceController.runAIProcess('status', {});
+      const aiStatus = await attendanceController.runAIProcess('status', {});
+      if (aiStatus && aiStatus.face_rec_enabled === false) {
+        return res.status(503).json({
+          error: 'AI පද්ධතිය ක්‍රියාත්මක නොවේ. කරුණාකර AI සේවාදායකය ක්‍රියාත්මක කරන්න.',
+          ai_offline: true
+        });
+      }
     } catch (aiErr) {
       console.warn('Bulk encode aborted — AI service offline:', aiErr.message);
       return res.status(503).json({
@@ -209,7 +221,7 @@ exports.approveStudent = async (req, res) => {
 
     // 2. Create System User
     const username = qr_code_key; // Using QR key as username ensures uniqueness for siblings sharing parent contact info
-    const passwordHash = await bcrypt.hash('Thusitha@123', 10); // Default password
+    const passwordHash = await bcrypt.hash(defaultPasswordFor('Student'), 10); // Default password
     const userRes = await client.query(
       'INSERT INTO Users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING user_id',
       [username, passwordHash, 'Student']
@@ -265,9 +277,9 @@ exports.registerStudent = async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
-    
+    // Blank password => role default (Student@123); login then flags must_change_password.
+    const passwordHash = await bcrypt.hash(password || defaultPasswordFor('Student'), 10);
+
     // Resolve parent_id
     let finalParentId = parent_id || null;
     if (!finalParentId && parent_name && parent_phone) {
@@ -275,9 +287,10 @@ exports.registerStudent = async (req, res) => {
       if (existingParent.rows.length > 0) {
         finalParentId = existingParent.rows[0].parent_id;
       } else {
+        const parentPasswordHash = await bcrypt.hash(defaultPasswordFor('Parent'), 10);
         const parentUserResult = await client.query(
           'INSERT INTO Users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING user_id',
-          [parent_phone, passwordHash, 'Parent']
+          [parent_phone, parentPasswordHash, 'Parent']
         );
         const parentUserId = parentUserResult.rows[0].user_id;
         const parentResult = await client.query(

@@ -30,7 +30,18 @@ COPY . .
 # machines expose more cores than they give RAM for - that combination OOM-killed the
 # build (8GB+ used). Capping it to 1 job trades build speed for staying under the limit.
 ENV CMAKE_BUILD_PARALLEL_LEVEL=1
-RUN pip install --no-cache-dir -r fastapi_service/requirements.txt
+
+# Core AI-service deps (small, always succeed). fastapi_service/main.py needs these to
+# even start.  Keep this list in sync with fastapi_service/requirements.txt.
+RUN pip install --no-cache-dir fastapi uvicorn opencv-python-headless numpy requests
+
+# Heavy CV deps (ultralytics/torch + face-recognition/dlib). dlib compiles from source
+# and can OOM on a constrained builder — if it fails we DON'T want the whole backend
+# deploy to fail, so this step is allowed to error. main.py already guards both imports
+# (HAS_FACE_REC / model is None) and degrades to a clear "AI unavailable" response.
+RUN pip install --no-cache-dir ultralytics face-recognition \
+    || echo "⚠️  AI CV deps failed to build — face recognition / headcount disabled, rest of the app is unaffected"
+
 RUN cd thusitha-backend && npm install --omit=dev
 
 WORKDIR /app/thusitha-backend

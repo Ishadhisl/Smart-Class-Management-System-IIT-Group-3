@@ -7,6 +7,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { initSchema } = require('./utils/initSchema');
+const { seedDemoUsers } = require('./utils/seedUsers');
 
 // Same locally-trusted dev certificate the frontend (Vite) uses - see vite.config.js for why:
 // navigator.mediaDevices (webcam access) needs a secure context, and an https frontend page
@@ -239,6 +240,11 @@ async function bootstrap() {
       await initSchema();
     } catch (err) {
       console.error('⚠️  Schema sync threw (starting server anyway):', err.message);
+    }
+    try {
+      await seedDemoUsers();
+    } catch (err) {
+      console.error('⚠️  Demo user seed threw (starting server anyway):', err.message);
     }
   }
 

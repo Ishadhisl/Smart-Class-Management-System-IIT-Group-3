@@ -2,6 +2,7 @@ const db = require('../db');
 const bcrypt = require('bcryptjs');
 
 const auditService = require('../utils/auditService');
+const { defaultPasswordFor } = require('../utils/authDefaults');
 exports.registerParent = async (req, res) => {
   const { username, password, parent_name, parent_phone, address } = req.body;
   const client = await db.pool.connect();
@@ -9,10 +10,9 @@ exports.registerParent = async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // 1. Create the User record (Role: Parent)
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
-    
+    // 1. Create the User record (Role: Parent) — blank password => Parent@123
+    const passwordHash = await bcrypt.hash(password || defaultPasswordFor('Parent'), 10);
+
     const userResult = await client.query(
       'INSERT INTO Users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING user_id',
       [username, passwordHash, 'Parent']

@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const auditService = require('../utils/auditService');
 const moodleService = require('../utils/moodleService');
 const { publicUrl } = require('../middleware/imageUpload');
+const { defaultPasswordFor } = require('../utils/authDefaults');
 
 // 💡 Moodle Integration for Teachers
 const createMoodleAccount = async (teacherData) => {
@@ -40,10 +41,9 @@ exports.registerTeacher = async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // 1. Create the User record
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
-    
+    // 1. Create the User record (blank password => Teacher@123, flagged for change at login)
+    const passwordHash = await bcrypt.hash(password || defaultPasswordFor('Teacher'), 10);
+
     const userResult = await client.query(
       'INSERT INTO Users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING user_id',
       [username, passwordHash, 'Teacher']
