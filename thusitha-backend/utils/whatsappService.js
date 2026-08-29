@@ -54,10 +54,17 @@ const initWhatsApp = async () => {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
-          console.log('\n📲 WhatsApp QR Code (Scan with your phone):');
-          qrcode.generate(qr, { small: true });
           qrCodeData = qr;
           isReady = false;
+          // The QR rotates every ~20s while unscanned; rendering it to the console each
+          // time floods hosted logs. Print it locally only — hosted admins scan it from
+          // the dashboard (Communication Center) instead.
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('\n📲 WhatsApp QR Code (Scan with your phone):');
+            qrcode.generate(qr, { small: true });
+          } else {
+            console.log('📲 WhatsApp QR generated — scan it from the dashboard (Communication Center).');
+          }
         }
 
         if (connection === 'close') {
