@@ -45,6 +45,7 @@ import Modal from '../../components/common/Modal';
 import Input from '../../components/common/Input';
 import Label from '../../components/common/Label';
 import Button from '../../components/common/Button';
+import TodayAgendaModal from '../../components/Dashboard/TodayAgendaModal';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -1229,6 +1230,8 @@ const Dashboard = () => {
     <div className="flex h-screen bg-background overflow-hidden font-sans relative selection:bg-secondary-light selection:text-white">
       <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-secondary/5 rounded-full blur-[100px] pointer-events-none"></div>
+
+      <TodayAgendaModal />
 
       <Sidebar
         activeTab={activeTab}

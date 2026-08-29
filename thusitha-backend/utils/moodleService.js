@@ -171,6 +171,27 @@ class MoodleService {
     }
   }
 
+  // Assignment/Quiz due dates the teacher set up directly in Moodle - these are never
+  // pushed into SCMS's own DB, so the only way to show them (e.g. in a "today's agenda"
+  // popup) is to ask Moodle for that user's action events (its own due-date calendar feed)
+  // for a time window. Requires 'core_calendar_get_action_events_by_timesort' to be added
+  // to the SCMS external service's function list in Moodle admin.
+  async getActionEventsForUser(moodleUserId, timesortfrom, timesortto) {
+    try {
+      const params = {
+        userid: moodleUserId,
+        timesortfrom,
+        timesortto,
+        limitnum: 20,
+      };
+      const response = await this.makeRequest('core_calendar_get_action_events_by_timesort', params);
+      return (response && Array.isArray(response.events)) ? response.events : [];
+    } catch (err) {
+      console.error(`❌ [Moodle] getActionEventsForUser(${moodleUserId}) failed:`, err.message);
+      return [];
+    }
+  }
+
   async updateStudentGrade(moodleCourseId, moodleUserId, gradeValue) {
     // Requires core_grades_update_grades in Moodle Web Service
     const params = {
