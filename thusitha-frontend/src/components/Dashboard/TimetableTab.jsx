@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { request } from '../../services/api';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
 
 const TimetableTab = ({ schedules, role }) => {
   const [embedUrl, setEmbedUrl] = useState('');
+  // Set when the backend reports mode:'newtab' (a hosted/MoodleCloud instance, which can't
+  // be same-origin iframed) - a Moodle-hosted, non-local install has no proxy to embed
+  // through, so we open it in a new tab instead of trying to load it in the iframe below.
+  const [newTabUrl, setNewTabUrl] = useState('');
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -19,10 +23,15 @@ const TimetableTab = ({ schedules, role }) => {
       try {
         const data = await request(`/moodle-sso/embed-url?page=calendar`);
         if (ignore) return;
-        if (data && data.embedUrl && typeof data.embedUrl === 'string' && data.embedUrl.startsWith('/')) {
+        if (data && data.mode === 'newtab' && typeof data.url === 'string') {
+          setNewTabUrl(data.url);
+          setEmbedUrl('');
+        } else if (data && data.embedUrl && typeof data.embedUrl === 'string' && data.embedUrl.startsWith('/')) {
           setEmbedUrl(data.embedUrl);
+          setNewTabUrl('');
         } else {
           setEmbedUrl('');
+          setNewTabUrl('');
           setLoadError('Moodle Calendar සම්බන්ධතාවය අසාර්ථක විය.');
         }
       } catch (err) {
@@ -65,13 +74,28 @@ const TimetableTab = ({ schedules, role }) => {
         )}
 
         {embedUrl ? (
-          <iframe 
-            src={embedUrl} 
+          <iframe
+            src={embedUrl}
             title="Moodle Calendar"
             className="w-full h-full border-0"
             onLoad={() => setLoading(false)}
             allow="fullscreen"
           />
+        ) : newTabUrl ? (
+          <div className="text-center px-6">
+            <div className="text-6xl mb-4">📅</div>
+            <p className="text-lg font-medium text-gray-700 mb-4">
+              Moodle Calendar එක වෙනම tab එකකින් විවෘත වේ.
+            </p>
+            <a
+              href={newTabUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-semibold hover:bg-primary-dark transition"
+            >
+              <ExternalLink className="w-5 h-5" /> Moodle Calendar විවෘත කරන්න
+            </a>
+          </div>
         ) : !loading && !loadError && (
           <div className="text-gray-400 flex flex-col items-center">
             <div className="text-6xl mb-4">📅</div>
