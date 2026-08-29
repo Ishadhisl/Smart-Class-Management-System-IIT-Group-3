@@ -437,7 +437,7 @@ const Dashboard = () => {
     try {
       await studentService.createStudent({
         username: studentId,
-        password: 'Thusitha@123',
+        // no password -> backend applies the Student role default (Student@123)
         student_name: name,
         school: schoolName,
         grade: studentGrade,
@@ -1573,7 +1573,7 @@ const Dashboard = () => {
           <div className="mb-4">
             <Label htmlFor="modal-student-id">ශිෂ්‍ය අංකය (Student ID / Username)</Label>
             <Input id="modal-student-id" type="text" placeholder="ST001" value={studentId} onChange={(e) => setStudentId(e.target.value)} required />
-            <small className="text-slate-400 text-[11px] block mt-1.5">මෙය Login Username ලෙසත් QR Code Key ලෙසත් භාවිතා වේ. Default Password: Thusitha@123</small>
+            <small className="text-slate-400 text-[11px] block mt-1.5">මෙය Login Username ලෙසත් QR Code Key ලෙසත් භාවිතා වේ. Default Password: <b>Student@123</b></small>
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-student-name">ශිෂ්‍යයාගේ නම</Label>

@@ -134,8 +134,8 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
             <input id="teacher-username" type="text" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} required style={inputStyle} placeholder="teacher01" />
           </div>
           <div>
-            <label htmlFor="teacher-password" style={labelStyle}>මුරපදය</label>
-            <input id="teacher-password" type="password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required style={inputStyle} placeholder="••••••" />
+            <label htmlFor="teacher-password" style={labelStyle}>මුරපදය <span style={{ fontWeight: 'normal', color: '#888' }}>(හිස්ව තැබුවොත් Teacher@123)</span></label>
+            <input id="teacher-password" type="password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} style={inputStyle} placeholder="Teacher@123" />
           </div>
         </>
       )}
