@@ -13,7 +13,7 @@
 FROM node:24-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip python3-venv python3-dev \
+    python3 python3-pip python3-venv python3-dev git \
     build-essential cmake libopenblas-dev liblapack-dev libx11-dev libgtk-3-dev \
     && rm -rf /var/lib/apt/lists/*
 
@@ -41,6 +41,15 @@ RUN pip install --no-cache-dir fastapi uvicorn opencv-python-headless numpy requ
 # (HAS_FACE_REC / model is None) and degrades to a clear "AI unavailable" response.
 RUN pip install --no-cache-dir ultralytics face-recognition \
     || echo "⚠️  AI CV deps failed to build — face recognition / headcount disabled, rest of the app is unaffected"
+
+# The face_recognition_models wheel on PyPI (0.3.0) ships without its actual .dat model
+# files - face_recognition detects this at import time and refuses to run, printing
+# "Please install face_recognition_models with: pip install git+...". Force-reinstall
+# from git, which bundles the real files. Allowed to fail (matches the block above) since
+# main.py already degrades gracefully when face_recognition doesn't fully import.
+RUN pip install --no-cache-dir --force-reinstall --no-deps \
+    "git+https://github.com/ageitgey/face_recognition_models" \
+    || echo "⚠️  face_recognition_models (git) failed to install — face recognition stays disabled"
 
 RUN cd thusitha-backend && npm install --omit=dev
 
