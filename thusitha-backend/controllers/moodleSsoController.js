@@ -1,23 +1,21 @@
 const moodleService = require('../utils/moodleService');
 
-// Moodle runs as a local XAMPP instance and is deliberately NOT part of the hosted
-// deployment (deploy/DEPLOY.md). On a host where MOODLE_URL is unset or still points at
-// localhost, short-circuit with a calm "local only" response instead of a 500 from a
-// failed localhost HTTP call.
-const moodleUnavailable = () => {
+// Moodle can run three ways:
+//   1. local XAMPP  (MOODLE_URL points at localhost)  — iframe-embed via the Vite /moodle proxy
+//   2. hosted        (MoodleCloud / deployed instance) — open in a new tab (no proxy, and
+//                     MoodleCloud can't install the auth_userkey SSO plugin / blocks iframes)
+//   3. not configured (MOODLE_URL unset in production) — a calm "not available" response
+const moodleNotConfigured = () => {
   const url = process.env.MOODLE_URL || '';
   return process.env.NODE_ENV === 'production' && (!url || url.includes('localhost') || url.includes('127.0.0.1'));
 };
 const MOODLE_LOCAL_ONLY = {
   moodle_disabled: true,
-  message: 'Moodle ඉගෙනුම් කළමනාකරණ පද්ධතිය දේශීය install එකේ පමණක් ලබා ගත හැක (hosted අනුවාදයේ සක්‍රිය නැත).',
+  message: 'Moodle ඉගෙනුම් කළමනාකරණ පද්ධතිය මෙම deployment එකේ සකසා නැත.',
 };
 
-// Moodle's own URLs are absolute (http://localhost/moodle/...). The frontend embeds them
-// in an iframe served from a different origin/port, and browsers drop Moodle's session
-// cookie there as a cross-origin cookie. Stripping the scheme+host makes them root-relative
-// so they resolve against the frontend's own origin instead, where Vite proxies /moodle
-// through to the real Moodle server, keeping everything same-origin.
+// Local iframe embed: strip scheme+host so the URL resolves against the frontend origin,
+// where Vite proxies /moodle to the real (localhost) Moodle — keeps the session cookie same-origin.
 const toRelativeMoodleUrl = (absoluteUrl) => {
   try {
     const parsed = new URL(absoluteUrl);
@@ -27,28 +25,37 @@ const toRelativeMoodleUrl = (absoluteUrl) => {
   }
 };
 
-exports.getSsoUrl = async (req, res) => {
-  if (moodleUnavailable()) return res.status(503).json(MOODLE_LOCAL_ONLY);
+const moodleUsernameFor = (req) => {
+  let username = (req.user.username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (['Admin', 'Counter Person', 'Staff', 'Director'].includes(req.user.role)) username = 'admin';
+  return username;
+};
+
+// Best-effort one-click login URL via the auth_userkey plugin. Returns null (not throw)
+// when the plugin isn't installed (MoodleCloud) so callers can fall back to a plain link.
+const trySsoLoginUrl = async (username) => {
   try {
-    const rawUsername = req.user.username;
-    if (!rawUsername) {
-      return res.status(400).json({ message: "Username is missing from token." });
-    }
-    let username = rawUsername.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-    // If the user is a staff member, map them to Moodle admin for SSO access
-    // This allows Counter Persons and Admins to manage Moodle directly
-    if (['Admin', 'Counter Person', 'Staff', 'Director'].includes(req.user.role)) {
-      username = 'admin';
-    }
-
     const response = await moodleService.getSSOToken(username);
-    
-    if (response.loginurl) {
-      res.json({ ssoUrl: toRelativeMoodleUrl(response.loginurl) });
-    } else {
-      res.status(400).json({ message: "Moodle SSO URL not generated.", details: response });
+    return response && response.loginurl ? response.loginurl : null;
+  } catch (err) {
+    console.warn('⚠️ Moodle SSO (auth_userkey) unavailable, falling back to plain link:', err.message);
+    return null;
+  }
+};
+
+exports.getSsoUrl = async (req, res) => {
+  if (moodleNotConfigured()) return res.status(503).json(MOODLE_LOCAL_ONLY);
+  try {
+    const username = moodleUsernameFor(req);
+    if (!username) return res.status(400).json({ message: "Username is missing from token." });
+
+    const loginUrl = await trySsoLoginUrl(username);
+    if (moodleService.isHosted()) {
+      // Absolute URL, opened in a new tab by the frontend.
+      return res.json({ url: loginUrl || `${moodleService.getBaseUrl()}/login/index.php`, mode: 'newtab', sso: !!loginUrl });
     }
+    if (loginUrl) return res.json({ ssoUrl: toRelativeMoodleUrl(loginUrl), mode: 'embed' });
+    return res.status(400).json({ message: "Moodle SSO URL not generated." });
   } catch (error) {
     console.error("❌ SSO Error:", error.message);
     res.status(500).json({ error: "Failed to generate Moodle SSO link." });
@@ -56,86 +63,62 @@ exports.getSsoUrl = async (req, res) => {
 };
 
 exports.getEmbedUrl = async (req, res) => {
-  if (moodleUnavailable()) return res.status(503).json(MOODLE_LOCAL_ONLY);
+  if (moodleNotConfigured()) return res.status(503).json(MOODLE_LOCAL_ONLY);
   try {
     const { page, course_id, course_name } = req.query;
-    const rawUsername = req.user.username;
-    if (!rawUsername) {
-      return res.status(400).json({ message: "Username is missing from token." });
-    }
-    let username = rawUsername.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const username = moodleUsernameFor(req);
+    if (!username) return res.status(400).json({ message: "Username is missing from token." });
 
-    if (['Admin', 'Counter Person', 'Staff', 'Director'].includes(req.user.role)) {
-      username = 'admin';
-    }
+    const hosted = moodleService.isHosted();
+    const base = hosted ? moodleService.getBaseUrl() : '/moodle';
 
-    const response = await moodleService.getSSOToken(username);
-    
-    if (!response.loginurl) {
-      return res.status(400).json({ message: "Moodle SSO URL not generated." });
-    }
-
-    let targetUrl = '';
-    const moodleBase = '/moodle';
-
+    // Resolve the target page (relative path under the Moodle base).
+    let targetPath = '/my/';
     if (page === 'course' && course_id) {
       const moodleCourse = await moodleService.findOrCreateCourse(course_id, course_name);
-      if (moodleCourse && moodleCourse.id) {
-        // A Teacher landing on their course page still can't upload anything unless they
-        // actually hold the Teacher (editingteacher) role *in that Moodle course* - having
-        // a Moodle account and the course existing isn't enough. Nothing else in this app
-        // ever enrols a teacher into their own course (only students get auto-enrolled), so
-        // do it here, best-effort: if it fails or they're already enrolled, don't block the
-        // page load over it - just log it, same pattern used for every other Moodle sync.
-        if (req.user.role === 'Teacher') {
-          try {
-            const moodleTeacher = await moodleService.getUserByUsername(username);
-            if (moodleTeacher && moodleTeacher.id) {
-              await moodleService.enrollUser(moodleTeacher.id, moodleCourse.id, 3); // 3 = Teacher (editingteacher)
-            } else {
-              console.warn(`⚠️ [Moodle] No Moodle account found for teacher username "${username}" - cannot grant course edit rights.`);
-            }
-          } catch (enrolErr) {
-            console.warn(`⚠️ [Moodle] Teacher enrolment into course ${moodleCourse.id} skipped:`, enrolErr.message);
-          }
-        }
-
-        // Land directly on the course page (not the generic Dashboard) - this shows the
-        // section/file list (covers "review uploaded materials") and, once "Turn editing on"
-        // is toggled, the "+ Add an activity or resource" links for uploading new ones.
-        targetUrl = `${moodleBase}/course/view.php?id=${moodleCourse.id}`;
-      } else {
-        // Don't silently land on the Dashboard - that looks like a working page but isn't
-        // the course, which is exactly the confusing dead-end this is meant to avoid.
-        // moodleService already logs the real Moodle API error to the server console.
-        return res.status(502).json({
-          message: 'Moodle හි මෙම පන්තිය සකස් කිරීමට නොහැකි විය. කරුණාකර Admin අමතන්න.'
-        });
+      if (!moodleCourse || !moodleCourse.id) {
+        return res.status(502).json({ message: 'Moodle හි මෙම පන්තිය සකස් කිරීමට නොහැකි විය. කරුණාකර Admin අමතන්න.' });
       }
+      if (req.user.role === 'Teacher') {
+        try {
+          const moodleTeacher = await moodleService.getUserByUsername(username);
+          if (moodleTeacher && moodleTeacher.id) {
+            await moodleService.enrollUser(moodleTeacher.id, moodleCourse.id, 3); // editingteacher
+          }
+        } catch (enrolErr) {
+          console.warn(`⚠️ [Moodle] Teacher enrolment into course ${moodleCourse.id} skipped:`, enrolErr.message);
+        }
+      }
+      targetPath = `/course/view.php?id=${moodleCourse.id}`;
     } else if (page === 'grades' && course_id) {
       const moodleCourse = await moodleService.getCourseByIdnumber(course_id);
-      if (moodleCourse && moodleCourse.id) {
-        targetUrl = `${moodleBase}/grade/report/index.php?id=${moodleCourse.id}`;
-      } else {
-        targetUrl = `${moodleBase}/my/`; 
-      }
+      targetPath = (moodleCourse && moodleCourse.id) ? `/grade/report/index.php?id=${moodleCourse.id}` : '/my/';
     } else if (page === 'calendar') {
-      targetUrl = `${moodleBase}/calendar/view.php?view=month`;
-    } else {
-      targetUrl = `${moodleBase}/my/`;
+      targetPath = '/calendar/view.php?view=month';
     }
 
-    // Pass wantsurl parameter to the SSO login url
-    const relativeLoginUrl = toRelativeMoodleUrl(response.loginurl);
-    if (!relativeLoginUrl || typeof relativeLoginUrl !== 'string' || !relativeLoginUrl.startsWith('/')) {
-      console.error('❌ Moodle SSO returned an invalid login URL:', response.loginurl);
+    const loginUrl = await trySsoLoginUrl(username);
+
+    if (hosted) {
+      // Open in a new browser tab. Use the SSO login URL with wantsurl when available,
+      // otherwise just the target page (the user logs into Moodle themselves — their
+      // Moodle username is their SCMS username).
+      const openUrl = loginUrl
+        ? `${loginUrl}&wantsurl=${encodeURIComponent(base + targetPath)}`
+        : `${base}${targetPath}`;
+      return res.json({ url: openUrl, mode: 'newtab', sso: !!loginUrl });
+    }
+
+    // Local: same-origin iframe via the Vite proxy.
+    if (!loginUrl) return res.status(400).json({ message: "Moodle SSO URL not generated." });
+    const relativeLoginUrl = toRelativeMoodleUrl(loginUrl);
+    if (!relativeLoginUrl.startsWith('/')) {
       return res.status(502).json({ message: 'Moodle SSO login URL is invalid.' });
     }
-    const embedUrl = `${relativeLoginUrl}&wantsurl=${encodeURIComponent(targetUrl)}`;
-    
-    res.json({ embedUrl, targetUrl });
+    const embedUrl = `${relativeLoginUrl}&wantsurl=${encodeURIComponent('/moodle' + targetPath)}`;
+    res.json({ embedUrl, mode: 'embed' });
   } catch (error) {
     console.error("❌ Embed SSO Error:", error.message);
-    res.status(500).json({ error: "Failed to generate Moodle Embed link." });
+    res.status(500).json({ error: "Failed to generate Moodle link." });
   }
 };
