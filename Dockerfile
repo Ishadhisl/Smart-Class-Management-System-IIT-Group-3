@@ -42,14 +42,15 @@ RUN pip install --no-cache-dir fastapi uvicorn opencv-python-headless numpy requ
 RUN pip install --no-cache-dir ultralytics face-recognition \
     || echo "⚠️  AI CV deps failed to build — face recognition / headcount disabled, rest of the app is unaffected"
 
-# The face_recognition_models wheel on PyPI (0.3.0) ships without its actual .dat model
-# files - face_recognition detects this at import time and refuses to run, printing
-# "Please install face_recognition_models with: pip install git+...". Force-reinstall
-# from git, which bundles the real files. Allowed to fail (matches the block above) since
-# main.py already degrades gracefully when face_recognition doesn't fully import.
-RUN pip install --no-cache-dir --force-reinstall --no-deps \
-    "git+https://github.com/ageitgey/face_recognition_models" \
-    || echo "⚠️  face_recognition_models (git) failed to install — face recognition stays disabled"
+# face_recognition_models (unmaintained since ~2017) still does
+# `from pkg_resources import resource_filename` in its __init__.py. ultralytics/torch's
+# dependency chain upgrades setuptools to a version that no longer bundles pkg_resources,
+# which makes face_recognition_models raise ModuleNotFoundError at import time - main.py
+# then reports "AI unavailable" even though every package "installed successfully". Pin
+# setuptools back down (last version confirmed to still ship pkg_resources) as the final
+# pip step so nothing installed above it can upgrade it away again.
+RUN pip install --no-cache-dir --force-reinstall "setuptools<81" \
+    || echo "⚠️  setuptools/pkg_resources pin failed — face recognition stays disabled"
 
 RUN cd thusitha-backend && npm install --omit=dev
 
