@@ -40,7 +40,7 @@ import AnnouncementTab from '../../components/Dashboard/Tabs/AnnouncementTab';
 import AchievementTab from '../../components/Dashboard/Tabs/AchievementTab';
 import QRAttendanceTab from '../../components/Dashboard/QRAttendanceTab';
 
-import { UserPlus, Settings2 } from 'lucide-react';
+import { UserPlus, Settings2, Menu } from 'lucide-react';
 import Modal from '../../components/common/Modal';
 import Input from '../../components/common/Input';
 import Label from '../../components/common/Label';
@@ -54,6 +54,10 @@ const Dashboard = () => {
   const user = userData ? JSON.parse(userData) : null;
 
   const [activeTab, setActiveTab] = useState('home');
+  // Sidebar is a fixed rail on desktop but an off-canvas drawer on mobile (see Sidebar.jsx) -
+  // closed by default so it never covers the page on first load, opened via the hamburger
+  // button in the topbar, and closed again automatically once a tab is picked.
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
   const [realCourses, setRealCourses] = useState([]);
@@ -1238,39 +1242,51 @@ const Dashboard = () => {
         setActiveTab={setActiveTab}
         onLogout={handleLogout}
         role={user.role}
+        mobileOpen={mobileSidebarOpen}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
       />
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col overflow-y-auto relative z-10 custom-scrollbar">
+      <div className="flex-1 flex flex-col overflow-y-auto relative z-10 custom-scrollbar min-w-0">
         {/* Dynamic Topbar with Glassmorphism */}
         <motion.div
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          className="sticky top-0 z-30 h-20 bg-white/60 backdrop-blur-xl border-b border-white/50 flex items-center justify-between px-10 shadow-glass"
+          className="sticky top-0 z-20 h-16 md:h-20 bg-white/60 backdrop-blur-xl border-b border-white/50 flex items-center justify-between gap-3 px-4 md:px-10 shadow-glass"
         >
-          <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary-dark to-secondary-dark flex items-center gap-3 text-2xl tracking-tight">
-            {activeTab === 'home' && '📊 Dashboard Overview'}
-            {activeTab === 'students' && '🧑‍🎓 Student Management'}
-            {activeTab === 'classes' && '📚 Class & User Management'}
-            {activeTab === 'attendance' && '📝 Attendance Management'}
-            {activeTab === 'study_area' && '📖 Study Area Booking'}
-            {activeTab === 'exams' && '📝 Exams & Results'}
-            {activeTab === 'payments' && '💰 Payment Management'}
-            {activeTab === 'approvals' && '⏳ Student Approvals'}
-            {activeTab === 'ai_panel' && '🎥 AI නිරීක්ෂණය සහ පරීක්ෂාව'}
-          </span>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(true)}
+              aria-label="Open menu"
+              className="md:hidden shrink-0 p-2 -ml-1 rounded-xl text-primary-dark bg-white/80 shadow-glass border border-white/50"
+            >
+              <Menu size={20} />
+            </button>
+            <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary-dark to-secondary-dark flex items-center gap-2 md:gap-3 text-base md:text-2xl tracking-tight truncate">
+              {activeTab === 'home' && '📊 Dashboard Overview'}
+              {activeTab === 'students' && '🧑‍🎓 Student Management'}
+              {activeTab === 'classes' && '📚 Class & User Management'}
+              {activeTab === 'attendance' && '📝 Attendance Management'}
+              {activeTab === 'study_area' && '📖 Study Area Booking'}
+              {activeTab === 'exams' && '📝 Exams & Results'}
+              {activeTab === 'payments' && '💰 Payment Management'}
+              {activeTab === 'approvals' && '⏳ Student Approvals'}
+              {activeTab === 'ai_panel' && '🎥 AI නිරීක්ෂණය සහ පරීක්ෂාව'}
+            </span>
+          </div>
+          <div className="flex items-center gap-6 shrink-0">
             <motion.div
               whileHover={{ scale: 1.05 }}
-              className="text-sm text-gray-700 bg-white/80 backdrop-blur-md px-5 py-2.5 rounded-full shadow-glass border border-white/50 font-semibold flex items-center gap-2"
+              className="text-xs md:text-sm text-gray-700 bg-white/80 backdrop-blur-md px-3 md:px-5 py-1.5 md:py-2.5 rounded-full shadow-glass border border-white/50 font-semibold flex items-center gap-2"
             >
-              පරිශීලක: <span className="text-secondary font-bold bg-secondary/10 px-2 py-0.5 rounded-md">{user.username}</span>
+              <span className="hidden sm:inline">පරිශීලක:</span> <span className="text-secondary font-bold bg-secondary/10 px-2 py-0.5 rounded-md">{user.username}</span>
             </motion.div>
           </div>
         </motion.div>
 
-        <div className="p-10 flex-1 w-full max-w-7xl mx-auto relative z-0">
+        <div className="p-4 sm:p-6 md:p-10 flex-1 w-full max-w-7xl mx-auto relative z-0">
           {error && (
             <motion.div initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="text-rose-700 bg-rose-50/80 backdrop-blur-md p-5 rounded-2xl mb-8 shadow-glass border border-rose-200 flex items-center gap-3 font-bold text-lg">
               ⚠️ {error}
