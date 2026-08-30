@@ -42,6 +42,15 @@ async function ensureProfile(client, role, userId, username) {
 }
 
 async function seedDemoUsers() {
+  // Opt-in only. This used to run unconditionally on every startup, which on Render's
+  // free tier means every idle-spindown/respawn and every deploy - so deleting the demo
+  // "teacher" account (or any of the four) only ever lasted until the next restart, at
+  // which point it silently came back with a placeholder "Demo Teacher"/"Demo Student"/
+  // "Demo Counter Staff" profile. Now that the app has real production accounts, that's
+  // no longer wanted by default. Set SEED_DEMO_USERS=true for one deploy if you need the
+  // four guaranteed demo logins back (e.g. for a fresh demo/viva environment).
+  if (process.env.SEED_DEMO_USERS !== 'true') return;
+
   const bcrypt = require('bcryptjs');
   const forceReset = process.env.RESET_DEMO_PASSWORDS === 'true';
   const client = await db.pool.connect();
