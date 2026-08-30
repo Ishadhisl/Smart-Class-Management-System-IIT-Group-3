@@ -23,13 +23,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-WORKDIR /app
-COPY . .
-
 # dlib's cmake build defaults to one compile job per CPU core, and Render's build
 # machines expose more cores than they give RAM for - that combination OOM-killed the
 # build (8GB+ used). Capping it to 1 job trades build speed for staying under the limit.
 ENV CMAKE_BUILD_PARALLEL_LEVEL=1
+
+# --- Everything below this line depends only on fixed package names, not on any file in
+# --- the repo, and is deliberately kept ABOVE `COPY . .`. That's what lets Docker's layer
+# --- cache reuse this ~15-20 minute dlib/torch build across deploys - a change to any app
+# --- source file (which used to sit before these RUN steps) no longer invalidates them.
 
 # Core AI-service deps (small, always succeed). fastapi_service/main.py needs these to
 # even start.  Keep this list in sync with fastapi_service/requirements.txt.
@@ -51,6 +53,11 @@ RUN pip install --no-cache-dir ultralytics face-recognition \
 # pip step so nothing installed above it can upgrade it away again.
 RUN pip install --no-cache-dir --force-reinstall "setuptools<81" \
     || echo "⚠️  setuptools/pkg_resources pin failed — face recognition stays disabled"
+
+# --- Only from here on does anything depend on the actual app source, so only these last
+# --- two steps re-run on a typical code-only deploy.
+WORKDIR /app
+COPY . .
 
 RUN cd thusitha-backend && npm install --omit=dev
 
