@@ -39,12 +39,15 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
       ? customMessage
       : (MESSAGE_TEMPLATES[messageType] || '').replace('{custom_message}', customMessage || 'දැනුම්දීම');
 
+    // Sample values rather than the bare words "class"/"month"/"date" - the template text
+    // around {month} already reads "... {month} මාසයේ ..." ("... the month of {month} ..."),
+    // so substituting the literal word "මාසය" there produced a confusing "මාසය මාසයේ".
     const preview = template
-      .replace(/{student_name}/g, 'ශිෂ්‍යයාගේ නම')
+      .replace(/{student_name}/g, 'කසුන් බණ්ඩාර')
       .replace(/{parent_name}/g, 'මව්පිය')
-      .replace(/{class_name}/g, 'පන්තියේ නම')
-      .replace(/{month}/g, 'මාසය')
-      .replace(/{date}/g, 'දිනය');
+      .replace(/{class_name}/g, 'Grade 10 Mathematics')
+      .replace(/{month}/g, 'සැප්තැම්බර් 2026')
+      .replace(/{date}/g, '05/09/2026');
     setPreviewMessage(preview);
   }, [messageType, customMessage]);
 
