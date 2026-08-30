@@ -25,6 +25,52 @@ const isOwnCourseByExam = async (req, examId) => {
   return result.rows.length > 0;
 };
 
+// Upcoming exams (today onward) for the logged-in user's own courses - powers the
+// Timetable tab's "Upcoming Exams" list, purely from SCMS's own Exams table (unlike the
+// Moodle Calendar link alongside it, which only ever shows Moodle-native events).
+exports.getUpcomingExams = async (req, res) => {
+  try {
+    const { userId, role } = req.user;
+    let courseIds = [];
+
+    if (role === 'Student') {
+      const sres = await db.pool.query('SELECT student_id FROM Students WHERE user_id = $1', [userId]);
+      if (sres.rows.length) {
+        const enrRes = await db.pool.query(
+          `SELECT course_id FROM Course_Enrollments WHERE student_id = $1 AND enrollment_status = 'Enrolled'`,
+          [sres.rows[0].student_id]
+        );
+        courseIds = enrRes.rows.map((r) => r.course_id);
+      }
+    } else if (role === 'Teacher') {
+      const tres = await db.pool.query('SELECT teacher_id FROM Teachers WHERE user_id = $1', [userId]);
+      if (tres.rows.length) {
+        const cRes = await db.pool.query('SELECT course_id FROM Courses WHERE teacher_id = $1', [tres.rows[0].teacher_id]);
+        courseIds = cRes.rows.map((r) => r.course_id);
+      }
+    } else {
+      const cRes = await db.pool.query('SELECT course_id FROM Courses WHERE is_active = true');
+      courseIds = cRes.rows.map((r) => r.course_id);
+    }
+
+    if (courseIds.length === 0) return res.json([]);
+
+    const result = await db.pool.query(
+      `SELECT e.exam_id, e.exam_name, e.exam_date, e.total_marks, c.course_name
+       FROM Exams e
+       JOIN Courses c ON e.course_id = c.course_id
+       WHERE e.course_id = ANY($1::int[]) AND e.exam_date >= CURRENT_DATE
+       ORDER BY e.exam_date ASC
+       LIMIT 20`,
+      [courseIds]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('❌ Get Upcoming Exams Error:', error.message);
+    res.status(500).json({ message: 'ඉදිරි විභාග ලබා ගැනීමට නොහැකි විය.', error: error.message });
+  }
+};
+
 exports.createExam = async (req, res) => {
   const { course_id, exam_name, exam_date, total_marks, pass_percentage } = req.body;
   try {

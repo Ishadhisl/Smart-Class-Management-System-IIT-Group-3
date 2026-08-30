@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { request } from '../../services/api';
-import { Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Loader2, AlertTriangle, ExternalLink, ClipboardList } from 'lucide-react';
 
 const TimetableTab = ({ schedules, role }) => {
   const [embedUrl, setEmbedUrl] = useState('');
@@ -11,6 +11,10 @@ const TimetableTab = ({ schedules, role }) => {
   const [newTabUrl, setNewTabUrl] = useState('');
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
+  // Upcoming exams come straight from SCMS's own Exams table - unlike the Moodle Calendar
+  // above, these were never something Moodle knew about, so they need their own fetch
+  // rather than living inside the embed/new-tab link.
+  const [upcomingExams, setUpcomingExams] = useState([]);
 
   useEffect(() => {
     // Same single-use-SSO-key race as MaterialTab: StrictMode (or an unmount mid-fetch when
@@ -46,6 +50,19 @@ const TimetableTab = ({ schedules, role }) => {
     };
 
     fetchEmbedUrl();
+    return () => { ignore = true; };
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      try {
+        const data = await request('/exams/upcoming');
+        if (!ignore && Array.isArray(data)) setUpcomingExams(data);
+      } catch (err) {
+        console.warn('Failed to fetch upcoming exams:', err.message);
+      }
+    })();
     return () => { ignore = true; };
   }, []);
 
@@ -139,6 +156,41 @@ const TimetableTab = ({ schedules, role }) => {
               ) : (
                 <tr>
                   <td colSpan="5" className="p-8 text-center text-gray-400 font-medium">ඔබ සඳහා වෙන්වූ කාලසටහනක් හමුවුනේ නැත.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Upcoming Exams - straight from SCMS's own Exams table, not Moodle */}
+      <h3 className="text-xl font-bold text-gray-700 mb-4 mt-8 flex items-center gap-2">
+        <ClipboardList className="w-5 h-5" /> ඉදිරි විභාග (Upcoming Exams)
+      </h3>
+      <div className="bg-white rounded-xl shadow-glass border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-danger text-white text-left">
+                <th className="p-4 border-b-2 border-red-400">දිනය (Date)</th>
+                <th className="p-4 border-b-2 border-red-400">විභාගය (Exam)</th>
+                <th className="p-4 border-b-2 border-red-400">පන්තිය (Course)</th>
+                <th className="p-4 border-b-2 border-red-400">සම්පූර්ණ ලකුණු (Marks)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {upcomingExams.length > 0 ? (
+                upcomingExams.map((exam, index) => (
+                  <tr key={exam.exam_id} className={`border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-red-50 transition-colors`}>
+                    <td className="p-4 font-bold text-gray-700">{new Date(exam.exam_date).toLocaleDateString('en-GB')}</td>
+                    <td className="p-4 text-gray-800">{exam.exam_name}</td>
+                    <td className="p-4 text-gray-700">{exam.course_name}</td>
+                    <td className="p-4 text-gray-700">{exam.total_marks}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="4" className="p-8 text-center text-gray-400 font-medium">ඉදිරි විභාග හමුවුනේ නැත.</td>
                 </tr>
               )}
             </tbody>
