@@ -185,11 +185,16 @@ const LandingPage = () => {
           };
           
           const getTeacherPhoto = (name, dbPath) => {
+            // A real uploaded photo always wins - the name-keyed map below is only a
+            // fallback for demo/seed teachers with no photo of their own. Without this
+            // priority, a substring match (e.g. "Sandaruwan" containing "ruwan") could
+            // silently swap in a *different* teacher's placeholder portrait.
+            if (dbPath) return getImageUrl(dbPath);
             const nameLower = name?.toLowerCase() || '';
             for (const [key, path] of Object.entries(teacherPhotoMap)) {
               if (nameLower.includes(key)) return path;
             }
-            return dbPath ? getImageUrl(dbPath) : "/Project%20LOGO.png";
+            return "/Project%20LOGO.png";
           };
 
           // Deduplicate by name

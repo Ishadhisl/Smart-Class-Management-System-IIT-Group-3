@@ -45,11 +45,15 @@ const TeachersPage = () => {
           };
           
           const getTeacherPhoto = (name, dbPath) => {
+            // A real uploaded photo always wins - see LandingPage.jsx's getTeacherPhoto
+            // for why (a substring match like "Sandaruwan" containing "ruwan" would
+            // otherwise swap in a different teacher's placeholder portrait).
+            if (dbPath) return getImageUrl(dbPath);
             const nameLower = name?.toLowerCase() || '';
             for (const [key, path] of Object.entries(teacherPhotoMap)) {
               if (nameLower.includes(key)) return path;
             }
-            return dbPath ? getImageUrl(dbPath) : null;
+            return null;
           };
 
           // Deduplicate by name
