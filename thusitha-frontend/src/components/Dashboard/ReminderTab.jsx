@@ -4,11 +4,15 @@ import PropTypes from 'prop-types';
 const WHATSAPP_GREEN = '#25d366';
 const NAVY = '#1a237e';
 
+// Mirrors the actual send-time templates in thusitha-backend/controllers/smsController.js -
+// {class_name} and {month}/{date} are filled in per-student server-side (each selected
+// student can be in a different class with a different upcoming exam date), so this preview
+// only stands in placeholder text for them - see the substitution below.
 const MESSAGE_TEMPLATES = {
-  payment: `💰 *Thusitha Institute — ගෙවීම් සිහිකැඳවීම*\n\nආදරණීය {parent_name},\n\nඔබගේ දරුවා *{student_name}* ගේ ගෙවීමේ ශේෂය ඇත.\nකරුණාකර ඉක්මනින් ආයතනයට ගොස් ගෙවීම සිදු කරන්න.\n\n📞 _Thusitha Institute_`,
-  exam: `📝 *Thusitha Institute — විභාග දැනුම්දීම*\n\nආදරණීය {parent_name},\n\nඔබගේ දරුවා *{student_name}* ට ඉදිරි විභාගය ගැන සිහිකරවීමක්.\nකරුණාකර හොඳින් සූදානම් වීමට දිරිමත් කරන්න! 📚\n\n📞 _Thusitha Institute_`,
-  attendance: `📋 *Thusitha Institute — පැමිණීම් දැනුම්දීම*\n\nආදරණීය {parent_name},\n\nඔබගේ දරුවා *{student_name}* ගේ පැමිණීම සම්බන්ධව දැනුම්දීමක් ඇත.\nකරුණාකර ආයතනය හා සම්බන්ධ වන්න.\n\n📞 _Thusitha Institute_`,
-  general: `📢 *Thusitha Institute — දැනුම්දීම*\n\nආදරණීය {parent_name},\n\nඑතෙක් {student_name} ගේ දෙමාපිය ලෙස දැනුම් දෙනු ලබන්නේ:\n\n{custom_message}\n\n📞 _Thusitha Institute_`,
+  payment: `💰 *Thusitha Institute — ගෙවීම් සිහිකැඳවීම*\n\n👤 {student_name} ({class_name}) ගේ {month} මාසයේ ගෙවීම් ශේෂය ඇත.\nකරුණාකර ඉක්මනින් ගෙවීම සිදු කරන්න.\n\n📞 _Thusitha Institute_`,
+  exam: `📝 *Thusitha Institute — විභාග දැනුම්දීම*\n\n👤 {student_name} ({class_name}) සඳහා {date} දින ඉදිරි විභාගය පවතී.\nකරුණාකර හොඳින් සූදානම් වන්න! 📚\n\n📞 _Thusitha Institute_`,
+  attendance: `📋 *Thusitha Institute — පැමිණීම් දැනුම්දීම*\n\n👤 {student_name} ({class_name}) ගේ {date} දිනයේ පැමිණීම සම්බන්ධව දැනුම්දීමක් ඇත.\nකරුණාකර ආයතනය හා සම්බන්ධ වන්න.\n\n📞 _Thusitha Institute_`,
+  general: `📢 *Thusitha Institute — දැනුම්දීම*\n\n👤 {student_name} ගේ මව්පිය,\n\n{custom_message}\n\n📞 _Thusitha Institute_`,
 };
 
 const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
@@ -25,7 +29,7 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
   const filteredStudents = students.filter(s => {
     const matchName = s.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                       s.studentId?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchCourse = !selectedCourse || true; // TODO: filter by course enrollment
+    const matchCourse = !selectedCourse || (s.courseIds || []).includes(Number(selectedCourse));
     return matchName && matchCourse;
   });
 
@@ -37,7 +41,10 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
 
     const preview = template
       .replace(/{student_name}/g, 'ශිෂ්‍යයාගේ නම')
-      .replace(/{parent_name}/g, 'මව්පිය');
+      .replace(/{parent_name}/g, 'මව්පිය')
+      .replace(/{class_name}/g, 'පන්තියේ නම')
+      .replace(/{month}/g, 'මාසය')
+      .replace(/{date}/g, 'දිනය');
     setPreviewMessage(preview);
   }, [messageType, customMessage]);
 
@@ -72,6 +79,9 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
         student_ids: selectedStudents,
         message_type: messageType,
         custom_message: customMessage,
+        // Lets the backend resolve {class_name} to the class the admin filtered by, instead
+        // of guessing a student's "first" enrolled course when they're in more than one.
+        course_id: selectedCourse || null,
       });
       setResult(res);
       setSelectedStudents([]);

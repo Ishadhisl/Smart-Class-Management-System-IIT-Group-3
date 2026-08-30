@@ -184,14 +184,70 @@ exports.sendExamResultSMS = async (studentId, examName, marks, totalMarks) => {
 // ═══════════════════════════════════════════════════════════
 // 📢 Bulk Reminder WhatsApp Message (Admin/Counter Person)
 // ═══════════════════════════════════════════════════════════
-exports.sendBulkReminder = async (studentIds, messageTemplate, messageType) => {
+const SINHALA_MONTHS = [
+  'ජනවාරි', 'පෙබරවාරි', 'මාර්තු', 'අප්‍රේල්', 'මැයි', 'ජූනි',
+  'ජූලි', 'අගෝස්තු', 'සැප්තැම්බර්', 'ඔක්තෝබර්', 'නොවැම්බර්', 'දෙසැම්බර්'
+];
+const formatDate = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+
+// Resolves the {class_name} / {month} / {date} placeholders for one student. Separate
+// per-student lookup (rather than once for the whole batch) because different students in
+// the same send can be enrolled in different courses with different upcoming exam dates.
+const resolveTemplateVars = async (studentId, messageType, courseId) => {
+  let className = 'N/A';
+  let resolvedCourseId = courseId || null;
+  try {
+    const courseRes = await db.pool.query(
+      `SELECT c.course_id, c.course_name
+       FROM Course_Enrollments ce
+       JOIN Courses c ON ce.course_id = c.course_id
+       WHERE ce.student_id = $1 AND ce.enrollment_status IN ('Active', 'Enrolled')
+       ${courseId ? 'AND ce.course_id = $2' : ''}
+       ORDER BY ce.enrolled_at ASC LIMIT 1`,
+      courseId ? [studentId, courseId] : [studentId]
+    );
+    if (courseRes.rows.length > 0) {
+      className = courseRes.rows[0].course_name;
+      resolvedCourseId = courseRes.rows[0].course_id;
+    }
+  } catch (err) {
+    console.warn(`⚠️ [Reminder] class lookup failed for student ${studentId}:`, err.message);
+  }
+
+  const now = new Date();
+  let dateOrMonth = '';
+  if (messageType === 'payment') {
+    // The reminder is about the currently-running month's fee, not a ledger balance lookup.
+    dateOrMonth = `${SINHALA_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+  } else if (messageType === 'exam') {
+    if (resolvedCourseId) {
+      try {
+        const examRes = await db.pool.query(
+          `SELECT exam_date FROM Exams WHERE course_id = $1 AND exam_date >= CURRENT_DATE ORDER BY exam_date ASC LIMIT 1`,
+          [resolvedCourseId]
+        );
+        if (examRes.rows.length > 0) dateOrMonth = formatDate(new Date(examRes.rows[0].exam_date));
+      } catch (err) {
+        console.warn(`⚠️ [Reminder] exam date lookup failed for student ${studentId}:`, err.message);
+      }
+    }
+    if (!dateOrMonth) dateOrMonth = 'ළඟදීම'; // no scheduled exam found - fall back to "soon"
+  } else if (messageType === 'attendance') {
+    // The alert is about today's attendance, so today's date is the relevant one.
+    dateOrMonth = formatDate(now);
+  }
+
+  return { className, dateOrMonth };
+};
+
+exports.sendBulkReminder = async (studentIds, messageTemplate, messageType, courseId = null) => {
   const results = { sent: 0, failed: 0, details: [] };
 
   for (const studentId of studentIds) {
     try {
       const res = await db.pool.query(
         `SELECT s.student_name, p.parent_phone, p.parent_id, p.parent_name
-         FROM Students s 
+         FROM Students s
          JOIN Parents p ON s.parent_id = p.parent_id
          WHERE s.student_id = $1`,
         [studentId]
@@ -199,11 +255,15 @@ exports.sendBulkReminder = async (studentIds, messageTemplate, messageType) => {
       if (res.rows.length === 0) continue;
 
       const { student_name, parent_phone, parent_id, parent_name } = res.rows[0];
-      
+      const { className, dateOrMonth } = await resolveTemplateVars(studentId, messageType, courseId);
+
       // Template variables replace කිරීම
       const finalMessage = messageTemplate
-        .replace('{student_name}', student_name)
-        .replace('{parent_name}', parent_name || 'මව්පිය');
+        .replace(/{student_name}/g, student_name)
+        .replace(/{parent_name}/g, parent_name || 'මව්පිය')
+        .replace(/{class_name}/g, className)
+        .replace(/{month}/g, dateOrMonth)
+        .replace(/{date}/g, dateOrMonth);
 
       const result = await sendWhatsAppMessage(parent_phone, finalMessage);
       const waStatus = result.success ? 'Sent' : 'Failed';

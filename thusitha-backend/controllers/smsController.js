@@ -203,17 +203,26 @@ exports.sendReminderWhatsApp = async (req, res) => {
     return res.status(400).json({ message: 'ශිෂ්‍යයන් තෝරන්න.' });
   }
 
-  // Default message templates
+  // Default message templates. {class_name} and {month}/{date} are filled in per-student
+  // by smsService.sendBulkReminder (class/exam-date/payment-month vary per student, so they
+  // can't be resolved once up here the way {student_name}/{parent_name} are).
   const templates = {
-    payment: 
+    payment:
       `💰 *Thusitha Institute — ගෙවීම් සිහිකැඳවීම*\n\n` +
-      `👤 {student_name} ගේ ගෙවීම් ශේෂය ඇත.\n` +
+      `👤 {student_name} ({class_name}) ගේ {month} මාසයේ ගෙවීම් ශේෂය ඇත.\n` +
       `කරුණාකර ඉක්මනින් ගෙවීම සිදු කරන්න.\n\n` +
       `📞 _Thusitha Institute_`,
     exam:
       `📝 *Thusitha Institute — විභාග දැනුම්දීම*\n\n` +
-      `👤 {student_name} ට ඉදිරි විභාගය සිහිකරවීමක්.\n` +
+      `👤 {student_name} ({class_name}) සඳහා {date} දින ඉදිරි විභාගය පවතී.\n` +
       `කරුණාකර හොඳින් සූදානම් වන්න! 📚\n\n` +
+      `📞 _Thusitha Institute_`,
+    // Was missing entirely - message_type:'attendance' from the frontend silently fell
+    // back to `templates.general` below, sending the wrong wording for this type.
+    attendance:
+      `📋 *Thusitha Institute — පැමිණීම් දැනුම්දීම*\n\n` +
+      `👤 {student_name} ({class_name}) ගේ {date} දිනයේ පැමිණීම සම්බන්ධව දැනුම්දීමක් ඇත.\n` +
+      `කරුණාකර ආයතනය හා සම්බන්ධ වන්න.\n\n` +
       `📞 _Thusitha Institute_`,
     general:
       `📢 *Thusitha Institute — දැනුම්දීම*\n\n` +
@@ -222,12 +231,12 @@ exports.sendReminderWhatsApp = async (req, res) => {
       `📞 _Thusitha Institute_`
   };
 
-  const template = message_type === 'custom' 
+  const template = message_type === 'custom'
     ? (custom_message || 'N/A')
     : (templates[message_type] || templates.general).replace('{custom_message}', custom_message || '');
 
   try {
-    const results = await smsService.sendBulkReminder(student_ids, template, message_type || 'General');
+    const results = await smsService.sendBulkReminder(student_ids, template, message_type || 'General', course_id || null);
 
     await auditService.logAction(
       req.user.userId, req.user.role, 'BULK_WA_REMINDER', 'SMS_Logs', null,
