@@ -219,8 +219,18 @@ function startAIServer() {
 }
 
 function checkAndStartAIServer() {
+  // dlib/YOLO genuinely need a >=2GB instance (see the OOM note in startAIServer's exit
+  // handler above). On Render's 512MB Free tier this doesn't just fail to start - it OOM-
+  // kills the WHOLE container (Node, WhatsApp, everything), not just the AI process, every
+  // time the service boots. Set AI_SERVER_ENABLED=false while on a low-memory instance to
+  // keep the rest of the app stable; remove it (or set back to true) once upgraded again.
+  if (process.env.AI_SERVER_ENABLED === 'false') {
+    console.log('ℹ️  AI Server disabled (AI_SERVER_ENABLED=false) — skipping. Face-encoding/headcount will be unavailable.');
+    return;
+  }
+
   const client = new net.Socket();
-  
+
   client.once('connect', () => {
     console.log('✅ AI Server is already running on port 8000.');
     client.destroy();
