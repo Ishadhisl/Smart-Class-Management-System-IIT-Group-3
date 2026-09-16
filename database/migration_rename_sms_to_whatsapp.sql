@@ -21,6 +21,14 @@ BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'whatsapp_logs' AND column_name = 'sms_type') THEN
       ALTER TABLE WhatsApp_Logs RENAME COLUMN sms_type TO message_type;
     END IF;
+    -- The recovered table is SMS_Logs's original shape, which (confirmed live) never
+    -- actually had these three columns despite smsService.js's INSERT listing them - every
+    -- write silently failed at the DB layer (caught by its try/catch) while the WhatsApp
+    -- send itself still went through, which is how this went unnoticed. Add them before the
+    -- merge below, or the INSERT...SELECT's column list won't exist on the target table.
+    ALTER TABLE WhatsApp_Logs ADD COLUMN IF NOT EXISTS whatsapp_status VARCHAR(50);
+    ALTER TABLE WhatsApp_Logs ADD COLUMN IF NOT EXISTS channel VARCHAR(20) DEFAULT 'WhatsApp';
+    ALTER TABLE WhatsApp_Logs ADD COLUMN IF NOT EXISTS parent_name VARCHAR(255);
     INSERT INTO WhatsApp_Logs (parent_id, parent_phone, message_type, message_body, status, whatsapp_status, channel, parent_name, sent_at)
     SELECT parent_id, parent_phone, message_type, message_body, status, whatsapp_status, channel, parent_name, sent_at
     FROM WhatsApp_Logs_Merge_Tmp;

@@ -190,9 +190,13 @@ CREATE TABLE IF NOT EXISTS Exam_Results (
 -- 8. Communication & Logs
 -- Named WhatsApp_Logs (not SMS_Logs) because the app only ever sends over WhatsApp
 -- (see utils/whatsappService.js) - SMS/Twilio was evaluated early on and dropped for cost,
--- but the table kept the old name until this was renamed. whatsapp_status/channel/parent_name
--- were added on the live DB via manual ALTERs before this file was updated to match; they're
--- listed here now so a fresh database gets the same shape without drifting.
+-- but the table kept the old name until this was renamed. whatsapp_status/channel/
+-- parent_name are columns smsService.js's INSERT always listed, but the live SMS_Logs
+-- table never actually had them - every log write silently failed (caught by its own
+-- try/catch) while the WhatsApp send itself still went through, which is how this went
+-- unnoticed until the rename migration surfaced it. Listed here so a fresh database gets
+-- the right shape from the start; migration_rename_sms_to_whatsapp.sql ADD COLUMNs them
+-- onto the live DB's recovered table.
 CREATE TABLE IF NOT EXISTS WhatsApp_Logs (
     log_id SERIAL PRIMARY KEY,
     parent_id INT REFERENCES Parents(parent_id) ON DELETE SET NULL,
