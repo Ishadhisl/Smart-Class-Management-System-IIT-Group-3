@@ -188,13 +188,21 @@ CREATE TABLE IF NOT EXISTS Exam_Results (
 );
 
 -- 8. Communication & Logs
-CREATE TABLE IF NOT EXISTS SMS_Logs (
+-- Named WhatsApp_Logs (not SMS_Logs) because the app only ever sends over WhatsApp
+-- (see utils/whatsappService.js) - SMS/Twilio was evaluated early on and dropped for cost,
+-- but the table kept the old name until this was renamed. whatsapp_status/channel/parent_name
+-- were added on the live DB via manual ALTERs before this file was updated to match; they're
+-- listed here now so a fresh database gets the same shape without drifting.
+CREATE TABLE IF NOT EXISTS WhatsApp_Logs (
     log_id SERIAL PRIMARY KEY,
     parent_id INT REFERENCES Parents(parent_id) ON DELETE SET NULL,
     parent_phone VARCHAR(20) NOT NULL,
-    sms_type VARCHAR(50),
+    message_type VARCHAR(50),
     message_body TEXT,
     status VARCHAR(50),
+    whatsapp_status VARCHAR(50),
+    channel VARCHAR(20) DEFAULT 'WhatsApp',
+    parent_name VARCHAR(255),
     sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -243,7 +251,7 @@ CREATE TABLE IF NOT EXISTS AuditLogs (
 CREATE TABLE IF NOT EXISTS Hall_Congestion_Tracker (
     hall_id INT PRIMARY KEY REFERENCES Halls(hall_id) ON DELETE CASCADE,
     first_detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    sms_sent BOOLEAN DEFAULT FALSE,
+    alert_sent BOOLEAN DEFAULT FALSE,
     active_log_id INT
 );
 

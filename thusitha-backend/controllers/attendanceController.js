@@ -44,7 +44,7 @@ const AI_OFFLINE_MESSAGE = 'AI පද්ධතිය ක්‍රියාත්
 exports.isAIUnavailable = isAIUnavailable;
 
 /**
- * 🛡️ Industrial Logic: Handles QR code scanning and triggers automatic SMS.
+ * 🛡️ Industrial Logic: Handles QR code scanning and triggers an automatic WhatsApp message.
  */
 exports.markAttendanceByQR = async (req, res) => {
   const { qr_code_key, course_id } = req.body;
@@ -117,10 +117,10 @@ exports.markAttendanceByQR = async (req, res) => {
     const scannedAt = result.rows[0].scanned_at;
     const timeString = new Date(scannedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    // 5. ස්වයංක්‍රීයව SMS යැවීම
+    // 5. ස්වයංක්‍රීයව WhatsApp පණිවිඩය යැවීම
     await smsService.sendAttendanceSMS(student.student_id, courseName, timeString, attendanceStatus);
 
-    res.status(201).json({ message: `පැමිණීම (${attendanceStatus === 'Late' ? 'ප්‍රමාද' : 'පැමිණි'}) ලෙස සටහන් වූ අතර මව්පියන්ට SMS පණිවිඩයක් යවන ලදී.`, student_name: student.student_name });
+    res.status(201).json({ message: `පැමිණීම (${attendanceStatus === 'Late' ? 'ප්‍රමාද' : 'පැමිණි'}) ලෙස සටහන් වූ අතර මව්පියන්ට WhatsApp පණිවිඩයක් යවන ලදී.`, student_name: student.student_name });
   } catch (error) {
     console.error('❌ QR Attendance Error:', error.message);
     res.status(500).json({ error: 'පැමිණීම සටහන් කිරීම අසාර්ථකයි.' });
@@ -323,7 +323,7 @@ exports.getLibraryOccupancyStats = async (req, res) => {
 };
 
 /**
- * 🔔 Sends an SMS alert to parents when a face verification discrepancy is found.
+ * 🔔 Sends a WhatsApp alert to parents when a face verification discrepancy is found.
  */
 exports.sendDiscrepancyAlert = async (req, res) => {
   const { student_id, session_id } = req.body;
@@ -356,13 +356,13 @@ exports.sendDiscrepancyAlert = async (req, res) => {
 
     res.status(200).json({ message: "මව්පියන්ට සාර්ථකව දැනුම් දෙන ලදී." });
   } catch (error) {
-    console.error('❌ Discrepancy SMS Error:', error.message);
-    res.status(500).json({ error: 'SMS යැවීම අසාර්ථකයි.' });
+    console.error('❌ Discrepancy WhatsApp Error:', error.message);
+    res.status(500).json({ error: 'WhatsApp පණිවිඩය යැවීම අසාර්ථකයි.' });
   }
 };
 
 /**
- * 🔔 Sends bulk SMS alerts to parents when multiple discrepancies are found.
+ * 🔔 Sends bulk WhatsApp alerts to parents when multiple discrepancies are found.
  */
 exports.bulkSendDiscrepancyAlerts = async (req, res) => {
   const { student_ids, session_id } = req.body;
@@ -385,15 +385,15 @@ exports.bulkSendDiscrepancyAlerts = async (req, res) => {
 
     let sentCount = 0;
     for (const row of result.rows) {
-      // Note: In production, consider using a queue for massive numbers of SMS
+      // Note: In production, consider using a queue for massive numbers of WhatsApp messages
       await smsService.sendDiscrepancySMS(row.parent_phone, row.student_name, row.course_name);
       sentCount++;
     }
 
     res.status(200).json({ message: `${sentCount} දෙනෙකුගේ මව්පියන්ට සාර්ථකව දැනුම් දෙන ලදී.` });
   } catch (error) {
-    console.error('❌ Bulk Discrepancy SMS Error:', error.message);
-    res.status(500).json({ error: 'Bulk SMS යැවීම අසාර්ථකයි.' });
+    console.error('❌ Bulk Discrepancy WhatsApp Error:', error.message);
+    res.status(500).json({ error: 'Bulk WhatsApp පණිවිඩ යැවීම අසාර්ථකයි.' });
   }
 };
 
@@ -457,7 +457,7 @@ exports.getActiveCongestions = async (req, res) => {
 
 /**
  * 🔔 Hall Safety Drill Mode.
- * Sends a test SMS to all registered staff phone numbers.
+ * Sends a test WhatsApp message to all registered staff phone numbers.
  */
 exports.triggerSafetyDrill = async (req, res) => {
   try {
@@ -470,7 +470,7 @@ exports.triggerSafetyDrill = async (req, res) => {
       if (phone.trim()) await smsService.sendCustomSMS(phone.trim(), message);
     }
 
-    res.json({ message: "Safety Drill සාර්ථකව ආරම්භ කළා! සියලුම කාර්ය මණ්ඩලයට SMS පණිවිඩ යවන ලදී." });
+    res.json({ message: "Safety Drill සාර්ථකව ආරම්භ කළා! සියලුම කාර්ය මණ්ඩලයට WhatsApp පණිවිඩ යවන ලදී." });
   } catch (error) { res.status(500).json({ error: error.message }); }
 };
 
@@ -482,10 +482,10 @@ const handleOverCapacityHall = async (hall, tracker, thresholdMinutes, staffPhon
     // First time detecting over-capacity
     await db.pool.query('INSERT INTO Hall_Congestion_Tracker (hall_id, first_detected_at) VALUES ($1, NOW())', [hall.hall_id]);
   } else {
-    const { first_detected_at, sms_sent } = tracker.rows[0];
+    const { first_detected_at, alert_sent } = tracker.rows[0];
     const diffMinutes = (Date.now() - new Date(first_detected_at).getTime()) / (1000 * 60);
 
-    if (diffMinutes >= thresholdMinutes && !sms_sent) {
+    if (diffMinutes >= thresholdMinutes && !alert_sent) {
       await notifyStaffOfCongestion(hall, thresholdMinutes, staffPhones, first_detected_at);
     }
   }
@@ -495,7 +495,7 @@ const handleOverCapacityHall = async (hall, tracker, thresholdMinutes, staffPhon
  * Helper: Send congestion notifications to staff
  */
 const notifyStaffOfCongestion = async (hall, thresholdMinutes, staffPhones, firstDetectedAt) => {
-  console.log(`🚨 [Alert] Hall ${hall.hall_name} is congested! Sending SMS to staff.`);
+  console.log(`🚨 [Alert] Hall ${hall.hall_name} is congested! Sending WhatsApp alert to staff.`);
   
   const message = `🚨 CONGESTION ALERT: Hall ${hall.hall_name} has ${hall.current_count} students (Capacity: ${hall.capacity}). Over-capacity for ${thresholdMinutes}+ minutes.`;
   
@@ -508,7 +508,7 @@ const notifyStaffOfCongestion = async (hall, thresholdMinutes, staffPhones, firs
     [hall.hall_id, hall.current_count, hall.capacity, firstDetectedAt]
   );
   
-  await db.pool.query('UPDATE Hall_Congestion_Tracker SET sms_sent = TRUE, active_log_id = $1 WHERE hall_id = $2', [logRes.rows[0].log_id, hall.hall_id]);
+  await db.pool.query('UPDATE Hall_Congestion_Tracker SET alert_sent = TRUE, active_log_id = $1 WHERE hall_id = $2', [logRes.rows[0].log_id, hall.hall_id]);
 };
 
 /**

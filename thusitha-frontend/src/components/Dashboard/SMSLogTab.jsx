@@ -283,7 +283,7 @@ const SMSLogTab = ({ logs, onResend, onDelete, onBulkResend, onResendFilteredFai
                 <td style={{ padding: '12px', fontSize: '13px', color: '#555' }}>{log.parent_phone}</td>
                 <td style={{ padding: '12px' }}>
                   <span style={{ padding: '4px 8px', backgroundColor: '#e8eaf6', borderRadius: '4px', fontSize: '11px', color: '#1a237e', fontWeight: 'bold' }}>
-                    {log.sms_type}
+                    {log.message_type}
                   </span>
                 </td>
                 <td style={{ padding: '12px' }}>

@@ -1,7 +1,8 @@
 /**
- * 📤 SMS + WhatsApp Unified Messaging Service
- * WhatsApp: whatsapp-web.js (Open Source, Free)
- * SMS: Twilio (ඇත්නම්) — optional fallback
+ * 📤 WhatsApp Messaging Service (utils/whatsappService.js, backed by Baileys)
+ * SMS/Twilio was evaluated early on and dropped for cost - every send in this file goes
+ * over WhatsApp only. Kept the "sms" name on this file/these functions to keep the diff
+ * small when the channel was switched; see database/schema.sql's WhatsApp_Logs table.
  */
 
 const db = require('../db');
@@ -13,8 +14,8 @@ const { sendWhatsAppMessage } = require('./whatsappService');
 const logMessage = async (parentId, phone, type, body, whatsappStatus, parentName = null) => {
   try {
     await db.pool.query(
-      `INSERT INTO SMS_Logs 
-       (parent_id, parent_phone, sms_type, message_body, status, whatsapp_status, channel, parent_name, sent_at)
+      `INSERT INTO WhatsApp_Logs
+       (parent_id, parent_phone, message_type, message_body, status, whatsapp_status, channel, parent_name, sent_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
       [
         parentId,
