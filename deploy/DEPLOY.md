@@ -1,5 +1,24 @@
 # Deployment Plan — Render (one Docker service) + Vercel (Frontend) + Neon (DB)
 
+> **CURRENT LIVE STATUS (2026-09-18)** — what's actually deployed right now, since the plan
+> below describes the general setup process and has drifted from a few decisions made along
+> the way:
+> - `scms-backend` is on **Standard** ($25/mo) with a **3GB persistent disk** mounted at
+>   `/app/thusitha-backend/uploads` — settled here for the remaining run-up to the demo/viva
+>   rather than toggling Free/Standard (§7's flip-back-after checklist still applies for
+>   *after* the demo).
+> - **Cloudinary is NOT in use** — `CLOUDINARY_URL` was tried and then deliberately removed
+>   once the disk came back; uploads (photos, payment slips, materials, CCTV footage) all go
+>   to the disk. §5b below still documents Cloudinary as a fallback for a future Free-tier
+>   period, but it's not the live configuration.
+> - **Moodle is MoodleCloud (hosted)**, not local XAMPP as §1/§5b originally assumed —
+>   `moodleSsoController.js`'s `isHosted()` check and the `mode:'newtab'` frontend flow (added
+>   after this doc was first written) handle that; `MOODLE_URL` points at
+>   `https://scms.moodlecloud.com/webservice/rest/server.php`, not a local install.
+> - `WHATSAPP_SESSION_DIR` is **still unset** (Render's env-var UI wouldn't accept edits to
+>   that one field the last few times it was tried) — the WhatsApp login still needs a
+>   re-scan after every redeploy/restart. Worth revisiting if that becomes annoying.
+>
 > **Revision note:** an earlier version of this plan split the backend and AI service into
 > two separate Render services. **That doesn't work with this codebase** —
 > `fastapi_service/main.py`'s `/encode` and `/verify` endpoints resolve image/video paths as
