@@ -26,7 +26,7 @@ export const BASE_URL = API_URL;
 // Uploaded-file paths from the DB (e.g. "/uploads/photo-....png") already carry a leading
 // slash - naively concatenating BASE_URL + '/' + path (as several components used to do
 // separately) produces a double slash that 404s. One shared helper so that bug can't
-// reappear per-component; already-absolute (Cloudinary https://) URLs pass through as-is.
+// reappear per-component; an already-absolute (https://) URL passes through as-is.
 export const getImageUrl = (path) => {
   if (!path) return null;
   if (/^https?:\/\//i.test(path)) return path;

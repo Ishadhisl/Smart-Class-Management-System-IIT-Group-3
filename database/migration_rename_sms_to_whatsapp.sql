@@ -29,6 +29,13 @@ BEGIN
     ALTER TABLE WhatsApp_Logs ADD COLUMN IF NOT EXISTS whatsapp_status VARCHAR(50);
     ALTER TABLE WhatsApp_Logs ADD COLUMN IF NOT EXISTS channel VARCHAR(20) DEFAULT 'WhatsApp';
     ALTER TABLE WhatsApp_Logs ADD COLUMN IF NOT EXISTS parent_name VARCHAR(255);
+    -- The empty "duplicate" table (created by schema.sql's CREATE TABLE IF NOT EXISTS on
+    -- the very first run of this rename, before this migration got a chance to run) can
+    -- itself predate these 3 columns being added to schema.sql, so it may be missing them
+    -- too - add them here as well or the SELECT below fails with "column does not exist".
+    ALTER TABLE WhatsApp_Logs_Merge_Tmp ADD COLUMN IF NOT EXISTS whatsapp_status VARCHAR(50);
+    ALTER TABLE WhatsApp_Logs_Merge_Tmp ADD COLUMN IF NOT EXISTS channel VARCHAR(20) DEFAULT 'WhatsApp';
+    ALTER TABLE WhatsApp_Logs_Merge_Tmp ADD COLUMN IF NOT EXISTS parent_name VARCHAR(255);
     INSERT INTO WhatsApp_Logs (parent_id, parent_phone, message_type, message_body, status, whatsapp_status, channel, parent_name, sent_at)
     SELECT parent_id, parent_phone, message_type, message_body, status, whatsapp_status, channel, parent_name, sent_at
     FROM WhatsApp_Logs_Merge_Tmp;

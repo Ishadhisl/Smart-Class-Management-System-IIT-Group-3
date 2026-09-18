@@ -4,8 +4,6 @@ const { publicUrl } = require('../middleware/imageUpload');
 
 exports.createAchievement = async (req, res) => {
   const { student_id, title, description, island_rank, achieved_year } = req.body;
-  // multer stores the file under whatever the active storage returns — a local
-  // "uploads/<name>" path in dev, or an absolute Cloudinary URL in production.
   const image_url = publicUrl(req.file);
   const year = achieved_year ? parseInt(achieved_year, 10) : new Date().getFullYear();
   try {

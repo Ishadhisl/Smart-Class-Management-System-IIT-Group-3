@@ -2,7 +2,6 @@ const db = require('../db');
 const bcrypt = require('bcryptjs');
 const path = require('node:path');
 const fs = require('node:fs');
-const axios = require('axios');
 
 const auditService = require('../utils/auditService');
 const attendanceController = require('./attendanceController');
@@ -12,15 +11,8 @@ const { defaultPasswordFor } = require('../utils/authDefaults');
 const moodleService = require('../utils/moodleService');
 
 // The AI /encode endpoint needs a real file on the shared disk. Profile photos are
-// usually local ("/uploads/x.jpg"), but when CLOUDINARY_URL is set they're remote URLs
-// — download those to a temp file first and hand back a cleanup fn.
+// always local ("/uploads/x.jpg").
 async function resolvePhotoToLocalPath(photoPath) {
-  if (/^https?:\/\//i.test(photoPath)) {
-    const tmpAbs = path.resolve(__dirname, '..', 'uploads', `tmp-encode-${Date.now()}-${Math.round(Math.random() * 1e6)}.jpg`);
-    const resp = await axios.get(photoPath, { responseType: 'arraybuffer', timeout: 20000 });
-    fs.writeFileSync(tmpAbs, resp.data);
-    return { absPath: tmpAbs, cleanup: () => fs.existsSync(tmpAbs) && fs.unlinkSync(tmpAbs) };
-  }
   const absPath = path.resolve(__dirname, '..', photoPath.replace(/^\//, ''));
   return { absPath, cleanup: () => {} };
 }
@@ -480,8 +472,7 @@ exports.uploadPhoto = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: "ඡායාරූපයක් තෝරා නැත." });
   }
-  // Cloudinary URL in production, "/uploads/<name>" locally. Face encoding is cleared
-  // so it's regenerated from the new photo on the next encode run.
+  // Face encoding is cleared so it's regenerated from the new photo on the next encode run.
   const photoPath = publicUrl(req.file);
   try {
     const result = await db.pool.query(

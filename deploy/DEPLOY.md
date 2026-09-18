@@ -7,10 +7,11 @@
 >   `/app/thusitha-backend/uploads` — settled here for the remaining run-up to the demo/viva
 >   rather than toggling Free/Standard (§7's flip-back-after checklist still applies for
 >   *after* the demo).
-> - **Cloudinary is NOT in use** — `CLOUDINARY_URL` was tried and then deliberately removed
->   once the disk came back; uploads (photos, payment slips, materials, CCTV footage) all go
->   to the disk. §5b below still documents Cloudinary as a fallback for a future Free-tier
->   period, but it's not the live configuration.
+> - **Cloudinary support has been removed from the codebase entirely** (2026-09-18) — it was
+>   tried, then reverted once the disk came back, since some upload types (CCTV footage, exam
+>   mark-sheet spreadsheets) need a genuine local filesystem path and can't work with a remote
+>   URL. All uploads (photos, payment slips, materials, CCTV footage) go to the disk — a
+>   persistent disk is now a hard requirement, not optional. §5b below reflects this.
 > - **Moodle is MoodleCloud (hosted)**, not local XAMPP as §1/§5b originally assumed —
 >   `moodleSsoController.js`'s `isHosted()` check and the `mode:'newtab'` frontend flow (added
 >   after this doc was first written) handle that; `MOODLE_URL` points at
@@ -103,8 +104,8 @@ Moodle: local XAMPP only, not part of this deployment.
 6. **`thusitha-backend/utils/initSchema.js`** — auto-applies `schema.sql` + all migrations on
    boot, so the Neon DB can't drift from the code (fixes the "column does not exist" 500s that
    hit achievements / student registration / course lists). §5.3.
-7. **`thusitha-backend/middleware/imageUpload.js`** — Cloudinary-or-local storage for image
-   uploads. §5b.
+7. **`thusitha-backend/middleware/imageUpload.js`** — local-disk storage for image uploads.
+   §5b.
 8. **`fastapi_service/main.py`** — `YOLO("yolov8n.pt")` (nano, fits smaller instances) and
    `uvicorn` reload disabled when `ENV=production` (server.js passes this to the child).
 9. **WhatsApp** — Communication Center banner now has a "🔄 නැවත සම්බන්ධ කරන්න" button + phone
@@ -151,16 +152,16 @@ git push <remote> <branch>
    JWT_SECRET     = <generate: openssl rand -base64 48>
    FRONTEND_URL   = https://your-project.vercel.app   (exact origin, no trailing slash — CORS in server.js checks this exactly)
    QR_EXPIRY_MINUTES = 15
-   CLOUDINARY_URL = cloudinary://<key>:<secret>@<cloud>   (optional but recommended — see §5b)
    ```
    `FASTAPI_URL` is **not needed** — it defaults to `http://localhost:8000`, which is correct
    here (§0). Leave `TWILIO_*`, `MOODLE_*` unset.
 
-   **Without a persistent disk (Free instance):** uploaded student photos, achievement images
-   and promo flyers live on the container's ephemeral filesystem and are wiped on every
-   redeploy/restart. Set `CLOUDINARY_URL` (§5b) so those assets persist. The WhatsApp Baileys
-   session still needs a disk or a re-scan after each deploy (the Communication Center banner
-   has a "🔄 නැවත සම්බන්ධ කරන්න" button + step-by-step linking instructions for this).
+   **A persistent disk is required** (see §4.3) — without one, uploaded student photos,
+   achievement images, promo flyers, payment slips and exam sheets all live on the container's
+   ephemeral filesystem and are wiped on every redeploy/restart. The WhatsApp Baileys session
+   also needs the disk (via `WHATSAPP_SESSION_DIR`, §5b) or a re-scan after each deploy (the
+   Communication Center banner has a "🔄 නැවත සම්බන්ධ කරන්න" button + step-by-step linking
+   instructions for this).
 5. Deploy. Note the URL (`https://scms-backend-xxxx.onrender.com`).
 6. Once it's up, check the **Logs** tab for `AI Server is already running on port 8000` (or
    the startup line from `fastapi_service`) to confirm the Python side actually came up inside
@@ -183,24 +184,16 @@ git push <remote> <branch>
 
 ## 5b. Persistent file storage
 
-**If you have a persistent disk mounted at `/app/thusitha-backend/uploads`** (paid instance,
-this plan's §4.3): you're done — uploads land there and survive redeploys. Skip Cloudinary.
-Also set `WHATSAPP_SESSION_DIR=/app/thusitha-backend/uploads/.wa-session` so the WhatsApp
-link survives redeploys too (the session folder is otherwise outside the disk mount).
+A persistent disk mounted at `/app/thusitha-backend/uploads` (paid instance, this plan's §4.3)
+is **required** — every upload type (student/teacher/achievement photos, promo flyers, payment
+slips, materials, exam mark-sheet spreadsheets, CCTV footage) is stored on local disk, no
+external storage service is used. This is deliberate: some of those (CCTV footage, exam
+spreadsheets) are read back from a real local filesystem path by other code (`examController.js`
+reads the `.xlsx` straight off disk, the AI service needs a real `camera_url` path for CCTV), so
+a remote-URL-based storage service can't be swapped in without per-route special-casing.
 
-**If you're on Free/Starter with no disk**, use Cloudinary's free tier instead:
-
-1. [cloudinary.com](https://cloudinary.com) → sign up → **Dashboard** → copy the **API
-   Environment variable** value (`CLOUDINARY_URL=cloudinary://<key>:<secret>@<cloud>`).
-2. Render → `scms-backend` → **Environment** → add `CLOUDINARY_URL` (just the value).
-3. Redeploy. `thusitha-backend/middleware/imageUpload.js` detects the var and routes those four
-   upload types to Cloudinary; without it, uploads fall back to the local `uploads/` folder
-   (correct for local dev). Document uploads (exam Excel, materials, payment slips) always stay
-   on local disk — they're processed and deleted immediately, so ephemerality is fine.
-
-Alternative (no code, costs money): switch to any paid Render instance and add a disk at mount
-path `/app/thusitha-backend/uploads` (and, for one-time WhatsApp linking,
-`/app/thusitha-backend/whatsapp-session`).
+Also set `WHATSAPP_SESSION_DIR=/app/thusitha-backend/uploads/.wa-session` so the WhatsApp login
+survives redeploys too (the session folder is otherwise outside the disk mount).
 
 ---
 
