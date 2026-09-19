@@ -16,6 +16,17 @@ const SL_PHONE_RE = /^(?:\+94|0)7\d{8}$/;
 export const filterNameInput = (value) => value.replace(/[^A-Za-z඀-෿\s.'-]/g, '');
 export const filterPhoneInput = (value) => value.replace(/[^0-9+]/g, '');
 
+export const NAME_INVALID_MSG = 'වලංගු නොවන ආදානයකි: නම තුළ අකුරු සහ space පමණක් යොදන්න (ඉලක්කම්/සංකේත ඉඩ නොදේ).';
+export const PHONE_INVALID_MSG = 'වලංගු නොවන ආදානයකි: දුරකථන අංකයේ ඉලක්කම් සහ + පමණක් යොදන්න (අකුරු ඉඩ නොදේ).';
+
+// Runs a character-filter on a raw keystroke value and reports whether anything was
+// actually blocked, so the caller can show an immediate "වලංගු නොවන ආදානයකි" message
+// the moment a disallowed character is typed - not just silently drop it.
+export function filterWithFeedback(rawValue, filterFn) {
+  const filtered = filterFn(rawValue);
+  return { filtered, invalidAttempt: filtered !== rawValue };
+}
+
 // --- Validators: return an error message string, or '' when the value is valid.
 export function validateName(value, { required = true, label = 'නම' } = {}) {
   const v = (value || '').trim();

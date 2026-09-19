@@ -18,7 +18,7 @@ import Textarea from '../../components/common/Textarea';
 import Modal from '../../components/common/Modal';
 import Avatar from '../../components/common/Avatar';
 import FormError from '../../components/common/FormError';
-import { filterNameInput, filterPhoneInput, validateName, validateEmail, validatePhone, validateRequired } from '../../utils/formValidation';
+import { filterNameInput, filterPhoneInput, filterWithFeedback, NAME_INVALID_MSG, PHONE_INVALID_MSG, validateName, validateEmail, validatePhone, validateRequired } from '../../utils/formValidation';
 
 const FEATURES = [
   { icon: QrCode, title: 'Smart QR Attendance', desc: 'ආරක්ෂිත සහ වේගවත් QR පැමිණීමේ පද්ධතිය සමඟ සිසුන්ගේ පැමිණීම නිරීක්ෂණය කරන්න.' },
@@ -706,9 +706,9 @@ const LandingPage = () => {
                         invalid={!!contactFieldErrors.sender_name}
                         value={contactForm.sender_name}
                         onChange={e => {
-                          const v = filterNameInput(e.target.value);
-                          setContactForm({ ...contactForm, sender_name: v });
-                          if (contactFieldErrors.sender_name) setContactFieldErrors({ ...contactFieldErrors, sender_name: validateName(v, { label: 'නම' }) });
+                          const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterNameInput);
+                          setContactForm({ ...contactForm, sender_name: filtered });
+                          setContactFieldErrors({ ...contactFieldErrors, sender_name: invalidAttempt ? NAME_INVALID_MSG : (contactFieldErrors.sender_name ? validateName(filtered, { label: 'නම' }) : '') });
                         }}
                         onBlur={e => setContactFieldErrors({ ...contactFieldErrors, sender_name: validateName(e.target.value, { label: 'නම' }) })}
                       />
@@ -738,9 +738,9 @@ const LandingPage = () => {
                         invalid={!!contactFieldErrors.sender_phone}
                         value={contactForm.sender_phone}
                         onChange={e => {
-                          const v = filterPhoneInput(e.target.value);
-                          setContactForm({ ...contactForm, sender_phone: v });
-                          if (contactFieldErrors.sender_phone) setContactFieldErrors({ ...contactFieldErrors, sender_phone: validatePhone(v, { required: false }) });
+                          const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterPhoneInput);
+                          setContactForm({ ...contactForm, sender_phone: filtered });
+                          setContactFieldErrors({ ...contactFieldErrors, sender_phone: invalidAttempt ? PHONE_INVALID_MSG : (contactFieldErrors.sender_phone ? validatePhone(filtered, { required: false }) : '') });
                         }}
                         onBlur={e => setContactFieldErrors({ ...contactFieldErrors, sender_phone: validatePhone(e.target.value, { required: false }) })}
                       />

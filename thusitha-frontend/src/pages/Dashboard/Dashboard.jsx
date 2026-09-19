@@ -45,7 +45,7 @@ import Modal from '../../components/common/Modal';
 import Input from '../../components/common/Input';
 import Label from '../../components/common/Label';
 import FormError from '../../components/common/FormError';
-import { filterNameInput, filterPhoneInput, validateName, validatePhone, validateRequired } from '../../utils/formValidation';
+import { filterNameInput, filterPhoneInput, filterWithFeedback, NAME_INVALID_MSG, PHONE_INVALID_MSG, validateName, validatePhone, validateRequired } from '../../utils/formValidation';
 import Button from '../../components/common/Button';
 import TodayAgendaModal from '../../components/Dashboard/TodayAgendaModal';
 
@@ -1630,9 +1630,9 @@ const Dashboard = () => {
               required maxLength={150}
               invalid={!!studentFormErrors.name}
               onChange={(e) => {
-                const v = filterNameInput(e.target.value);
-                setName(v);
-                if (studentFormErrors.name) setStudentFormErrors({ ...studentFormErrors, name: validateName(v, { label: 'ශිෂ්‍යයාගේ නම' }) });
+                const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterNameInput);
+                setName(filtered);
+                setStudentFormErrors({ ...studentFormErrors, name: invalidAttempt ? NAME_INVALID_MSG : (studentFormErrors.name ? validateName(filtered, { label: 'ශිෂ්‍යයාගේ නම' }) : '') });
               }}
               onBlur={(e) => setStudentFormErrors({ ...studentFormErrors, name: validateName(e.target.value, { label: 'ශිෂ්‍යයාගේ නම' }) })}
             />
@@ -1652,9 +1652,9 @@ const Dashboard = () => {
               maxLength={150}
               invalid={!!studentFormErrors.parentName}
               onChange={(e) => {
-                const v = filterNameInput(e.target.value);
-                setParentName(v);
-                if (studentFormErrors.parentName) setStudentFormErrors({ ...studentFormErrors, parentName: validateName(v, { required: false, label: 'මව්පියන්ගේ නම' }) });
+                const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterNameInput);
+                setParentName(filtered);
+                setStudentFormErrors({ ...studentFormErrors, parentName: invalidAttempt ? NAME_INVALID_MSG : (studentFormErrors.parentName ? validateName(filtered, { required: false, label: 'මව්පියන්ගේ නම' }) : '') });
               }}
               onBlur={(e) => setStudentFormErrors({ ...studentFormErrors, parentName: validateName(e.target.value, { required: false, label: 'මව්පියන්ගේ නම' }) })}
             />
@@ -1666,9 +1666,9 @@ const Dashboard = () => {
               pattern="(?:\+94|0)7[0-9]{8}" title="උදා: 0712345678 හෝ +94712345678"
               invalid={!!studentFormErrors.parentPhone}
               onChange={(e) => {
-                const v = filterPhoneInput(e.target.value);
-                setParentPhone(v);
-                if (studentFormErrors.parentPhone) setStudentFormErrors({ ...studentFormErrors, parentPhone: validatePhone(v, { required: false }) });
+                const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterPhoneInput);
+                setParentPhone(filtered);
+                setStudentFormErrors({ ...studentFormErrors, parentPhone: invalidAttempt ? PHONE_INVALID_MSG : (studentFormErrors.parentPhone ? validatePhone(filtered, { required: false }) : '') });
               }}
               onBlur={(e) => setStudentFormErrors({ ...studentFormErrors, parentPhone: validatePhone(e.target.value, { required: false }) })}
             />

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
 import { API_URL } from '../../services/api';
-import { filterNameInput, filterPhoneInput, validateName, validateEmail, validatePhone, validateRequired } from '../../utils/formValidation';
+import { filterNameInput, filterPhoneInput, filterWithFeedback, NAME_INVALID_MSG, PHONE_INVALID_MSG, validateName, validateEmail, validatePhone, validateRequired } from '../../utils/formValidation';
 
 const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
   const canEdit = role === 'Admin';
@@ -167,9 +167,9 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
         <input id="teacher-name" type="text" value={formData.teacher_name}
           required maxLength={150} style={formErrors.teacher_name ? invalidInputStyle : inputStyle} placeholder="Mr. Perera"
           onChange={(e) => {
-            const v = filterNameInput(e.target.value);
-            setFormData({...formData, teacher_name: v});
-            if (formErrors.teacher_name) setFormErrors({ ...formErrors, teacher_name: validateName(v, { label: 'ගුරුවරයාගේ නම' }) });
+            const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterNameInput);
+            setFormData({...formData, teacher_name: filtered});
+            setFormErrors({ ...formErrors, teacher_name: invalidAttempt ? NAME_INVALID_MSG : (formErrors.teacher_name ? validateName(filtered, { label: 'ගුරුවරයාගේ නම' }) : '') });
           }}
           onBlur={(e) => setFormErrors({ ...formErrors, teacher_name: validateName(e.target.value, { label: 'ගුරුවරයාගේ නම' }) })}
         />
@@ -180,9 +180,9 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
         <input id="teacher-phone" type="tel" value={formData.phone}
           pattern="(?:\+94|0)7[0-9]{8}" title="උදා: 0771234567 හෝ +94771234567" style={formErrors.phone ? invalidInputStyle : inputStyle} placeholder="0771234567"
           onChange={(e) => {
-            const v = filterPhoneInput(e.target.value);
-            setFormData({...formData, phone: v});
-            if (formErrors.phone) setFormErrors({ ...formErrors, phone: validatePhone(v, { required: false }) });
+            const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterPhoneInput);
+            setFormData({...formData, phone: filtered});
+            setFormErrors({ ...formErrors, phone: invalidAttempt ? PHONE_INVALID_MSG : (formErrors.phone ? validatePhone(filtered, { required: false }) : '') });
           }}
           onBlur={(e) => setFormErrors({ ...formErrors, phone: validatePhone(e.target.value, { required: false }) })}
         />
