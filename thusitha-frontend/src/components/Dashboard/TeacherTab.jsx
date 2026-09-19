@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
 import { API_URL } from '../../services/api';
+import { filterNameInput, filterPhoneInput, validateName, validateEmail, validatePhone, validateRequired } from '../../utils/formValidation';
 
 const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
   const canEdit = role === 'Admin';
@@ -13,6 +14,8 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
   const [formData, setFormData] = useState({
     username: '', password: '', teacher_name: '', phone: '', email: '', specialization: '', qualifications: '', photo: null
   });
+  const [formErrors, setFormErrors] = useState({});
+  const errorTextStyle = { color: '#d32f2f', fontSize: '12px', marginTop: '-8px', marginBottom: '10px' };
 
   const teacherPhotoMap = {
     'ruwan': '/teachers/ruwan.png',
@@ -55,11 +58,24 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
 
   const resetForm = () => {
     setFormData({ username: '', password: '', teacher_name: '', phone: '', email: '', specialization: '', qualifications: '', photo: null });
+    setFormErrors({});
+  };
+
+  const validateAddForm = () => {
+    const errors = {
+      username: validateRequired(formData.username, 'පරිශීලක නාමය'),
+      teacher_name: validateName(formData.teacher_name, { label: 'ගුරුවරයාගේ නම' }),
+      phone: validatePhone(formData.phone, { required: false }),
+      email: formData.email ? validateEmail(formData.email, { required: false }) : '',
+    };
+    setFormErrors(errors);
+    return Object.values(errors).every((msg) => !msg);
   };
 
   const handleAdd = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
+    if (!validateAddForm()) return;
     setIsSubmitting(true);
     try {
       const form = new FormData();
@@ -123,30 +139,66 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
   };
 
   const inputStyle = { width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box', marginBottom: '12px' };
+  const invalidInputStyle = { ...inputStyle, border: '1px solid #d32f2f', marginBottom: '4px' };
   const labelStyle = { display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' };
 
   const renderForm = (isEdit) => (
     <form onSubmit={isEdit ? handleEdit : handleAdd}>
       {!isEdit && (
         <div>
-          <label htmlFor="teacher-username" style={labelStyle}>පරිශීලක නාමය (Login Username)</label>
-          <input id="teacher-username" type="text" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} required maxLength={100} pattern="[A-Za-z0-9._\- ]+" title="අකුරු, ඉලක්කම්, . _ - space විතරක් යොදන්න" style={inputStyle} placeholder="teacher01" />
+          <label htmlFor="teacher-username" style={labelStyle}>පරිශීලක නාමය (Login Username) *</label>
+          <input id="teacher-username" type="text" value={formData.username}
+            required maxLength={100} pattern="[A-Za-z0-9._\- ]+" title="අකුරු, ඉලක්කම්, . _ - space විතරක් යොදන්න"
+            style={formErrors.username ? invalidInputStyle : inputStyle} placeholder="teacher01"
+            onChange={(e) => {
+              setFormData({...formData, username: e.target.value});
+              if (formErrors.username) setFormErrors({ ...formErrors, username: validateRequired(e.target.value, 'පරිශීලක නාමය') });
+            }}
+            onBlur={(e) => setFormErrors({ ...formErrors, username: validateRequired(e.target.value, 'පරිශීලක නාමය') })}
+          />
+          {formErrors.username && <div style={errorTextStyle}>{formErrors.username}</div>}
           <div style={{ fontSize: '12px', color: '#666', marginTop: '-6px', marginBottom: '12px' }}>
             ආරම්භක මුරපදය: <b>Teacher@123</b> — ගුරුවරයාට පළමු වර log වී මුරපදය වෙනස් කළ හැක.
           </div>
         </div>
       )}
       <div>
-        <label htmlFor="teacher-name" style={labelStyle}>ගුරුවරයාගේ නම</label>
-        <input id="teacher-name" type="text" value={formData.teacher_name} onChange={(e) => setFormData({...formData, teacher_name: e.target.value})} required maxLength={150} style={inputStyle} placeholder="Mr. Perera" />
+        <label htmlFor="teacher-name" style={labelStyle}>ගුරුවරයාගේ නම *</label>
+        <input id="teacher-name" type="text" value={formData.teacher_name}
+          required maxLength={150} style={formErrors.teacher_name ? invalidInputStyle : inputStyle} placeholder="Mr. Perera"
+          onChange={(e) => {
+            const v = filterNameInput(e.target.value);
+            setFormData({...formData, teacher_name: v});
+            if (formErrors.teacher_name) setFormErrors({ ...formErrors, teacher_name: validateName(v, { label: 'ගුරුවරයාගේ නම' }) });
+          }}
+          onBlur={(e) => setFormErrors({ ...formErrors, teacher_name: validateName(e.target.value, { label: 'ගුරුවරයාගේ නම' }) })}
+        />
+        {formErrors.teacher_name && <div style={errorTextStyle}>{formErrors.teacher_name}</div>}
       </div>
       <div>
         <label htmlFor="teacher-phone" style={labelStyle}>දුරකථන අංකය</label>
-        <input id="teacher-phone" type="tel" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} pattern="(?:\+94|0)7[0-9]{8}" title="උදා: 0771234567 හෝ +94771234567" style={inputStyle} placeholder="0771234567" />
+        <input id="teacher-phone" type="tel" value={formData.phone}
+          pattern="(?:\+94|0)7[0-9]{8}" title="උදා: 0771234567 හෝ +94771234567" style={formErrors.phone ? invalidInputStyle : inputStyle} placeholder="0771234567"
+          onChange={(e) => {
+            const v = filterPhoneInput(e.target.value);
+            setFormData({...formData, phone: v});
+            if (formErrors.phone) setFormErrors({ ...formErrors, phone: validatePhone(v, { required: false }) });
+          }}
+          onBlur={(e) => setFormErrors({ ...formErrors, phone: validatePhone(e.target.value, { required: false }) })}
+        />
+        {formErrors.phone && <div style={errorTextStyle}>{formErrors.phone}</div>}
       </div>
       <div>
         <label htmlFor="teacher-email" style={labelStyle}>ඊමේල්</label>
-        <input id="teacher-email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} maxLength={150} style={inputStyle} placeholder="teacher@example.com" />
+        <input id="teacher-email" type="email" value={formData.email}
+          maxLength={150} style={formErrors.email ? invalidInputStyle : inputStyle} placeholder="teacher@example.com"
+          onChange={(e) => {
+            setFormData({...formData, email: e.target.value});
+            if (formErrors.email) setFormErrors({ ...formErrors, email: validateEmail(e.target.value, { required: false }) });
+          }}
+          onBlur={(e) => setFormErrors({ ...formErrors, email: validateEmail(e.target.value, { required: false }) })}
+        />
+        {formErrors.email && <div style={errorTextStyle}>{formErrors.email}</div>}
       </div>
       <div>
         <label htmlFor="teacher-spec" style={labelStyle}>විෂය / විශේෂත්වය</label>

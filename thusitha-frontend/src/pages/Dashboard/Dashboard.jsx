@@ -44,6 +44,8 @@ import { UserPlus, Settings2, Menu } from 'lucide-react';
 import Modal from '../../components/common/Modal';
 import Input from '../../components/common/Input';
 import Label from '../../components/common/Label';
+import FormError from '../../components/common/FormError';
+import { filterNameInput, filterPhoneInput, validateName, validatePhone, validateRequired } from '../../utils/formValidation';
 import Button from '../../components/common/Button';
 import TodayAgendaModal from '../../components/Dashboard/TodayAgendaModal';
 
@@ -106,6 +108,7 @@ const Dashboard = () => {
   const [parentPhone, setParentPhone] = useState('');
   const [address, setAddress] = useState('');
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [studentFormErrors, setStudentFormErrors] = useState({});
 
   // Attendance States
   const [attendanceRecords, setAttendanceRecords] = useState({});
@@ -437,8 +440,20 @@ const Dashboard = () => {
   };
 
   // ශිෂ්‍යයින් සඳහා Modal Handler ටික
+  const validateStudentForm = () => {
+    const errors = {
+      studentId: validateRequired(studentId, 'ශිෂ්‍ය අංකය'),
+      name: validateName(name, { label: 'ශිෂ්‍යයාගේ නම' }),
+      parentName: parentName ? validateName(parentName, { required: false, label: 'මව්පියන්ගේ නම' }) : '',
+      parentPhone: validatePhone(parentPhone, { required: false }),
+    };
+    setStudentFormErrors(errors);
+    return Object.values(errors).every((msg) => !msg);
+  };
+
   const handleAddStudent = async (e) => {
     e.preventDefault();
+    if (!validateStudentForm()) return;
     setSubmitLoading(true);
     try {
       await studentService.createStudent({
@@ -462,6 +477,7 @@ const Dashboard = () => {
       setParentPhone('');
       setAddress('');
       setSelectedParent('');
+      setStudentFormErrors({});
       fetchDatabaseData();
       showNotification('ශිෂ්‍යයා සාර්ථකව ඇතුළත් කළා!');
     } catch (err) {
@@ -1592,16 +1608,35 @@ const Dashboard = () => {
       </div>
 
       {/* ADD STUDENT MODAL */}
-      <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="අලුත් ශිෂ්‍යයෙක් ඇතුළත් කිරීම" maxWidth="max-w-md">
+      <Modal open={showAddModal} onClose={() => { setShowAddModal(false); setStudentFormErrors({}); }} title="අලුත් ශිෂ්‍යයෙක් ඇතුළත් කිරීම" maxWidth="max-w-md">
         <form onSubmit={handleAddStudent}>
           <div className="mb-4">
-            <Label htmlFor="modal-student-id">ශිෂ්‍ය අංකය (Student ID / Username)</Label>
-            <Input id="modal-student-id" type="text" placeholder="ST001" value={studentId} onChange={(e) => setStudentId(e.target.value)} required maxLength={20} pattern="[A-Za-z0-9._-]+" title="අකුරු, ඉලක්කම්, . _ - විතරක් යොදන්න" />
+            <Label htmlFor="modal-student-id">ශිෂ්‍ය අංකය (Student ID / Username) *</Label>
+            <Input id="modal-student-id" type="text" placeholder="ST001" value={studentId}
+              required maxLength={20} pattern="[A-Za-z0-9._-]+" title="අකුරු, ඉලක්කම්, . _ - විතරක් යොදන්න"
+              invalid={!!studentFormErrors.studentId}
+              onChange={(e) => {
+                setStudentId(e.target.value);
+                if (studentFormErrors.studentId) setStudentFormErrors({ ...studentFormErrors, studentId: validateRequired(e.target.value, 'ශිෂ්‍ය අංකය') });
+              }}
+              onBlur={(e) => setStudentFormErrors({ ...studentFormErrors, studentId: validateRequired(e.target.value, 'ශිෂ්‍ය අංකය') })}
+            />
+            <FormError>{studentFormErrors.studentId}</FormError>
             <small className="text-slate-400 text-[11px] block mt-1.5">මෙය Login Username ලෙසත් QR Code Key ලෙසත් භාවිතා වේ. Default Password: <b>Student@123</b></small>
           </div>
           <div className="mb-4">
-            <Label htmlFor="modal-student-name">ශිෂ්‍යයාගේ නම</Label>
-            <Input id="modal-student-name" type="text" placeholder="Dilini Kawshalya" value={name} onChange={(e) => setName(e.target.value)} required maxLength={150} />
+            <Label htmlFor="modal-student-name">ශිෂ්‍යයාගේ නම *</Label>
+            <Input id="modal-student-name" type="text" placeholder="Dilini Kawshalya" value={name}
+              required maxLength={150}
+              invalid={!!studentFormErrors.name}
+              onChange={(e) => {
+                const v = filterNameInput(e.target.value);
+                setName(v);
+                if (studentFormErrors.name) setStudentFormErrors({ ...studentFormErrors, name: validateName(v, { label: 'ශිෂ්‍යයාගේ නම' }) });
+              }}
+              onBlur={(e) => setStudentFormErrors({ ...studentFormErrors, name: validateName(e.target.value, { label: 'ශිෂ්‍යයාගේ නම' }) })}
+            />
+            <FormError>{studentFormErrors.name}</FormError>
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-student-school">පාසල</Label>
@@ -1613,18 +1648,38 @@ const Dashboard = () => {
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-parent-name">මව්පියන්ගේ නම</Label>
-            <Input id="modal-parent-name" type="text" placeholder="Parent Name" value={parentName} onChange={(e) => setParentName(e.target.value)} maxLength={150} />
+            <Input id="modal-parent-name" type="text" placeholder="Parent Name" value={parentName}
+              maxLength={150}
+              invalid={!!studentFormErrors.parentName}
+              onChange={(e) => {
+                const v = filterNameInput(e.target.value);
+                setParentName(v);
+                if (studentFormErrors.parentName) setStudentFormErrors({ ...studentFormErrors, parentName: validateName(v, { required: false, label: 'මව්පියන්ගේ නම' }) });
+              }}
+              onBlur={(e) => setStudentFormErrors({ ...studentFormErrors, parentName: validateName(e.target.value, { required: false, label: 'මව්පියන්ගේ නම' }) })}
+            />
+            <FormError>{studentFormErrors.parentName}</FormError>
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-parent-phone">මව්පියන්ගේ දුරකථන අංකය</Label>
-            <Input id="modal-parent-phone" type="tel" placeholder="0712345678" value={parentPhone} onChange={(e) => setParentPhone(e.target.value)} pattern="(?:\+94|0)7[0-9]{8}" title="උදා: 0712345678 හෝ +94712345678" />
+            <Input id="modal-parent-phone" type="tel" placeholder="0712345678" value={parentPhone}
+              pattern="(?:\+94|0)7[0-9]{8}" title="උදා: 0712345678 හෝ +94712345678"
+              invalid={!!studentFormErrors.parentPhone}
+              onChange={(e) => {
+                const v = filterPhoneInput(e.target.value);
+                setParentPhone(v);
+                if (studentFormErrors.parentPhone) setStudentFormErrors({ ...studentFormErrors, parentPhone: validatePhone(v, { required: false }) });
+              }}
+              onBlur={(e) => setStudentFormErrors({ ...studentFormErrors, parentPhone: validatePhone(e.target.value, { required: false }) })}
+            />
+            <FormError>{studentFormErrors.parentPhone}</FormError>
           </div>
           <div className="mb-6">
             <Label htmlFor="modal-student-address">ලිපිනය</Label>
             <Input id="modal-student-address" type="text" placeholder="129/14 Temple road, Colombo" value={address} onChange={(e) => setAddress(e.target.value)} maxLength={300} />
           </div>
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>අවලංගු කරන්න</Button>
+            <Button type="button" variant="outline" onClick={() => { setShowAddModal(false); setStudentFormErrors({}); }}>අවලංගු කරන්න</Button>
             <Button type="submit" variant="primary" loading={submitLoading} icon={<UserPlus size={16} />}>
               {submitLoading ? 'සුරකිමින්...' : 'සුරකින්න'}
             </Button>
