@@ -1,9 +1,19 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
 const { publicUrl } = require('../middleware/imageUpload');
+const { sanitizeText } = require('../utils/validators');
 
 exports.createAchievement = async (req, res) => {
-  const { student_id, title, description, island_rank, achieved_year } = req.body;
+  const { student_id } = req.body;
+  let { title, description } = req.body;
+  const { island_rank, achieved_year } = req.body;
+
+  if (!student_id || !title) {
+    return res.status(400).json({ error: 'ශිෂ්‍යයා සහ ජයග්‍රහණයේ මාතෘකාව අනිවාර්ය වේ.' });
+  }
+  title = sanitizeText(title, 150);
+  description = description ? sanitizeText(description, 1000) : null;
+
   const image_url = publicUrl(req.file);
   const year = achieved_year ? parseInt(achieved_year, 10) : new Date().getFullYear();
   try {
@@ -50,7 +60,16 @@ exports.getPublicAchievements = async (req, res) => {
 
 exports.updateAchievement = async (req, res) => {
   const { id } = req.params;
-  const { student_id, title, description, island_rank, achieved_year } = req.body;
+  const { student_id } = req.body;
+  let { title, description } = req.body;
+  const { island_rank, achieved_year } = req.body;
+
+  if (!student_id || !title) {
+    return res.status(400).json({ error: 'ශිෂ්‍යයා සහ ජයග්‍රහණයේ මාතෘකාව අනිවාර්ය වේ.' });
+  }
+  title = sanitizeText(title, 150);
+  description = description ? sanitizeText(description, 1000) : null;
+
   const image_url = publicUrl(req.file) || req.body.image_url || null;
   const year = achieved_year ? parseInt(achieved_year, 10) : new Date().getFullYear();
   try {

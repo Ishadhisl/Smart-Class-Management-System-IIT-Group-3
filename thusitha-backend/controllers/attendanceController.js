@@ -3,6 +3,7 @@ const path = require('node:path');
 const smsService = require('../utils/smsService');
 const auditService = require('../utils/auditService');
 const axios = require('axios'); // Added axios for microservice calls
+const { sanitizeText } = require('../utils/validators');
 
 /**
  * 💡 Helper: Executes the AI Python microservice via HTTP
@@ -271,15 +272,17 @@ exports.getSuspiciousLogs = async (req, res) => {
  * 🛠️ Bulk resolves discrepancy logs (System Audit helper).
  */
 exports.bulkResolveLogs = async (req, res) => {
-  const { logIds, comment } = req.body;
+  const { logIds } = req.body;
+  let { comment } = req.body;
   if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
     return res.status(400).json({ message: "නිරාකරණය කිරීමට වාර්තා තෝරා නොමැත." });
   }
+  comment = comment ? sanitizeText(comment, 500) : 'Resolved via System Audit';
 
   try {
     await db.pool.query(
       "UPDATE Suspicious_Attendance_Logs SET status = 'Resolved', resolution_comment = $1 WHERE log_id = ANY($2)",
-      [comment || 'Resolved via System Audit', logIds]
+      [comment, logIds]
     );
     await auditService.logAction(req.user.userId, req.user.role, 'UPDATE', 'Suspicious_Log', null, `Bulk resolved ${logIds.length} logs.`);
     res.json({ message: `වාර්තා ${logIds.length} ක් සාර්ථකව නිරාකරණය කළා!` });
@@ -293,7 +296,8 @@ exports.bulkResolveLogs = async (req, res) => {
  */
 exports.resolveLog = async (req, res) => {
   const { logId } = req.params;
-  const { comment } = req.body;
+  let { comment } = req.body;
+  comment = comment ? sanitizeText(comment, 500) : null;
   try {
     await db.pool.query(
       "UPDATE Suspicious_Attendance_Logs SET status = 'Resolved', resolution_comment = $1 WHERE log_id = $2",
@@ -766,12 +770,18 @@ exports.getMonthlyReports = async (req, res) => {
 /**
  * ✏️ Manual Attendance Correction
  */
+const ATTENDANCE_STATUSES = ['Present', 'Late'];
+
 exports.manualCorrection = async (req, res) => {
   const { logId } = req.params;
   const { attendance_status, reason } = req.body;
-  
-  if (!attendance_status) return res.status(400).json({ message: "attendance_status අවශ්‍ය වේ." });
-  
+
+  // Student_Attendance_Logs.attendance_status also has a DB-level CHECK constraint
+  // for this - this is just a friendlier 400 instead of a raw DB error.
+  if (!ATTENDANCE_STATUSES.includes(attendance_status)) {
+    return res.status(400).json({ message: `attendance_status must be one of: ${ATTENDANCE_STATUSES.join(', ')}` });
+  }
+
   try {
     await db.pool.query('UPDATE Student_Attendance_Logs SET attendance_status = $1 WHERE log_id = $2', [attendance_status, logId]);
     await auditService.logAction(req.user?.userId, req.user?.role, 'UPDATE', 'Attendance_Log', logId, `Manual correction to ${attendance_status}. Reason: ${reason || 'Not provided'}`);

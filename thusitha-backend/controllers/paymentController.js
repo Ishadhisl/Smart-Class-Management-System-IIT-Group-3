@@ -3,6 +3,9 @@ const db = require('../db');
 const auditService = require('../utils/auditService');
 const smsService = require('../utils/smsService');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || 'sk_test_51Px_placeholder'); // Use env in prod
+const { sanitizeText } = require('../utils/validators');
+
+const PAYMENT_STATUSES = ['Completed', 'Rejected', 'Pending Verification'];
 
 // 🔒 Resolves the caller's own student_id (for role 'Student') from their user_id.
 // Returns null if the role isn't 'Student' or no matching Students row exists.
@@ -231,6 +234,12 @@ exports.uploadConfirmation = async (req, res) => {
   const fileUrl = req.file ? `/uploads/${req.file.filename}` : req.body.slip_url;
 
   if (!fileUrl) return res.status(400).json({ message: "කරුණාකර ගෙවීම් පත්‍රිකාව (Slip) උඩුගත කරන්න." });
+  // A client-supplied slip_url (no file) is later rendered as a receipt link - reject
+  // anything that isn't a same-origin upload path or a plain http(s) URL, so a
+  // javascript:/data: scheme can never end up stored as a clickable link.
+  if (!req.file && !/^(\/uploads\/|https?:\/\/)/i.test(fileUrl)) {
+    return res.status(400).json({ message: "වලංගු නොවන ගොනු ලිපිනයකි." });
+  }
 
   try {
     if (req.user && (req.user.role === 'Student' || req.user.role === 'Parent')) {
@@ -262,7 +271,13 @@ exports.uploadConfirmation = async (req, res) => {
  */
 exports.verifyPayment = async (req, res) => {
   const { id } = req.params;
-  const { status, comments } = req.body; // 'Completed' or 'Rejected'
+  let { comments } = req.body;
+  const { status } = req.body; // 'Completed' or 'Rejected'
+
+  if (!PAYMENT_STATUSES.includes(status)) {
+    return res.status(400).json({ error: `status must be one of: ${PAYMENT_STATUSES.join(', ')}` });
+  }
+  comments = comments ? sanitizeText(comments, 500) : null;
 
   try {
     await db.pool.query(

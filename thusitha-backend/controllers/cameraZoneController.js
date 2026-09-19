@@ -1,5 +1,6 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
+const { sanitizeText } = require('../utils/validators');
 
 // Get all camera zones for a specific hall
 exports.getZonesByHall = async (req, res) => {
@@ -18,10 +19,13 @@ exports.getZonesByHall = async (req, res) => {
 
 // Create a new camera zone
 exports.createZone = async (req, res) => {
-  const { hall_id, zone_name, camera_url, position, calibration_factor } = req.body;
+  const { hall_id, position, calibration_factor } = req.body;
+  let { zone_name, camera_url } = req.body;
   if (!hall_id || !zone_name || !camera_url || position === undefined) {
     return res.status(400).json({ message: 'සියලුම ක්ෂේත්‍ර සම්පූර්ණ කරන්න.' });
   }
+  zone_name = sanitizeText(zone_name, 100);
+  camera_url = sanitizeText(camera_url, 500);
   try {
     const result = await db.pool.query(
       'INSERT INTO Camera_Zones (hall_id, zone_name, camera_url, position, calibration_factor) VALUES ($1, $2, $3, $4, $5) RETURNING *',
@@ -38,10 +42,13 @@ exports.createZone = async (req, res) => {
 // Update a camera zone
 exports.updateZone = async (req, res) => {
   const { zoneId } = req.params;
-  const { zone_name, camera_url, position } = req.body;
+  const { position } = req.body;
+  let { zone_name, camera_url } = req.body;
   if (!zone_name || !camera_url || position === undefined) {
     return res.status(400).json({ message: 'සියලුම ක්ෂේත්‍ර සම්පූර්ණ කරන්න.' });
   }
+  zone_name = sanitizeText(zone_name, 100);
+  camera_url = sanitizeText(camera_url, 500);
   try {
     const result = await db.pool.query(
       'UPDATE Camera_Zones SET zone_name = $1, camera_url = $2, position = $3 WHERE zone_id = $4 RETURNING *',

@@ -2,6 +2,7 @@ const db = require('../db');
 const auditService = require('../utils/auditService');
 const bcrypt = require('bcryptjs');
 const { defaultPasswordFor } = require('../utils/authDefaults');
+const { sanitizeText } = require('../utils/validators');
 
 // පද්ධති පරිශීලකයින් සියලුම දෙනා ලබා ගැනීම (Teachers/Staff)
 exports.getAllUsers = async (req, res) => {
@@ -45,7 +46,8 @@ exports.resetPassword = async (req, res) => {
 };
 
 exports.createUser = async (req, res) => {
-  const { username, password, role } = req.body;
+  const { password, role } = req.body;
+  let { username } = req.body;
   if (!username || !role) {
     return res.status(400).json({ message: "පරිශීලක නාමය සහ තනතුර (Role) අවශ්‍ය වේ." });
   }
@@ -53,6 +55,7 @@ exports.createUser = async (req, res) => {
   if (!['Admin', 'Counter Person'].includes(role)) {
     return res.status(400).json({ message: "වලංගු නොවන තනතුරකි. (Invalid role)" });
   }
+  username = sanitizeText(username, 100);
 
   try {
     const checkUser = await db.pool.query('SELECT 1 FROM Users WHERE username = $1', [username]);

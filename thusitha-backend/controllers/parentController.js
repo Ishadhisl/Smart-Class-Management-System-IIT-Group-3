@@ -3,8 +3,22 @@ const bcrypt = require('bcryptjs');
 
 const auditService = require('../utils/auditService');
 const { defaultPasswordFor } = require('../utils/authDefaults');
+const { isValidPhone, sanitizeText } = require('../utils/validators');
+
 exports.registerParent = async (req, res) => {
-  const { username, password, parent_name, parent_phone, address } = req.body;
+  let { username, password, parent_name, parent_phone, address } = req.body;
+
+  if (!username || !parent_name) {
+    return res.status(400).json({ error: 'පරිශීලක නාමය සහ මව්පියන්ගේ නම අනිවාර්ය වේ.' });
+  }
+  if (parent_phone && !isValidPhone(parent_phone)) {
+    return res.status(400).json({ error: 'වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0712345678).' });
+  }
+
+  username = sanitizeText(username, 100);
+  parent_name = sanitizeText(parent_name, 150);
+  address = address ? sanitizeText(address, 300) : null;
+
   const client = await db.pool.connect();
 
   try {

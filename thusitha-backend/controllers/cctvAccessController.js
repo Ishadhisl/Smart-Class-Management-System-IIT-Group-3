@@ -1,5 +1,6 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
+const { sanitizeText } = require('../utils/validators');
 
 // Resolve the Teachers.teacher_id for the logged-in teacher user.
 async function teacherIdFor(userId) {
@@ -9,8 +10,10 @@ async function teacherIdFor(userId) {
 
 // Teacher: ask an Admin for permission to view a course's CCTV footage.
 exports.requestAccess = async (req, res) => {
-  const { course_id, note } = req.body;
+  const { course_id } = req.body;
+  let { note } = req.body;
   if (!course_id) return res.status(400).json({ error: 'පන්තිය (course_id) අවශ්‍ය වේ.' });
+  note = note ? sanitizeText(note, 500) : null;
   try {
     const teacherId = await teacherIdFor(req.user.userId);
     if (!teacherId) return res.status(400).json({ error: 'ගුරු ගිණුමක් හමු නොවීය.' });

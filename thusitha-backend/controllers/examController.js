@@ -3,6 +3,7 @@ const db = require('../db');
 const auditService = require('../utils/auditService');
 const ExcelJS = require('exceljs'); // Assuming ExcelJS is used for uploadExcelMarks
 const { google } = require('googleapis');
+const { sanitizeText } = require('../utils/validators');
 
 // 🔒 For role 'Teacher': verifies the given course belongs to them. Non-Teachers pass through.
 const isOwnCourse = async (req, courseId) => {
@@ -72,7 +73,14 @@ exports.getUpcomingExams = async (req, res) => {
 };
 
 exports.createExam = async (req, res) => {
-  const { course_id, exam_name, exam_date, total_marks, pass_percentage } = req.body;
+  const { course_id, exam_date, total_marks, pass_percentage } = req.body;
+  let { exam_name } = req.body;
+
+  if (!course_id || !exam_name || !exam_date) {
+    return res.status(400).json({ message: 'පන්තිය, විභාගයේ නම සහ දිනය අනිවාර්ය වේ.' });
+  }
+  exam_name = sanitizeText(exam_name, 150);
+
   try {
     if (!(await isOwnCourse(req, course_id))) {
       return res.status(403).json({ message: 'ප්‍රවේශය තහනම්: මෙය ඔබ ඉගැන්වන පන්තියක් නොවේ.' });
@@ -267,7 +275,14 @@ exports.uploadExcelMarks = async (req, res) => {
 
 exports.updateExam = async (req, res) => {
   const { id } = req.params;
-  const { exam_name, exam_date, total_marks, pass_percentage } = req.body;
+  const { exam_date, total_marks, pass_percentage } = req.body;
+  let { exam_name } = req.body;
+
+  if (!exam_name || !exam_date) {
+    return res.status(400).json({ message: 'විභාගයේ නම සහ දිනය අනිවාර්ය වේ.' });
+  }
+  exam_name = sanitizeText(exam_name, 150);
+
   try {
     if (!(await isOwnCourseByExam(req, id))) {
       return res.status(403).json({ message: 'ප්‍රවේශය තහනම්: මෙය ඔබ ඉගැන්වන පන්තියක විභාගයක් නොවේ.' });

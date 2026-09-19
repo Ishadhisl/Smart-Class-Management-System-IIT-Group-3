@@ -2,6 +2,7 @@ const db = require('../db');
 const auditService = require('../utils/auditService');
 const smsService = require('../utils/smsService');
 const { sendWhatsAppMessage, getQrCode, getStatus, logoutWhatsApp, reconnectWhatsApp } = require('../utils/whatsappService');
+const { isValidPhone, sanitizeText } = require('../utils/validators');
 
 // ═══════════════════════════════════════════════════════════
 // 📊 WhatsApp Connection Status
@@ -174,10 +175,15 @@ exports.bulkResendSmsByIds = async (req, res) => {
 // 💬 Custom WhatsApp Message
 // ═══════════════════════════════════════════════════════════
 exports.sendCustomSms = async (req, res) => {
-  const { phone, message } = req.body;
+  const { phone } = req.body;
+  let { message } = req.body;
   if (!phone || !message) {
     return res.status(400).json({ message: 'දුරකථන අංකය සහ පණිවිඩය ඇතුළත් කරන්න.' });
   }
+  if (!isValidPhone(phone)) {
+    return res.status(400).json({ message: 'වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0712345678).' });
+  }
+  message = sanitizeText(message, 1000);
 
   try {
     const result = await smsService.sendCustomSMS(phone, message);
@@ -197,11 +203,13 @@ exports.sendCustomSms = async (req, res) => {
 // 📢 Bulk Reminder (Admin/Counter Person)
 // ═══════════════════════════════════════════════════════════
 exports.sendReminderWhatsApp = async (req, res) => {
-  const { student_ids, message_type, custom_message, course_id } = req.body;
+  const { student_ids, message_type, course_id } = req.body;
+  let { custom_message } = req.body;
 
   if (!student_ids || student_ids.length === 0) {
     return res.status(400).json({ message: 'ශිෂ්‍යයන් තෝරන්න.' });
   }
+  custom_message = custom_message ? sanitizeText(custom_message, 1000) : custom_message;
 
   // Default message templates. {class_name} and {month}/{date} are filled in per-student
   // by smsService.sendBulkReminder (class/exam-date/payment-month vary per student, so they

@@ -7,7 +7,7 @@ const auditService = require('../utils/auditService');
 const attendanceController = require('./attendanceController');
 const { publicUrl } = require('../middleware/imageUpload');
 const { defaultPasswordFor } = require('../utils/authDefaults');
-const { isValidPhone, sanitizeText } = require('../utils/validators');
+const { isValidEmail, isValidPhone, sanitizeText } = require('../utils/validators');
 
 const moodleService = require('../utils/moodleService');
 
@@ -175,7 +175,25 @@ exports.bulkGenerateEncodings = async (req, res) => {
 
 // Public Registration (Adds to a pending queue)
 exports.publicRegistration = async (req, res) => {
-  const { student_name, school, grade, parent_phone, email, course_id } = req.body;
+  let { student_name, school, grade, parent_phone, email, course_id } = req.body;
+
+  // Fully public, unauthenticated endpoint - validate and sanitize as strictly as
+  // the contact form, since it's the same trust level (anyone on the internet).
+  if (!student_name || !parent_phone) {
+    return res.status(400).json({ error: 'ශිෂ්‍යයාගේ නම සහ දුරකථන අංකය අනිවාර්ය වේ.' });
+  }
+  if (!isValidPhone(parent_phone)) {
+    return res.status(400).json({ error: 'වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0712345678).' });
+  }
+  if (email && !isValidEmail(email)) {
+    return res.status(400).json({ error: 'වලංගු විද්‍යුත් තැපැල් ලිපිනයක් ඇතුළත් කරන්න.' });
+  }
+
+  student_name = sanitizeText(student_name, 150);
+  school = school ? sanitizeText(school, 150) : null;
+  grade = grade ? sanitizeText(grade, 30) : null;
+  email = email ? sanitizeText(email, 150) : null;
+
   try {
     const query = `
       INSERT INTO PendingRegistrations (name, school, grade, phone, email, course_interest, status)
@@ -351,7 +369,20 @@ exports.registerStudent = async (req, res) => {
 // ශිෂ්‍ය දත්ත යාවත්කාලීන කිරීම (Update)
 exports.updateStudent = async (req, res) => {
   const { id } = req.params;
-  const { student_name, school, grade, parent_name, parent_phone, address } = req.body;
+  let { student_name, school, grade, parent_name, parent_phone, address } = req.body;
+
+  if (!student_name) {
+    return res.status(400).json({ message: 'ශිෂ්‍යයාගේ නම අනිවාර්ය වේ.' });
+  }
+  if (parent_phone && !isValidPhone(parent_phone)) {
+    return res.status(400).json({ message: 'වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0712345678).' });
+  }
+
+  student_name = sanitizeText(student_name, 150);
+  school = school ? sanitizeText(school, 150) : null;
+  grade = grade ? sanitizeText(grade, 30) : null;
+  parent_name = parent_name ? sanitizeText(parent_name, 150) : null;
+  address = address ? sanitizeText(address, 300) : null;
 
   const client = await db.pool.connect();
   try {
