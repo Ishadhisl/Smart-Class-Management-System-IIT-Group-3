@@ -2,17 +2,12 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const os = require('os'); // Network IP detection
-const https = require('https');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-// Same locally-trusted dev certificate the frontend (Vite) uses - see vite.config.js for why:
-// navigator.mediaDevices (webcam access) needs a secure context, and an https frontend page
-// calling this API over plain http would also get blocked by the browser as mixed content.
-const httpsOptions = {
-  key: fs.readFileSync(path.resolve(__dirname, '..', 'certs', 'dev-key.pem')),
-  cert: fs.readFileSync(path.resolve(__dirname, '..', 'certs', 'dev-cert.pem')),
-};
+// NOTE: Running in HTTP mode for local development (no SSL cert trust required)
+// To re-enable HTTPS, switch back to https.createServer(httpsOptions, app)
 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -74,6 +69,9 @@ const corsOptions = {
       'http://localhost:5173',
       'http://localhost:5174',
       'http://127.0.0.1:5173',
+      'https://localhost:5173',
+      'https://localhost:5174',
+      'https://127.0.0.1:5173',
     ].filter(Boolean);
     
     if (allowed.includes(origin) || isPrivateIP(origin)) {
@@ -207,8 +205,8 @@ function checkAndStartAIServer() {
   client.connect(8000, '127.0.0.1');
 }
 
-const server = https.createServer(httpsOptions, app).listen(PORT, () => {
-  console.log(`🚀 Server is running on https://localhost:${PORT}`);
+const server = http.createServer(app).listen(PORT, () => {
+  console.log(`🚀 Server is running on http://localhost:${PORT}`);
   checkAndStartAIServer();
 });
 

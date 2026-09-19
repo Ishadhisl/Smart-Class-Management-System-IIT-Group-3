@@ -1,20 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Locally-trusted dev certificate (mkcert), covering localhost/127.0.0.1/LAN IP - needed so
-// navigator.mediaDevices (webcam access) is available: browsers only expose it in a "secure
-// context" (HTTPS, or plain http://localhost), and this dev server is also reached over the
-// LAN IP by phones for QR scanning, which was silently falling back to an insecure context.
-const httpsConfig = {
-  key: fs.readFileSync(path.resolve(__dirname, '..', 'certs', 'dev-key.pem')),
-  cert: fs.readFileSync(path.resolve(__dirname, '..', 'certs', 'dev-cert.pem')),
-};
+// NOTE: Running in HTTP mode for local development (no SSL cert trust required)
+// To re-enable HTTPS, add back the httpsConfig and set https: httpsConfig in server options
 
 // https://vite.dev/config/
 // Hides Moodle's own dashboard chrome when it's embedded in the SCMS admin UI, since the
@@ -29,9 +22,9 @@ const MOODLE_EMBED_STYLE = `<style>
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    host: true,   // Expose on 0.0.0.0 so phone on same Wi-Fi can connect
+    host: true,
     port: 5173,
-    https: httpsConfig,
+    // HTTP mode - no https config needed
     proxy: {
       // Serve Moodle same-origin so its session cookie isn't dropped as a
       // cross-origin iframe cookie by the browser (SSO login was silently

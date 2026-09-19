@@ -1,0 +1,348 @@
+@startuml SCMS_ER_Diagram
+!pragma layout smetana
+skinparam linetype ortho
+skinparam roundcorner 6
+skinparam class {
+  BackgroundColor White
+  ArrowColor #1E3A8A
+  BorderColor #1E3A8A
+  HeaderBackgroundColor #EEF2F6
+}
+
+entity "announcements" as announcements {
+  * announcement_id : integer <<PK>>
+    title : varchar
+    body : text
+    is_active : boolean
+    created_by : integer <<FK>>
+    posted_at : timestamp
+}
+
+entity "attendance_master" as attendance_master {
+  * session_id : integer <<PK>>
+    qr_count : integer
+    ai_headcount : integer
+    zone_details : jsonb
+    mismatch_detected : boolean
+    verification_data : jsonb
+    validated_at : timestamp
+}
+
+entity "auditlogs" as auditlogs {
+  * log_id : integer <<PK>>
+    performed_by : integer <<FK>>
+    role : varchar
+    action_type : varchar
+    target_table : varchar
+    target_id : integer
+    details : text
+}
+
+entity "camera_zones" as camera_zones {
+  * zone_id : integer <<PK>>
+    hall_id : integer <<FK>>
+    zone_name : varchar
+    camera_url : text
+    calibration_factor : decimal
+}
+
+entity "class_schedules" as class_schedules {
+  * schedule_id : integer <<PK>>
+    course_id : integer <<FK>>
+    hall_id : integer <<FK>>
+    day_of_week : varchar
+    start_time : time
+    end_time : time
+}
+
+entity "contact_messages" as contact_messages {
+  * message_id : integer <<PK>>
+    sender_name : varchar
+    sender_email : varchar
+    sender_phone : varchar
+    subject : varchar
+    message_text : text
+    status : varchar
+    is_read : boolean
+    is_important : boolean
+    submitted_at : timestamp
+}
+
+entity "counter_person" as counter_person {
+  * counter_person_id : integer <<PK>>
+    user_id : integer <<FK>>
+    staff_name : varchar
+    phone : varchar
+    email : varchar
+    joined_date : date
+    status : varchar
+}
+
+entity "course_enrollments" as course_enrollments {
+  * enrollment_id : integer <<PK>>
+    student_id : integer <<FK>>
+    course_id : integer <<FK>>
+    enrollment_status : varchar
+    enrolled_at : timestamp
+}
+
+entity "courses" as courses {
+  * course_id : integer <<PK>>
+    subject_id : integer <<FK>>
+    teacher_id : integer <<FK>>
+    course_name : varchar
+    monthly_fee : decimal
+    is_professional_course : boolean
+}
+
+entity "exam_results" as exam_results {
+  * student_id : integer <<PK>>
+  * exam_id : integer <<PK>>
+    marks : decimal
+}
+
+entity "exams" as exams {
+  * exam_id : integer <<PK>>
+    course_id : integer <<FK>>
+    exam_name : varchar
+    exam_date : date
+    total_marks : integer
+    pass_percentage : integer
+}
+
+entity "hall_congestion_logs" as hall_congestion_logs {
+  * log_id : integer <<PK>>
+    hall_id : integer <<FK>>
+    peak_count : integer
+    capacity : integer
+    started_at : timestamp
+    ended_at : timestamp
+    duration_minutes : integer
+}
+
+entity "hall_congestion_tracker" as hall_congestion_tracker {
+  * hall_id : integer <<PK>>
+    first_detected_at : timestamp
+    sms_sent : boolean
+    active_log_id : integer
+}
+
+entity "halls" as halls {
+  * hall_id : integer <<PK>>
+    hall_name : varchar
+    capacity : integer
+}
+
+entity "learning_materials" as learning_materials {
+  * material_id : integer <<PK>>
+    course_id : integer <<FK>>
+    teacher_id : integer <<FK>>
+    material_title : varchar
+    material_type : varchar
+    uploaded_file : text
+    uploaded_at : timestamp
+}
+
+entity "parents" as parents {
+  * parent_id : integer <<PK>>
+    user_id : integer <<FK>>
+    parent_name : varchar
+    parent_phone : varchar
+    address : text
+}
+
+entity "payments" as payments {
+  * payment_id : integer <<PK>>
+    student_id : integer <<FK>>
+    course_id : integer <<FK>>
+    issued_by : integer <<FK>>
+    amount_paid : decimal
+    payment_method : varchar
+    for_month : varchar
+    receipt_number : varchar
+    payment_status : varchar
+    payment_date : timestamp
+    confirmation_url : varchar
+    verification_comments : text
+}
+
+entity "pendingregistrations" as pendingregistrations {
+  * id : integer <<PK>>
+    name : varchar
+    school : varchar
+    grade : varchar
+    phone : varchar
+    email : varchar
+    course_interest : integer <<FK>>
+    status : varchar
+}
+
+entity "promotions" as promotions {
+  * promo_id : integer <<PK>>
+    title : varchar
+    content_type : varchar
+    description : text
+    image_url : text
+    created_at : timestamp
+}
+
+entity "sms_logs" as sms_logs {
+  * log_id : integer <<PK>>
+    parent_id : integer <<FK>>
+    parent_phone : varchar
+    sms_type : varchar
+    message_body : text
+    status : varchar
+    sent_at : timestamp
+}
+
+entity "student_achievements" as student_achievements {
+  * achievement_id : integer <<PK>>
+    student_id : integer <<FK>>
+    title : varchar
+    description : text
+    island_rank : integer
+    achieved_year : integer
+    created_at : timestamp
+}
+
+entity "student_attendance_logs" as student_attendance_logs {
+  * log_id : integer <<PK>>
+    student_id : integer <<FK>>
+    course_id : integer <<FK>>
+    attendance_status : varchar
+    scanned_at : timestamp
+    session_id : integer <<FK>>
+    method : varchar
+}
+
+entity "students" as students {
+  * student_id : integer <<PK>>
+    user_id : integer <<FK>>
+    parent_id : integer <<FK>>
+    student_name : varchar
+    school : varchar
+    grade : varchar
+    qr_code_key : varchar
+    profile_photo_path : text
+    face_encoding : jsonb
+    created_at : timestamp
+    moodle_user_id : varchar
+}
+
+entity "study_area_bookings" as study_area_bookings {
+  * booking_id : integer <<PK>>
+    student_id : integer <<FK>>
+    seat_id : integer <<FK>>
+    expected_arrival_time : timestamp
+    actual_arrival_time : timestamp
+    actual_end_time : timestamp
+    expiry_time : timestamp
+    booking_status : varchar
+}
+
+entity "study_seats" as study_seats {
+  * seat_id : integer <<PK>>
+    seat_status : varchar
+}
+
+entity "subjects" as subjects {
+  * subject_id : integer <<PK>>
+    subject_name : varchar
+    description : text
+}
+
+entity "suspicious_attendance_logs" as suspicious_attendance_logs {
+  * log_id : integer <<PK>>
+    session_id : integer <<FK>>
+    qr_count : integer
+    ai_headcount : integer
+    zone_details : jsonb
+    unverified_student_ids : jsonb
+    image_paths : jsonb
+    status : varchar
+    resolution_comment : text
+    detected_at : timestamp
+}
+
+entity "system_settings" as system_settings {
+  * setting_key : varchar <<PK>>
+    setting_value : text
+    description : text
+    updated_at : timestamp
+}
+
+entity "teachers" as teachers {
+  * teacher_id : integer <<PK>>
+    user_id : integer <<FK>>
+    teacher_name : varchar
+    phone : varchar
+    email : varchar
+    specialization : varchar
+    qualifications : text
+    bio : text
+    profile_photo_path : text
+}
+
+entity "users" as users {
+  * user_id : integer <<PK>>
+    username : varchar
+    password_hash : varchar
+    role : varchar
+    created_at : timestamp
+    email : varchar
+}
+
+entity "attendance_sessions" as attendance_sessions {
+  * session_id : integer <<PK>>
+    schedule_id : integer <<FK>>
+    course_id : integer <<FK>>
+    session_date : date
+    qr_token : varchar
+    expires_at : timestamp
+    status : varchar
+    created_by : integer <<FK>>
+    created_at : timestamp
+    updated_at : timestamp
+}
+
+' --- Relationships ---
+users ||--o{ announcements : "created_by"
+class_schedules ||--o| attendance_master : "session_id"
+users ||--o{ auditlogs : "performed_by"
+halls ||--o{ camera_zones : "hall_id"
+courses ||--o{ class_schedules : "course_id"
+halls ||--o{ class_schedules : "hall_id"
+users ||--o| counter_person : "user_id"
+courses ||--o{ course_enrollments : "course_id"
+students ||--o{ course_enrollments : "student_id"
+subjects ||--o{ courses : "subject_id"
+teachers ||--o{ courses : "teacher_id"
+exams ||--o{ exam_results : "exam_id"
+students ||--o{ exam_results : "student_id"
+courses ||--o{ exams : "course_id"
+halls ||--o{ hall_congestion_logs : "hall_id"
+halls ||--o| hall_congestion_tracker : "hall_id"
+courses ||--o{ learning_materials : "course_id"
+teachers ||--o{ learning_materials : "teacher_id"
+users ||--o| parents : "user_id"
+courses ||--o{ payments : "course_id"
+users ||--o{ payments : "issued_by"
+students ||--o{ payments : "student_id"
+courses ||--o{ pendingregistrations : "course_interest"
+parents ||--o{ sms_logs : "parent_id"
+students ||--o{ student_achievements : "student_id"
+courses ||--o{ student_attendance_logs : "course_id"
+students ||--o{ student_attendance_logs : "student_id"
+attendance_sessions ||--o{ student_attendance_logs : "session_id"
+parents ||--o{ students : "parent_id"
+users ||--o| students : "user_id"
+study_seats ||--o{ study_area_bookings : "seat_id"
+students ||--o{ study_area_bookings : "student_id"
+class_schedules ||--o{ suspicious_attendance_logs : "session_id"
+users ||--o| teachers : "user_id"
+class_schedules ||--o{ attendance_sessions : "schedule_id"
+courses ||--o{ attendance_sessions : "course_id"
+users ||--o{ attendance_sessions : "created_by"
+
+@enduml
