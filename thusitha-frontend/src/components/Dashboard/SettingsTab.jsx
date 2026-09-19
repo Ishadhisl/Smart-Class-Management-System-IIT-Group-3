@@ -84,7 +84,7 @@ const SettingsTab = ({ settings, onUpdate, onCreate, onDelete, onTriggerDrill })
         ))}
       </div>
 
-      <h3 style={{ color: '#1a237e', marginTop: '40px', marginBottom: '20px' }}>📱 SMS සැකිලි කළමනාකරණය (SMS Templates)</h3>
+      <h3 style={{ color: '#1a237e', marginTop: '40px', marginBottom: '20px' }}>📱 WhatsApp සැකිලි කළමනාකරණය (WhatsApp Templates)</h3>
       
       <div style={{ padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '8px', marginBottom: '25px', border: '1px solid #eee' }}>
         <h5 style={{ margin: '0 0 10px 0' }}>නව සැකිල්ලක් එක් කරන්න (Add New)</h5>
