@@ -7,6 +7,7 @@ const auditService = require('../utils/auditService');
 const attendanceController = require('./attendanceController');
 const { publicUrl } = require('../middleware/imageUpload');
 const { defaultPasswordFor } = require('../utils/authDefaults');
+const { isValidPhone, sanitizeText } = require('../utils/validators');
 
 const moodleService = require('../utils/moodleService');
 
@@ -263,7 +264,23 @@ exports.approveStudent = async (req, res) => {
 
 // ශිෂ්‍යයෙක් ලියාපදිංචි කිරීම
 exports.registerStudent = async (req, res) => {
-  const { username, password, student_name, school, grade, qr_code_key, parent_id, parent_name, parent_phone, address } = req.body;
+  let { username, password, student_name, school, grade, qr_code_key, parent_id, parent_name, parent_phone, address } = req.body;
+
+  if (!username || !student_name) {
+    return res.status(400).json({ message: "ශිෂ්‍ය අංකය සහ ශිෂ්‍යයාගේ නම අනිවාර්ය වේ." });
+  }
+  if (parent_phone && !isValidPhone(parent_phone)) {
+    return res.status(400).json({ message: "වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0712345678)." });
+  }
+
+  username = sanitizeText(username, 100);
+  student_name = sanitizeText(student_name, 150);
+  school = school ? sanitizeText(school, 150) : null;
+  grade = grade ? sanitizeText(grade, 30) : null;
+  qr_code_key = qr_code_key ? sanitizeText(qr_code_key, 100) : username;
+  parent_name = parent_name ? sanitizeText(parent_name, 150) : null;
+  address = address ? sanitizeText(address, 300) : null;
+
   const client = await db.pool.connect();
 
   try {

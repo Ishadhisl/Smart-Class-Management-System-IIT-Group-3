@@ -130,7 +130,7 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
       {!isEdit && (
         <div>
           <label htmlFor="teacher-username" style={labelStyle}>පරිශීලක නාමය (Login Username)</label>
-          <input id="teacher-username" type="text" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} required style={inputStyle} placeholder="teacher01" />
+          <input id="teacher-username" type="text" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} required maxLength={100} pattern="[A-Za-z0-9._\- ]+" title="අකුරු, ඉලක්කම්, . _ - space විතරක් යොදන්න" style={inputStyle} placeholder="teacher01" />
           <div style={{ fontSize: '12px', color: '#666', marginTop: '-6px', marginBottom: '12px' }}>
             ආරම්භක මුරපදය: <b>Teacher@123</b> — ගුරුවරයාට පළමු වර log වී මුරපදය වෙනස් කළ හැක.
           </div>
@@ -138,23 +138,23 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
       )}
       <div>
         <label htmlFor="teacher-name" style={labelStyle}>ගුරුවරයාගේ නම</label>
-        <input id="teacher-name" type="text" value={formData.teacher_name} onChange={(e) => setFormData({...formData, teacher_name: e.target.value})} required style={inputStyle} placeholder="Mr. Perera" />
+        <input id="teacher-name" type="text" value={formData.teacher_name} onChange={(e) => setFormData({...formData, teacher_name: e.target.value})} required maxLength={150} style={inputStyle} placeholder="Mr. Perera" />
       </div>
       <div>
         <label htmlFor="teacher-phone" style={labelStyle}>දුරකථන අංකය</label>
-        <input id="teacher-phone" type="text" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} style={inputStyle} placeholder="0771234567" />
+        <input id="teacher-phone" type="tel" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} pattern="(?:\+94|0)7[0-9]{8}" title="උදා: 0771234567 හෝ +94771234567" style={inputStyle} placeholder="0771234567" />
       </div>
       <div>
         <label htmlFor="teacher-email" style={labelStyle}>ඊමේල්</label>
-        <input id="teacher-email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} style={inputStyle} placeholder="teacher@example.com" />
+        <input id="teacher-email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} maxLength={150} style={inputStyle} placeholder="teacher@example.com" />
       </div>
       <div>
         <label htmlFor="teacher-spec" style={labelStyle}>විෂය / විශේෂත්වය</label>
-        <input id="teacher-spec" type="text" value={formData.specialization} onChange={(e) => setFormData({...formData, specialization: e.target.value})} style={inputStyle} placeholder="Combined Mathematics" />
+        <input id="teacher-spec" type="text" value={formData.specialization} onChange={(e) => setFormData({...formData, specialization: e.target.value})} maxLength={150} style={inputStyle} placeholder="Combined Mathematics" />
       </div>
       <div>
         <label htmlFor="teacher-qual" style={labelStyle}>සුදුසුකම්</label>
-        <input id="teacher-qual" type="text" value={formData.qualifications} onChange={(e) => setFormData({...formData, qualifications: e.target.value})} style={inputStyle} placeholder="B.Sc, M.Sc" />
+        <input id="teacher-qual" type="text" value={formData.qualifications} onChange={(e) => setFormData({...formData, qualifications: e.target.value})} maxLength={300} style={inputStyle} placeholder="B.Sc, M.Sc" />
       </div>
       <div>
         <label htmlFor="teacher-photo" style={labelStyle}>ඡායාරූපය (Photo)</label>

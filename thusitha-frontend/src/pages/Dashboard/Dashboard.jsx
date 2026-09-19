@@ -1596,32 +1596,32 @@ const Dashboard = () => {
         <form onSubmit={handleAddStudent}>
           <div className="mb-4">
             <Label htmlFor="modal-student-id">ශිෂ්‍ය අංකය (Student ID / Username)</Label>
-            <Input id="modal-student-id" type="text" placeholder="ST001" value={studentId} onChange={(e) => setStudentId(e.target.value)} required />
+            <Input id="modal-student-id" type="text" placeholder="ST001" value={studentId} onChange={(e) => setStudentId(e.target.value)} required maxLength={20} pattern="[A-Za-z0-9._-]+" title="අකුරු, ඉලක්කම්, . _ - විතරක් යොදන්න" />
             <small className="text-slate-400 text-[11px] block mt-1.5">මෙය Login Username ලෙසත් QR Code Key ලෙසත් භාවිතා වේ. Default Password: <b>Student@123</b></small>
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-student-name">ශිෂ්‍යයාගේ නම</Label>
-            <Input id="modal-student-name" type="text" placeholder="Dilini Kawshalya" value={name} onChange={(e) => setName(e.target.value)} required />
+            <Input id="modal-student-name" type="text" placeholder="Dilini Kawshalya" value={name} onChange={(e) => setName(e.target.value)} required maxLength={150} />
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-student-school">පාසල</Label>
-            <Input id="modal-student-school" type="text" placeholder="Ananda College, Colombo" value={schoolName} onChange={(e) => setSchoolName(e.target.value)} />
+            <Input id="modal-student-school" type="text" placeholder="Ananda College, Colombo" value={schoolName} onChange={(e) => setSchoolName(e.target.value)} maxLength={150} />
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-student-grade">ශ්‍රේණිය</Label>
-            <Input id="modal-student-grade" type="text" placeholder="Grade 12" value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)} />
+            <Input id="modal-student-grade" type="text" placeholder="Grade 12" value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)} maxLength={30} />
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-parent-name">මව්පියන්ගේ නම</Label>
-            <Input id="modal-parent-name" type="text" placeholder="Parent Name" value={parentName} onChange={(e) => setParentName(e.target.value)} />
+            <Input id="modal-parent-name" type="text" placeholder="Parent Name" value={parentName} onChange={(e) => setParentName(e.target.value)} maxLength={150} />
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-parent-phone">මව්පියන්ගේ දුරකථන අංකය</Label>
-            <Input id="modal-parent-phone" type="text" placeholder="0712345678" value={parentPhone} onChange={(e) => setParentPhone(e.target.value)} />
+            <Input id="modal-parent-phone" type="tel" placeholder="0712345678" value={parentPhone} onChange={(e) => setParentPhone(e.target.value)} pattern="(?:\+94|0)7[0-9]{8}" title="උදා: 0712345678 හෝ +94712345678" />
           </div>
           <div className="mb-6">
             <Label htmlFor="modal-student-address">ලිපිනය</Label>
-            <Input id="modal-student-address" type="text" placeholder="129/14 Temple road, Colombo" value={address} onChange={(e) => setAddress(e.target.value)} />
+            <Input id="modal-student-address" type="text" placeholder="129/14 Temple road, Colombo" value={address} onChange={(e) => setAddress(e.target.value)} maxLength={300} />
           </div>
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>අවලංගු කරන්න</Button>

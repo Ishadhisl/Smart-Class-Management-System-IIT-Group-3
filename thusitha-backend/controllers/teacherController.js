@@ -5,6 +5,7 @@ const auditService = require('../utils/auditService');
 const moodleService = require('../utils/moodleService');
 const { publicUrl } = require('../middleware/imageUpload');
 const { defaultPasswordFor } = require('../utils/authDefaults');
+const { isValidEmail, isValidPhone, sanitizeText } = require('../utils/validators');
 
 // 💡 Moodle Integration for Teachers
 const createMoodleAccount = async (teacherData) => {
@@ -34,7 +35,24 @@ const createMoodleAccount = async (teacherData) => {
   }
 };
 exports.registerTeacher = async (req, res) => {
-  const { username, password, teacher_name, phone, email, specialization, qualifications } = req.body;
+  let { username, password, teacher_name, phone, email, specialization, qualifications } = req.body;
+
+  if (!username || !teacher_name) {
+    return res.status(400).json({ message: "පරිශීලක නාමය සහ ගුරුවරයාගේ නම අනිවාර්ය වේ." });
+  }
+  if (email && !isValidEmail(email)) {
+    return res.status(400).json({ message: "වලංගු විද්‍යුත් තැපැල් ලිපිනයක් ඇතුළත් කරන්න." });
+  }
+  if (phone && !isValidPhone(phone)) {
+    return res.status(400).json({ message: "වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0771234567)." });
+  }
+
+  username = sanitizeText(username, 100);
+  teacher_name = sanitizeText(teacher_name, 150);
+  email = email ? sanitizeText(email, 150) : null;
+  specialization = specialization ? sanitizeText(specialization, 150) : null;
+  qualifications = qualifications ? sanitizeText(qualifications, 300) : null;
+
   const profile_photo_path = publicUrl(req.file);
   const client = await db.pool.connect();
 

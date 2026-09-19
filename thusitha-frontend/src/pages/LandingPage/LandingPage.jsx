@@ -686,7 +686,7 @@ const LandingPage = () => {
                     <div className="flex-1 min-w-[200px]">
                       <Label htmlFor="contact_sender_name">ඔබේ නම *</Label>
                       <Input
-                        id="contact_sender_name" type="text" placeholder="නම ඇතුළත් කරන්න" required
+                        id="contact_sender_name" type="text" placeholder="නම ඇතුළත් කරන්න" required maxLength={100}
                         value={contactForm.sender_name}
                         onChange={e => setContactForm({ ...contactForm, sender_name: e.target.value })}
                       />
@@ -694,7 +694,7 @@ const LandingPage = () => {
                     <div className="flex-1 min-w-[200px]">
                       <Label htmlFor="contact_sender_email">ඊමේල් ලිපිනය *</Label>
                       <Input
-                        id="contact_sender_email" type="email" placeholder="email@example.com" required
+                        id="contact_sender_email" type="email" placeholder="email@example.com" required maxLength={150}
                         value={contactForm.sender_email}
                         onChange={e => setContactForm({ ...contactForm, sender_email: e.target.value })}
                       />
@@ -706,6 +706,7 @@ const LandingPage = () => {
                       <Label htmlFor="contact_sender_phone">දුරකථන අංකය</Label>
                       <Input
                         id="contact_sender_phone" type="tel" placeholder="07X-XXXXXXX"
+                        pattern="(?:\+94|0)7[0-9]{8}" title="උදා: 0712345678 හෝ +94712345678"
                         value={contactForm.sender_phone}
                         onChange={e => setContactForm({ ...contactForm, sender_phone: e.target.value })}
                       />
@@ -713,7 +714,7 @@ const LandingPage = () => {
                     <div className="flex-1 min-w-[200px]">
                       <Label htmlFor="contact_subject">විෂය/මාතෘකාව</Label>
                       <Input
-                        id="contact_subject" type="text" placeholder="eg: ගාස්තු විමසීම"
+                        id="contact_subject" type="text" placeholder="eg: ගාස්තු විමසීම" maxLength={150}
                         value={contactForm.subject}
                         onChange={e => setContactForm({ ...contactForm, subject: e.target.value })}
                       />
@@ -723,7 +724,7 @@ const LandingPage = () => {
                   <div className="mb-6">
                     <Label htmlFor="contact_message">ඔබේ පණිවිඩය *</Label>
                     <Textarea
-                      id="contact_message" required rows={5} placeholder="ඔබේ ප්‍රශ්නය හෝ විමසීම මෙහි ලියන්න..."
+                      id="contact_message" required rows={5} maxLength={2000} placeholder="ඔබේ ප්‍රශ්නය හෝ විමසීම මෙහි ලියන්න..."
                       value={contactForm.message_text}
                       onChange={e => setContactForm({ ...contactForm, message_text: e.target.value })}
                     />

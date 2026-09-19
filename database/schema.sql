@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS Users (
     username VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL CHECK (role IN ('Admin', 'Teacher', 'Counter Person', 'Parent', 'Student')),
+    failed_login_attempts INT NOT NULL DEFAULT 0,
+    locked_until TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

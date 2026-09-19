@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const os = require('os'); // Network IP detection
 const https = require('https');
 const http = require('http');
@@ -95,6 +96,12 @@ const corsOptions = {
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   optionsSuccessStatus: 204
 };
+// Sets X-Content-Type-Options, X-Frame-Options, a conservative X-XSS-Protection-style
+// posture, etc. CSP is left off: this is a pure JSON API (the frontend is a separate
+// Vercel-hosted SPA), so there's no first-party HTML/inline-script surface for a CSP
+// to protect here - only /uploads serves static files, and those are never rendered
+// as HTML by this server.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
 app.use(cors(corsOptions));
 app.use(express.json());
 

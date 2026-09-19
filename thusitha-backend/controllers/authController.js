@@ -5,16 +5,55 @@ const auditService = require('../utils/auditService');
 const { sendWhatsAppMessage } = require('../utils/whatsappService');
 const { isUsingDefaultPassword } = require('../utils/authDefaults');
 
+const MAX_LOGIN_ATTEMPTS = 3;
+const LOCKOUT_MINUTES = 5;
+
 // පරිශීලක ඇතුළත් වීම (Login)
 exports.login = async (req, res) => {
   const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ message: 'පරිශීලක නාමය සහ මුරපදය අනිවාර්ය වේ.' });
+  }
   try {
     const result = await db.pool.query('SELECT * FROM Users WHERE username = $1', [username]);
     if (result.rows.length === 0) return res.status(401).json({ message: 'පරිශීලකයා හමුවුනේ නැත.' });
 
     const user = result.rows[0];
+
+    // Locked account - reject even a CORRECT password until the lock window passes.
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      const remainingMin = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
+      return res.status(423).json({
+        message: `වැරදි මුරපද ${MAX_LOGIN_ATTEMPTS} වතාවක් ඇතුළත් කිරීම නිසා ගිණුම තාවකාලිකව අගුලු දමා ඇත. විනාඩි ${remainingMin}කින් නැවත උත්සාහ කරන්න.`,
+        locked_until: user.locked_until
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) return res.status(401).json({ message: 'මුරපදය වැරදියි.' });
+    if (!isMatch) {
+      const attempts = (user.failed_login_attempts || 0) + 1;
+
+      if (attempts >= MAX_LOGIN_ATTEMPTS) {
+        const lockedUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000);
+        await db.pool.query(
+          'UPDATE Users SET failed_login_attempts = 0, locked_until = $1 WHERE user_id = $2',
+          [lockedUntil, user.user_id]
+        );
+        await auditService.logAction(user.user_id, user.role, 'LOGIN_LOCKED', 'User', user.user_id, `Account locked for ${LOCKOUT_MINUTES} min after ${MAX_LOGIN_ATTEMPTS} failed login attempts.`);
+        return res.status(423).json({
+          message: `වැරදි මුරපද ${MAX_LOGIN_ATTEMPTS} වතාවක් ඇතුළත් කිරීම නිසා ගිණුම විනාඩි ${LOCKOUT_MINUTES}ක් අගුලු දමා ඇත.`,
+          locked_until: lockedUntil
+        });
+      }
+
+      await db.pool.query('UPDATE Users SET failed_login_attempts = $1 WHERE user_id = $2', [attempts, user.user_id]);
+      return res.status(401).json({ message: `මුරපදය වැරදියි. (උත්සාහයන් ${attempts}/${MAX_LOGIN_ATTEMPTS})` });
+    }
+
+    // Successful login - clear any accumulated failed-attempt/lockout state.
+    if (user.failed_login_attempts || user.locked_until) {
+      await db.pool.query('UPDATE Users SET failed_login_attempts = 0, locked_until = NULL WHERE user_id = $1', [user.user_id]);
+    }
 
     const token = jwt.sign(
       { id: user.user_id, username: user.username, role: user.role },
