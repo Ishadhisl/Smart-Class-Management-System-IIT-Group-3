@@ -1,0 +1,464 @@
+// =======================================================
+// Smart Class Management System (SCMS) - Complete Database Schema
+// Optimized for dbdiagram.io (DBML v2)
+// =======================================================
+
+// -------------------------------------------------------
+// 1. USER & IDENTITY MANAGEMENT
+// -------------------------------------------------------
+Table users {
+  user_id integer [pk, increment]
+  username varchar(255) [unique, not null]
+  password_hash varchar(255) [not null]
+  role varchar(50) [not null, note: 'Admin, Teacher, Counter Person, Parent, Student']
+  email varchar(255)
+  created_at timestamp [default: `now()`]
+}
+
+Table students {
+  student_id integer [pk, increment]
+  user_id integer [unique, not null]
+  parent_id integer
+  student_name varchar(255) [not null]
+  school varchar(255)
+  grade varchar(50)
+  address text
+  qr_code_key varchar(255) [unique, not null]
+  profile_photo_path text
+  face_encoding jsonb [note: '128D face vector']
+  moodle_user_id varchar(255)
+  created_at timestamp [default: `now()`]
+}
+
+Table parents {
+  parent_id integer [pk, increment]
+  user_id integer [unique, not null]
+  parent_name varchar(255) [not null]
+  parent_phone varchar(20) [unique, not null]
+  address text
+}
+
+Table teachers {
+  teacher_id integer [pk, increment]
+  user_id integer [unique, not null]
+  teacher_name varchar(255) [not null]
+  phone varchar(20)
+  email varchar(255)
+  specialization varchar(255)
+  qualifications text
+  bio text
+  profile_photo_path text
+}
+
+Table counter_person {
+  counter_person_id integer [pk, increment]
+  user_id integer [unique, not null]
+  staff_name varchar(255) [not null]
+  phone varchar(20)
+  email varchar(255) [unique]
+  joined_date date [default: `now()`]
+  status varchar(20) [default: 'Active']
+}
+
+// -------------------------------------------------------
+// 2. ACADEMIC STRUCTURE & SCHEDULING
+// -------------------------------------------------------
+Table subjects {
+  subject_id integer [pk, increment]
+  subject_name varchar(255) [not null]
+  description text
+}
+
+Table courses {
+  course_id integer [pk, increment]
+  subject_id integer [not null]
+  teacher_id integer [not null]
+  course_name varchar(255) [not null]
+  monthly_fee decimal(10,2) [not null]
+  is_professional_course boolean [default: false]
+}
+
+Table halls {
+  hall_id integer [pk, increment]
+  hall_name varchar(255) [not null]
+  capacity integer [not null]
+}
+
+Table class_schedules {
+  schedule_id integer [pk, increment]
+  course_id integer [not null]
+  hall_id integer [not null]
+  day_of_week varchar(20) [not null]
+  start_time time [not null]
+  end_time time [not null]
+}
+
+Table course_enrollments {
+  enrollment_id integer [pk, increment]
+  student_id integer [not null]
+  course_id integer [not null]
+  enrollment_status varchar(50) [default: 'Enrolled']
+  enrolled_at timestamp [default: `now()`]
+
+  indexes {
+    (student_id, course_id) [unique]
+  }
+}
+
+// -------------------------------------------------------
+// 3. SMART ATTENDANCE & AI VERIFICATION (NOVELTY)
+// -------------------------------------------------------
+Table attendance_sessions {
+  session_id integer [pk, increment]
+  schedule_id integer
+  course_id integer [not null]
+  session_date date [default: `now()`]
+  qr_token varchar(255) [unique]
+  expires_at timestamp [not null]
+  status varchar(50) [default: 'ACTIVE', note: 'ACTIVE, EXPIRED, STOPPED, CLOSED']
+  created_by integer
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table student_attendance_logs {
+  log_id integer [pk, increment]
+  student_id integer [not null]
+  course_id integer [not null]
+  session_id integer
+  attendance_status varchar(50) [note: 'Present, Late']
+  method varchar(50) [default: 'Manual', note: 'QR, Manual, AI']
+  scanned_at timestamp [default: `now()`]
+}
+
+Table attendance_master {
+  session_id integer [pk, note: 'References class_schedules.schedule_id']
+  qr_count integer [default: 0]
+  ai_headcount integer [default: 0]
+  zone_details jsonb
+  mismatch_detected boolean [default: false]
+  verification_data jsonb
+  validated_at timestamp [default: `now()`]
+}
+
+Table camera_zones {
+  zone_id integer [pk, increment]
+  hall_id integer [not null]
+  zone_name varchar(255) [not null]
+  camera_url text [not null]
+  calibration_factor decimal(3,2) [default: 1.0]
+}
+
+Table suspicious_attendance_logs {
+  log_id integer [pk, increment]
+  session_id integer [not null]
+  qr_count integer
+  ai_headcount integer
+  zone_details jsonb
+  unverified_student_ids jsonb
+  image_paths jsonb
+  status varchar(50) [default: 'Pending', note: 'Pending, Resolved']
+  resolution_comment text
+  detected_at timestamp [default: `now()`]
+}
+
+// -------------------------------------------------------
+// 4. HALL SAFETY & CROWD CONGESTION
+// -------------------------------------------------------
+Table hall_congestion_tracker {
+  hall_id integer [pk, note: 'References halls.hall_id']
+  first_detected_at timestamp [default: `now()`]
+  sms_sent boolean [default: false]
+  active_log_id integer
+}
+
+Table hall_congestion_logs {
+  log_id integer [pk, increment]
+  hall_id integer [not null]
+  peak_count integer
+  capacity integer
+  started_at timestamp
+  ended_at timestamp
+  duration_minutes integer
+}
+
+// -------------------------------------------------------
+// 5. SMART STUDY AREA ALLOCATION
+// -------------------------------------------------------
+Table study_seats {
+  seat_id integer [pk, increment]
+  seat_status varchar(50) [default: 'Available', note: 'Available, Reserved, Occupied']
+}
+
+Table study_area_bookings {
+  booking_id integer [pk, increment]
+  student_id integer [not null]
+  seat_id integer [not null]
+  expected_arrival_time timestamp [not null]
+  actual_arrival_time timestamp
+  actual_end_time timestamp
+  expiry_time timestamp
+  booking_status varchar(50) [default: 'Pending', note: 'Pending, Confirmed, Completed, Cancelled']
+}
+
+// -------------------------------------------------------
+// 6. PAYMENTS & FEES
+// -------------------------------------------------------
+Table payments {
+  payment_id integer [pk, increment]
+  student_id integer [not null]
+  course_id integer [not null]
+  issued_by integer [note: 'Admin or Counter Person user_id']
+  amount_paid decimal(10,2) [not null]
+  payment_method varchar(50) [default: 'Cash']
+  for_month varchar(50) [not null]
+  receipt_number varchar(100) [unique, not null]
+  payment_status varchar(50) [default: 'Completed']
+  payment_date timestamp [default: `now()`]
+  confirmation_url varchar(255)
+  verification_comments text
+}
+
+// -------------------------------------------------------
+// 7. EXAMS & LEARNING MATERIALS
+// -------------------------------------------------------
+Table exams {
+  exam_id integer [pk, increment]
+  course_id integer [not null]
+  exam_name varchar(255) [not null]
+  exam_date date [not null]
+  total_marks integer [default: 100]
+  pass_percentage integer [default: 50]
+}
+
+Table exam_results {
+  student_id integer [not null]
+  exam_id integer [not null]
+  marks decimal(5,2) [not null]
+
+  indexes {
+    (student_id, exam_id) [pk]
+  }
+}
+
+Table learning_materials {
+  material_id integer [pk, increment]
+  course_id integer [not null]
+  teacher_id integer [not null]
+  material_title varchar(255) [not null]
+  material_type varchar(50) [default: 'PDF']
+  uploaded_file text [not null]
+  uploaded_at timestamp [default: `now()`]
+}
+
+// -------------------------------------------------------
+// 8. COMMUNICATIONS & INQUIRIES
+// -------------------------------------------------------
+Table sms_logs {
+  log_id integer [pk, increment]
+  parent_id integer
+  parent_phone varchar(20) [not null]
+  sms_type varchar(50)
+  message_body text
+  status varchar(50)
+  sent_at timestamp [default: `now()`]
+}
+
+Table contact_messages {
+  message_id integer [pk, increment]
+  sender_name varchar(255) [not null]
+  sender_email varchar(255) [not null]
+  sender_phone varchar(20)
+  subject varchar(255)
+  message_text text [not null]
+  status varchar(50) [default: 'Pending']
+  is_read boolean [default: false]
+  is_important boolean [default: false]
+  submitted_at timestamp [default: `now()`]
+}
+
+Table pendingregistrations {
+  id integer [pk, increment]
+  name varchar(255) [not null]
+  school varchar(255)
+  grade varchar(50)
+  phone varchar(20)
+  email varchar(255)
+  course_interest integer
+  status varchar(50) [default: 'Pending']
+}
+
+// -------------------------------------------------------
+// 9. PUBLIC WEBSITE & ENGAGEMENT
+// -------------------------------------------------------
+Table promotions {
+  promo_id integer [pk, increment]
+  title varchar(255) [not null]
+  content_type varchar(100) [not null]
+  description text
+  image_url text
+  created_at timestamp [default: `now()`]
+}
+
+Table announcements {
+  announcement_id integer [pk, increment]
+  title varchar(255) [not null]
+  body text [not null]
+  is_active boolean [default: true]
+  created_by integer
+  posted_at timestamp [default: `now()`]
+}
+
+Table student_achievements {
+  achievement_id integer [pk, increment]
+  student_id integer [not null]
+  title varchar(255) [not null]
+  description text
+  island_rank integer
+  achieved_year integer [not null]
+  created_at timestamp [default: `now()`]
+}
+
+// -------------------------------------------------------
+// 10. SYSTEM CONFIGURATION & AUDIT
+// -------------------------------------------------------
+Table system_settings {
+  setting_key varchar(100) [pk]
+  setting_value text [not null]
+  description text
+  updated_at timestamp [default: `now()`]
+}
+
+Table auditlogs {
+  log_id integer [pk, increment]
+  performed_by integer
+  role varchar(50)
+  action_type varchar(50)
+  target_table varchar(100)
+  target_id integer
+  details text
+  timestamp timestamp [default: `now()`]
+}
+
+// =======================================================
+// RELATIONSHIPS (FOREIGN KEYS)
+// =======================================================
+
+// User profile 1:1 relationships
+Ref: students.user_id - users.user_id [delete: cascade]
+Ref: parents.user_id - users.user_id [delete: cascade]
+Ref: teachers.user_id - users.user_id [delete: cascade]
+Ref: counter_person.user_id - users.user_id [delete: cascade]
+
+// Family relationship
+Ref: students.parent_id > parents.parent_id [delete: set null]
+
+// Academic relationships
+Ref: courses.subject_id > subjects.subject_id [delete: cascade]
+Ref: courses.teacher_id > teachers.teacher_id [delete: cascade]
+Ref: class_schedules.course_id > courses.course_id [delete: cascade]
+Ref: class_schedules.hall_id > halls.hall_id [delete: cascade]
+Ref: course_enrollments.course_id > courses.course_id [delete: cascade]
+Ref: course_enrollments.student_id > students.student_id [delete: cascade]
+
+// Smart Attendance
+Ref: attendance_sessions.schedule_id > class_schedules.schedule_id [delete: cascade]
+Ref: attendance_sessions.course_id > courses.course_id [delete: cascade]
+Ref: attendance_sessions.created_by > users.user_id [delete: set null]
+Ref: student_attendance_logs.session_id > attendance_sessions.session_id [delete: cascade]
+Ref: student_attendance_logs.student_id > students.student_id [delete: cascade]
+Ref: student_attendance_logs.course_id > courses.course_id [delete: cascade]
+Ref: attendance_master.session_id - class_schedules.schedule_id [delete: cascade]
+Ref: camera_zones.hall_id > halls.hall_id [delete: cascade]
+Ref: suspicious_attendance_logs.session_id > class_schedules.schedule_id [delete: cascade]
+
+// Hall Congestion
+Ref: hall_congestion_tracker.hall_id - halls.hall_id [delete: cascade]
+Ref: hall_congestion_logs.hall_id > halls.hall_id [delete: cascade]
+
+// Study Area
+Ref: study_area_bookings.seat_id > study_seats.seat_id [delete: cascade]
+Ref: study_area_bookings.student_id > students.student_id [delete: cascade]
+
+// Payments
+Ref: payments.student_id > students.student_id [delete: cascade]
+Ref: payments.course_id > courses.course_id [delete: cascade]
+Ref: payments.issued_by > users.user_id [delete: set null]
+
+// Exams & Materials
+Ref: exams.course_id > courses.course_id [delete: cascade]
+Ref: exam_results.exam_id > exams.exam_id [delete: cascade]
+Ref: exam_results.student_id > students.student_id [delete: cascade]
+Ref: learning_materials.course_id > courses.course_id [delete: cascade]
+Ref: learning_materials.teacher_id > teachers.teacher_id [delete: cascade]
+
+// Communication & Governance
+Ref: sms_logs.parent_id > parents.parent_id [delete: set null]
+Ref: pendingregistrations.course_interest > courses.course_id [delete: set null]
+Ref: announcements.created_by > users.user_id [delete: set null]
+Ref: student_achievements.student_id > students.student_id [delete: cascade]
+Ref: auditlogs.performed_by > users.user_id [delete: set null]
+
+// =======================================================
+// TABLE GROUPS (ORGANIZED UI MODULES IN DBDATABASE.IO)
+// =======================================================
+TableGroup UserManagement {
+  users
+  students
+  parents
+  teachers
+  counter_person
+}
+
+TableGroup AcademicStructure {
+  subjects
+  courses
+  halls
+  class_schedules
+  course_enrollments
+}
+
+TableGroup SmartAttendance {
+  attendance_sessions
+  student_attendance_logs
+  attendance_master
+  camera_zones
+  suspicious_attendance_logs
+}
+
+TableGroup SafetyAndCongestion {
+  hall_congestion_tracker
+  hall_congestion_logs
+}
+
+TableGroup StudyAreaManagement {
+  study_seats
+  study_area_bookings
+}
+
+TableGroup Financials {
+  payments
+}
+
+TableGroup ExamsAndLearning {
+  exams
+  exam_results
+  learning_materials
+}
+
+TableGroup CommunicationsAndInquiry {
+  sms_logs
+  contact_messages
+  pendingregistrations
+}
+
+TableGroup PublicWebsite {
+  promotions
+  announcements
+  student_achievements
+}
+
+TableGroup SystemAdministration {
+  system_settings
+  auditlogs
+}

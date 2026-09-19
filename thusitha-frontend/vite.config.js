@@ -1,18 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import fs from 'fs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Locally-trusted dev certificate (mkcert), covering localhost/127.0.0.1/LAN IP - needed so
-// navigator.mediaDevices (webcam access) is available: browsers only expose it in a "secure
-// context" (HTTPS, or plain http://localhost), and this dev server is also reached over the
-// LAN IP by phones for QR scanning, which was silently falling back to an insecure context.
-// The cert pair isn't committed to git (local-dev-only), so it won't exist in CI/deploy
-// environments (e.g. Vercel's build) - fall back to no https config there instead of crashing
+// navigator.mediaDevices (webcam access) needs a secure context, and an https frontend page
+// calling this API over plain http would also get blocked by the browser as mixed content.
+// In production this runs behind a reverse proxy (Nginx) that terminates real HTTPS with a
+// trusted cert instead, so the certs/ dev pair won't exist there - fall back to no https config there instead of crashing
 // `vite build`, which loads this file too even though it never starts the dev server.
 const devKeyPath = path.resolve(__dirname, '..', 'certs', 'dev-key.pem');
 const devCertPath = path.resolve(__dirname, '..', 'certs', 'dev-cert.pem');
@@ -33,7 +32,7 @@ const MOODLE_EMBED_STYLE = `<style>
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    host: true,   // Expose on 0.0.0.0 so phone on same Wi-Fi can connect
+    host: true,
     port: 5173,
     https: httpsConfig,
     proxy: {

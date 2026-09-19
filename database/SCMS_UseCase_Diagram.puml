@@ -1,0 +1,220 @@
+@startuml SCMS_UseCase_Diagram
+left to right direction
+skinparam packageStyle rectangle
+skinparam roundcorner 8
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam defaultFontName "Segoe UI", Arial, sans-serif
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #2563EB
+    BorderThickness 1.5
+}
+skinparam usecase {
+    BackgroundColor #FFFFFF
+    BorderColor #1E40AF
+    ArrowColor #2563EB
+}
+skinparam actor {
+    BackgroundColor #EFF6FF
+    BorderColor #1D4ED8
+}
+
+' ==========================================
+' ACTORS
+' ==========================================
+actor "System Administrator" as Admin
+actor "Counter Person
+(Administrative Staff)" as CounterPerson
+actor "Teacher / Lecturer" as Teacher
+actor "Student" as Student
+actor "Parent / Guardian" as Parent
+actor "Public Visitor" as Visitor
+
+' External / Secondary System Actors
+actor "AI Vision Engine
+(FastAPI / YOLO)" as AIEngine <<System>>
+actor "SMS Gateway Provider" as SMSGateway <<Service>>
+actor "Moodle LMS" as MoodleLMS <<System>>
+
+' ==========================================
+' SYSTEM BOUNDARY
+' ==========================================
+rectangle "Smart Class Management System (SCMS)" {
+
+    ' --- Subsystem 1: Authentication & User Management ---
+    package "Authentication & User Management" {
+        usecase "UC1: Login with Credentials" as UC_Login
+        usecase "UC2: Reset / Change Password" as UC_ResetPassword
+        usecase "UC3: Manage User Accounts & RBAC" as UC_ManageUsers
+        usecase "UC4: View System Audit Logs" as UC_AuditLogs
+    }
+
+    ' --- Subsystem 2: Student & Parent Lifecycle ---
+    package "Student & Parent Lifecycle" {
+        usecase "UC5: Submit Online Pre-Registration" as UC_PreRegister
+        usecase "UC6: Register Student & Capture Face/QR" as UC_RegisterStudent
+        usecase "UC7: Link Student with Parent Profile" as UC_LinkParent
+        usecase "UC8: View Digital ID & QR Code" as UC_ViewQR
+    }
+
+    ' --- Subsystem 3: Academic Structure & Scheduling ---
+    package "Academic Structure & Scheduling" {
+        usecase "UC9: Manage Subjects & Courses" as UC_ManageCourses
+        usecase "UC10: Manage Halls & Allocate Class Schedules" as UC_ScheduleClasses
+        usecase "UC11: Detect Timetable & Hall Conflicts" as UC_ConflictCheck
+        usecase "UC12: Enroll in Course / Class" as UC_EnrollCourse
+    }
+
+    ' --- Subsystem 4: Smart Attendance & AI Verification (Novelty) ---
+    package "Smart Attendance & AI Verification" {
+        usecase "UC13: Generate Dynamic Class QR Code" as UC_GenQR
+        usecase "UC14: Scan QR Code for Attendance" as UC_ScanQR
+        usecase "UC15: Record Manual Attendance Override" as UC_ManualAttendance
+        usecase "UC16: Perform AI CCTV Headcount" as UC_AIHeadcount
+        usecase "UC17: Compare QR vs AI Headcount" as UC_CompareAttendance
+        usecase "UC18: Flag Attendance Discrepancies" as UC_FlagDiscrepancy
+        usecase "UC19: Review & Resolve Suspicious Logs" as UC_ResolveSuspicious
+    }
+
+    ' --- Subsystem 5: Hall Safety & Crowd Congestion (Novelty) ---
+    package "Hall Safety & Crowd Congestion Monitoring" {
+        usecase "UC20: Monitor Hall Real-Time Occupancy" as UC_MonitorCongestion
+        usecase "UC21: Trigger Overcrowding Safety Alert" as UC_TriggerOvercrowding
+        usecase "UC22: View Congestion Logs & History" as UC_ViewCongestionLogs
+    }
+
+    ' --- Subsystem 6: Smart Study Area Allocation (Novelty) ---
+    package "Smart Study Area Allocation" {
+        usecase "UC23: View Real-Time Seat Availability" as UC_ViewSeats
+        usecase "UC24: Reserve Study Seat" as UC_BookSeat
+        usecase "UC25: Confirm Arrival at Seat (Check-in)" as UC_ConfirmArrival
+        usecase "UC26: Auto-Release Expired Booking" as UC_AutoReleaseSeat
+    }
+
+    ' --- Subsystem 7: Payments & Fee Management ---
+    package "Fee & Payment Management" {
+        usecase "UC27: Process Counter Cash Payment & Issue Receipt" as UC_CashPayment
+        usecase "UC28: Upload Bank Payment Slip" as UC_UploadSlip
+        usecase "UC29: Verify & Approve Payment Slip" as UC_VerifySlip
+        usecase "UC30: View Payment History & Due Status" as UC_ViewPayments
+    }
+
+    ' --- Subsystem 8: Examinations & Learning Materials ---
+    package "Examinations & Learning Materials" {
+        usecase "UC31: Schedule Course Exam" as UC_ScheduleExam
+        usecase "UC32: Upload Exam Marks (Excel / Manual)" as UC_UploadMarks
+        usecase "UC33: Publish Exam Results" as UC_PublishResults
+        usecase "UC34: View Student Results & Progress" as UC_ViewResults
+        usecase "UC35: Upload Learning Materials & Notes" as UC_UploadMaterials
+        usecase "UC36: Download Study Materials" as UC_DownloadMaterials
+        usecase "UC37: Single Sign-On (SSO) to Moodle LMS" as UC_MoodleSSO
+    }
+
+    ' --- Subsystem 9: Communications & Notifications ---
+    package "Communications & Notifications" {
+        usecase "UC38: Send Absence SMS Notification" as UC_SendAbsenceSMS
+        usecase "UC39: Send Fee Due / Overdue SMS Reminder" as UC_SendFeeSMS
+        usecase "UC40: Broadcast Emergency / General SMS" as UC_BroadcastSMS
+        usecase "UC41: Submit Public Contact Inquiry" as UC_SubmitContact
+        usecase "UC42: Manage Inquiries & Send Reply" as UC_ManageContact
+    }
+
+    ' --- Subsystem 10: Public Website & System Administration ---
+    package "Public Portal & System Administration" {
+        usecase "UC43: Browse Courses, Schedule & Announcements" as UC_BrowsePublic
+        usecase "UC44: View Island Ranks & Student Achievements" as UC_ViewAchievements
+        usecase "UC45: Manage Website Content, Banners & Promos" as UC_ManageWebsite
+        usecase "UC46: Configure System Thresholds & Settings" as UC_SystemSettings
+        usecase "UC47: Generate Analytical & Financial Reports" as UC_GenerateReports
+    }
+}
+
+' ==========================================
+' RELATIONSHIPS & INCLUDES / EXTENDS
+' ==========================================
+
+' Include / Extend Relationships
+UC_ScheduleClasses ..> UC_ConflictCheck : <<include>>
+UC_CompareAttendance ..> UC_AIHeadcount : <<include>>
+UC_CompareAttendance <.. UC_FlagDiscrepancy : <<extend>>
+UC_MonitorCongestion <.. UC_TriggerOvercrowding : <<extend>>
+UC_BookSeat <.. UC_AutoReleaseSeat : <<extend>>
+UC_BookSeat ..> UC_ConfirmArrival : <<include>>
+UC_PublishResults ..> UC_UploadMarks : <<include>>
+
+' User general access
+Admin -- UC_Login
+CounterPerson -- UC_Login
+Teacher -- UC_Login
+Student -- UC_Login
+
+' Administrator Associations
+Admin -- UC_ManageUsers
+Admin -- UC_AuditLogs
+Admin -- UC_ManageCourses
+Admin -- UC_ScheduleClasses
+Admin -- UC_SystemSettings
+Admin -- UC_ManageWebsite
+Admin -- UC_GenerateReports
+Admin -- UC_ViewCongestionLogs
+Admin -- UC_ResolveSuspicious
+Admin -- UC_BroadcastSMS
+
+' Counter Person Associations
+CounterPerson -- UC_RegisterStudent
+CounterPerson -- UC_LinkParent
+CounterPerson -- UC_EnrollCourse
+CounterPerson -- UC_GenQR
+CounterPerson -- UC_ManualAttendance
+CounterPerson -- UC_ResolveSuspicious
+CounterPerson -- UC_CashPayment
+CounterPerson -- UC_VerifySlip
+CounterPerson -- UC_SendFeeSMS
+CounterPerson -- UC_SendAbsenceSMS
+CounterPerson -- UC_ManageContact
+
+' Teacher Associations
+Teacher -- UC_GenQR
+Teacher -- UC_ScheduleExam
+Teacher -- UC_UploadMarks
+Teacher -- UC_PublishResults
+Teacher -- UC_UploadMaterials
+Teacher -- UC_MoodleSSO
+Teacher -- UC_GenerateReports
+
+' Student Associations
+Student -- UC_ViewQR
+Student -- UC_ScanQR
+Student -- UC_EnrollCourse
+Student -- UC_ViewSeats
+Student -- UC_BookSeat
+Student -- UC_ConfirmArrival
+Student -- UC_UploadSlip
+Student -- UC_ViewPayments
+Student -- UC_ViewResults
+Student -- UC_DownloadMaterials
+Student -- UC_MoodleSSO
+
+' Parent Associations
+Parent -- UC_ViewPayments
+Parent -- UC_ViewResults
+Parent -- UC_SendAbsenceSMS
+Parent -- UC_SendFeeSMS
+
+' Public Visitor Associations
+Visitor -- UC_BrowsePublic
+Visitor -- UC_ViewAchievements
+Visitor -- UC_SubmitContact
+Visitor -- UC_PreRegister
+
+' Secondary / External System Associations
+AIEngine -- UC_AIHeadcount
+AIEngine -- UC_MonitorCongestion
+SMSGateway -- UC_SendAbsenceSMS
+SMSGateway -- UC_SendFeeSMS
+SMSGateway -- UC_TriggerOvercrowding
+SMSGateway -- UC_BroadcastSMS
+MoodleLMS -- UC_MoodleSSO
+
+@enduml
