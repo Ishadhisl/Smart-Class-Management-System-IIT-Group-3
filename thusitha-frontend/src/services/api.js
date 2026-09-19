@@ -23,6 +23,19 @@ const getApiUrl = () => {
 export const API_URL = getApiUrl();
 export const BASE_URL = API_URL;
 
+// Uploaded-file paths from the DB (e.g. "/uploads/photo-....png") already carry a leading
+// slash - naively concatenating BASE_URL + '/' + path (as several components used to do
+// separately) produces a double slash that 404s. One shared helper so that bug can't
+// reappear per-component; an already-absolute (https://) URL passes through as-is.
+export const getImageUrl = (path) => {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
+  const normalizedPath = path.replace(/\\/g, '/');
+  const base = BASE_URL.endsWith('/') ? BASE_URL.slice(0, -1) : BASE_URL;
+  const finalPath = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
+  return `${base}${finalPath}`;
+};
+
 export const request = async (endpoint, { body, isFormData = false, noAuth = false, ...customConfig } = {}) => {
   const headers = {};
   if (!isFormData) {

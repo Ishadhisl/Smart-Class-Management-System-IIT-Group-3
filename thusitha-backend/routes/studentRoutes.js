@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const studentController = require('../controllers/studentController');
 const { verifyToken, checkRole } = require('../middleware/authMiddleware');
-const upload = require('../middleware/uploadMiddleware');
+const upload = require('../middleware/imageUpload');
 
 // Public route for pre-registration
 router.post('/register-public', studentController.publicRegistration);

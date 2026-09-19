@@ -5,6 +5,7 @@ const { verifyToken, checkRole } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware'); // Assuming you have an upload middleware
 
 // Protected routes for exam management
+router.get('/upcoming', verifyToken, checkRole(['Admin', 'Counter Person', 'Teacher', 'Student']), examController.getUpcomingExams);
 router.post('/', verifyToken, checkRole(['Admin', 'Teacher']), examController.createExam);
 router.get('/course/:courseId', verifyToken, checkRole(['Admin', 'Teacher', 'Student']), examController.getCourseExams);
 router.get('/results/:examId', verifyToken, checkRole(['Admin', 'Teacher', 'Student']), examController.getExamResults); // Assuming getExamResults exists in controller

@@ -3,11 +3,21 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import fs from 'fs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// NOTE: Running in HTTP mode for local development (no SSL cert trust required)
-// To re-enable HTTPS, add back the httpsConfig and set https: httpsConfig in server options
+// Locally-trusted dev certificate (mkcert), covering localhost/127.0.0.1/LAN IP - needed so
+// navigator.mediaDevices (webcam access) needs a secure context, and an https frontend page
+// calling this API over plain http would also get blocked by the browser as mixed content.
+// In production this runs behind a reverse proxy (Nginx) that terminates real HTTPS with a
+// trusted cert instead, so the certs/ dev pair won't exist there - fall back to no https config there instead of crashing
+// `vite build`, which loads this file too even though it never starts the dev server.
+const devKeyPath = path.resolve(__dirname, '..', 'certs', 'dev-key.pem');
+const devCertPath = path.resolve(__dirname, '..', 'certs', 'dev-cert.pem');
+const httpsConfig = (fs.existsSync(devKeyPath) && fs.existsSync(devCertPath))
+  ? { key: fs.readFileSync(devKeyPath), cert: fs.readFileSync(devCertPath) }
+  : undefined;
 
 // https://vite.dev/config/
 // Hides Moodle's own dashboard chrome when it's embedded in the SCMS admin UI, since the
@@ -24,7 +34,7 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    // HTTP mode - no https config needed
+    https: httpsConfig,
     proxy: {
       // Serve Moodle same-origin so its session cookie isn't dropped as a
       // cross-origin iframe cookie by the browser (SSO login was silently

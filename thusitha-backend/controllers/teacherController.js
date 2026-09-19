@@ -3,6 +3,9 @@ const bcrypt = require('bcryptjs');
 
 const auditService = require('../utils/auditService');
 const moodleService = require('../utils/moodleService');
+const { publicUrl } = require('../middleware/imageUpload');
+const { defaultPasswordFor } = require('../utils/authDefaults');
+const { isValidEmail, isValidPhone, sanitizeText } = require('../utils/validators');
 
 // 💡 Moodle Integration for Teachers
 const createMoodleAccount = async (teacherData) => {
@@ -32,17 +35,33 @@ const createMoodleAccount = async (teacherData) => {
   }
 };
 exports.registerTeacher = async (req, res) => {
-  const { username, password, teacher_name, phone, email, specialization, qualifications } = req.body;
-  const profile_photo_path = req.file ? `/uploads/${req.file.filename}` : null;
+  let { username, password, teacher_name, phone, email, specialization, qualifications } = req.body;
+
+  if (!username || !teacher_name) {
+    return res.status(400).json({ message: "පරිශීලක නාමය සහ ගුරුවරයාගේ නම අනිවාර්ය වේ." });
+  }
+  if (email && !isValidEmail(email)) {
+    return res.status(400).json({ message: "වලංගු විද්‍යුත් තැපැල් ලිපිනයක් ඇතුළත් කරන්න." });
+  }
+  if (phone && !isValidPhone(phone)) {
+    return res.status(400).json({ message: "වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0771234567)." });
+  }
+
+  username = sanitizeText(username, 100);
+  teacher_name = sanitizeText(teacher_name, 150);
+  email = email ? sanitizeText(email, 150) : null;
+  specialization = specialization ? sanitizeText(specialization, 150) : null;
+  qualifications = qualifications ? sanitizeText(qualifications, 300) : null;
+
+  const profile_photo_path = publicUrl(req.file);
   const client = await db.pool.connect();
 
   try {
     await client.query('BEGIN');
 
-    // 1. Create the User record
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
-    
+    // 1. Create the User record (blank password => Teacher@123, flagged for change at login)
+    const passwordHash = await bcrypt.hash(password || defaultPasswordFor('Teacher'), 10);
+
     const userResult = await client.query(
       'INSERT INTO Users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING user_id',
       [username, passwordHash, 'Teacher']
@@ -94,8 +113,24 @@ exports.getAllTeachers = async (req, res) => {
 // ගුරුවරයෙක් යාවත්කාලීන කිරීම (Update)
 exports.updateTeacher = async (req, res) => {
   const { id } = req.params;
-  const { teacher_name, phone, email, specialization, qualifications, bio } = req.body;
-  const new_photo_path = req.file ? `/uploads/${req.file.filename}` : null;
+  let { teacher_name, phone, email, specialization, qualifications, bio } = req.body;
+  const new_photo_path = publicUrl(req.file);
+
+  if (!teacher_name) {
+    return res.status(400).json({ message: 'ගුරුවරයාගේ නම අනිවාර්ය වේ.' });
+  }
+  if (email && !isValidEmail(email)) {
+    return res.status(400).json({ message: 'වලංගු විද්‍යුත් තැපැල් ලිපිනයක් ඇතුළත් කරන්න.' });
+  }
+  if (phone && !isValidPhone(phone)) {
+    return res.status(400).json({ message: 'වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0771234567).' });
+  }
+
+  teacher_name = sanitizeText(teacher_name, 150);
+  email = email ? sanitizeText(email, 150) : null;
+  specialization = specialization ? sanitizeText(specialization, 150) : null;
+  qualifications = qualifications ? sanitizeText(qualifications, 300) : null;
+  bio = bio ? sanitizeText(bio, 1000) : null;
 
   try {
     let query, params;

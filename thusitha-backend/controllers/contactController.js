@@ -1,15 +1,31 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
+const { isValidEmail, isValidPhone, sanitizeText } = require('../utils/validators');
 
 // 🛡️ Keywords that trigger automatic spam filtering
 const SUSPICIOUS_KEYWORDS = ['crypto', 'bitcoin', 'investment', 'casino', 'marketing agency', 'free gift', 'win money', 'viagra'];
 
 exports.submitInquiry = async (req, res) => {
-  const { sender_name, sender_email, sender_phone, subject, message_text } = req.body;
+  let { sender_name, sender_email, sender_phone, subject, message_text } = req.body;
 
   if (!sender_name || !sender_email || !message_text) {
     return res.status(400).json({ message: "නම, විද්‍යුත් තැපෑල සහ පණිවිඩය අනිවාර්ය වේ." });
   }
+  if (!isValidEmail(sender_email)) {
+    return res.status(400).json({ message: "වලංගු විද්‍යුත් තැපැල් ලිපිනයක් ඇතුළත් කරන්න." });
+  }
+  if (sender_phone && !isValidPhone(sender_phone)) {
+    return res.status(400).json({ message: "වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0712345678)." });
+  }
+
+  // Strip HTML/script tags from every free-text field before it's stored - this
+  // inbox is rendered in the Admin's Communication Center, so an unsanitized
+  // value here would be a stored-XSS vector.
+  sender_name = sanitizeText(sender_name, 100);
+  sender_email = sanitizeText(sender_email, 150);
+  sender_phone = sender_phone ? sanitizeText(sender_phone, 20) : null;
+  subject = sanitizeText(subject, 150);
+  message_text = sanitizeText(message_text, 2000);
 
   // 🔍 Auto-Spam Detection Logic
   const contentToSearch = `${subject || ''} ${message_text}`.toLowerCase();

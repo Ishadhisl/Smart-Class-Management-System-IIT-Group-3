@@ -1,7 +1,8 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
 const smsService = require('../utils/smsService');
-const { sendWhatsAppMessage, getQrCode, getStatus, logoutWhatsApp } = require('../utils/whatsappService');
+const { sendWhatsAppMessage, getQrCode, getStatus, logoutWhatsApp, reconnectWhatsApp } = require('../utils/whatsappService');
+const { isValidPhone, sanitizeText } = require('../utils/validators');
 
 // ═══════════════════════════════════════════════════════════
 // 📊 WhatsApp Connection Status
@@ -29,6 +30,16 @@ exports.logoutWhatsApp = async (req, res) => {
   res.status(200).json(result);
 };
 
+exports.reconnectWhatsApp = async (req, res) => {
+  try {
+    const result = await reconnectWhatsApp();
+    res.status(200).json(result);
+  } catch (err) {
+    console.error('❌ WhatsApp reconnect error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 // ═══════════════════════════════════════════════════════════
 // 📋 SMS/WhatsApp Log ලබා ගැනීම
 // ═══════════════════════════════════════════════════════════
@@ -36,7 +47,7 @@ exports.getSmsLogs = async (req, res) => {
   try {
     const result = await db.pool.query(
       `SELECT sl.*, p.parent_name as pname
-       FROM SMS_Logs sl
+       FROM WhatsApp_Logs sl
        LEFT JOIN Parents p ON sl.parent_id = p.parent_id
        ORDER BY sl.sent_at DESC`
     );
@@ -60,7 +71,7 @@ exports.getSmsLogs = async (req, res) => {
 exports.resendSms = async (req, res) => {
   const { logId } = req.params;
   try {
-    const logResult = await db.pool.query('SELECT * FROM SMS_Logs WHERE log_id = $1', [logId]);
+    const logResult = await db.pool.query('SELECT * FROM WhatsApp_Logs WHERE log_id = $1', [logId]);
     if (logResult.rows.length === 0) {
       return res.status(404).json({ message: 'WhatsApp වාර්තාව හමුවුනේ නැත.' });
     }
@@ -70,10 +81,10 @@ exports.resendSms = async (req, res) => {
 
     if (sendResult.success) {
       await db.pool.query(
-        `UPDATE SMS_Logs SET status = 'Sent', whatsapp_status = 'Sent' WHERE log_id = $1`,
+        `UPDATE WhatsApp_Logs SET status = 'Sent', whatsapp_status = 'Sent' WHERE log_id = $1`,
         [logId]
       );
-      await auditService.logAction(req.user.userId, req.user.role, 'RESEND_WA', 'SMS_Logs', logId, `WhatsApp resent to ${log.parent_phone}`);
+      await auditService.logAction(req.user.userId, req.user.role, 'RESEND_WA', 'WhatsApp_Logs', logId, `WhatsApp resent to ${log.parent_phone}`);
       return res.status(200).json({ success: true, message: 'WhatsApp message නැවත යවන ලදී.' });
     }
 
@@ -90,8 +101,8 @@ exports.resendSms = async (req, res) => {
 exports.deleteSmsLog = async (req, res) => {
   const { logId } = req.params;
   try {
-    await db.pool.query('DELETE FROM SMS_Logs WHERE log_id = $1', [logId]);
-    await auditService.logAction(req.user.userId, req.user.role, 'DELETE', 'SMS_Logs', logId, `Deleted WhatsApp log ID: ${logId}`);
+    await db.pool.query('DELETE FROM WhatsApp_Logs WHERE log_id = $1', [logId]);
+    await auditService.logAction(req.user.userId, req.user.role, 'DELETE', 'WhatsApp_Logs', logId, `Deleted WhatsApp log ID: ${logId}`);
     res.status(200).json({ message: 'WhatsApp වාර්තාව ඉවත් කළා.' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -107,7 +118,7 @@ exports.bulkResendSms = async (req, res) => {
 
   try {
     const failedLogs = await db.pool.query(
-      `SELECT * FROM SMS_Logs WHERE (status = 'Failed' OR whatsapp_status = 'Failed') AND DATE(sent_at) = $1`,
+      `SELECT * FROM WhatsApp_Logs WHERE (status = 'Failed' OR whatsapp_status = 'Failed') AND DATE(sent_at) = $1`,
       [date]
     );
 
@@ -116,14 +127,14 @@ exports.bulkResendSms = async (req, res) => {
       const result = await sendWhatsAppMessage(log.parent_phone, log.message_body);
       if (result.success) {
         await db.pool.query(
-          `UPDATE SMS_Logs SET status = 'Sent', whatsapp_status = 'Sent' WHERE log_id = $1`,
+          `UPDATE WhatsApp_Logs SET status = 'Sent', whatsapp_status = 'Sent' WHERE log_id = $1`,
           [log.log_id]
         );
         successCount++;
       }
     }
 
-    await auditService.logAction(req.user.userId, req.user.role, 'BULK_RESEND_WA', 'SMS_Logs', null, `Bulk resend for ${date}. ${successCount} sent.`);
+    await auditService.logAction(req.user.userId, req.user.role, 'BULK_RESEND_WA', 'WhatsApp_Logs', null, `Bulk resend for ${date}. ${successCount} sent.`);
     res.status(200).json({ message: `සාර්ථකයි! ${successCount} WhatsApp messages නැවත යවන ලදී.`, resent_count: successCount });
   } catch (error) {
     console.error('❌ Bulk Resend Error:', error.message);
@@ -143,17 +154,17 @@ exports.bulkResendSmsByIds = async (req, res) => {
   try {
     let successCount = 0;
     for (const logId of ids) {
-      const logResult = await db.pool.query('SELECT * FROM SMS_Logs WHERE log_id = $1', [logId]);
+      const logResult = await db.pool.query('SELECT * FROM WhatsApp_Logs WHERE log_id = $1', [logId]);
       if (logResult.rows.length > 0) {
         const log = logResult.rows[0];
         const result = await sendWhatsAppMessage(log.parent_phone, log.message_body);
         if (result.success) {
-          await db.pool.query(`UPDATE SMS_Logs SET status = 'Sent', whatsapp_status = 'Sent' WHERE log_id = $1`, [logId]);
+          await db.pool.query(`UPDATE WhatsApp_Logs SET status = 'Sent', whatsapp_status = 'Sent' WHERE log_id = $1`, [logId]);
           successCount++;
         }
       }
     }
-    await auditService.logAction(req.user.userId, req.user.role, 'BULK_RESEND_WA_IDS', 'SMS_Logs', null, `Bulk resent ${successCount} WhatsApp messages.`);
+    await auditService.logAction(req.user.userId, req.user.role, 'BULK_RESEND_WA_IDS', 'WhatsApp_Logs', null, `Bulk resent ${successCount} WhatsApp messages.`);
     res.status(200).json({ message: `සාර්ථකයි! ${successCount} messages නැවත යවන ලදී.` });
   } catch (error) {
     res.status(500).json({ message: 'Bulk resend error', error: error.message });
@@ -164,15 +175,20 @@ exports.bulkResendSmsByIds = async (req, res) => {
 // 💬 Custom WhatsApp Message
 // ═══════════════════════════════════════════════════════════
 exports.sendCustomSms = async (req, res) => {
-  const { phone, message } = req.body;
+  const { phone } = req.body;
+  let { message } = req.body;
   if (!phone || !message) {
     return res.status(400).json({ message: 'දුරකථන අංකය සහ පණිවිඩය ඇතුළත් කරන්න.' });
   }
+  if (!isValidPhone(phone)) {
+    return res.status(400).json({ message: 'වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0712345678).' });
+  }
+  message = sanitizeText(message, 1000);
 
   try {
     const result = await smsService.sendCustomSMS(phone, message);
     if (result.success) {
-      await auditService.logAction(req.user.userId, req.user.role, 'SEND_CUSTOM_WA', 'SMS_Logs', null, `Custom WhatsApp sent to ${phone}.`);
+      await auditService.logAction(req.user.userId, req.user.role, 'SEND_CUSTOM_WA', 'WhatsApp_Logs', null, `Custom WhatsApp sent to ${phone}.`);
       res.status(200).json({ success: true, message: 'WhatsApp message සාර්ථකව යවන ලදී.' });
     } else {
       res.status(400).json({ success: false, message: 'WhatsApp message යැවීමට අසමත් විය.' });
@@ -187,23 +203,34 @@ exports.sendCustomSms = async (req, res) => {
 // 📢 Bulk Reminder (Admin/Counter Person)
 // ═══════════════════════════════════════════════════════════
 exports.sendReminderWhatsApp = async (req, res) => {
-  const { student_ids, message_type, custom_message, course_id } = req.body;
+  const { student_ids, message_type, course_id } = req.body;
+  let { custom_message } = req.body;
 
   if (!student_ids || student_ids.length === 0) {
     return res.status(400).json({ message: 'ශිෂ්‍යයන් තෝරන්න.' });
   }
+  custom_message = custom_message ? sanitizeText(custom_message, 1000) : custom_message;
 
-  // Default message templates
+  // Default message templates. {class_name} and {month}/{date} are filled in per-student
+  // by smsService.sendBulkReminder (class/exam-date/payment-month vary per student, so they
+  // can't be resolved once up here the way {student_name}/{parent_name} are).
   const templates = {
-    payment: 
+    payment:
       `💰 *Thusitha Institute — ගෙවීම් සිහිකැඳවීම*\n\n` +
-      `👤 {student_name} ගේ ගෙවීම් ශේෂය ඇත.\n` +
+      `👤 {student_name} ({class_name}) ගේ {month} මාසයේ ගෙවීම් ශේෂය ඇත.\n` +
       `කරුණාකර ඉක්මනින් ගෙවීම සිදු කරන්න.\n\n` +
       `📞 _Thusitha Institute_`,
     exam:
       `📝 *Thusitha Institute — විභාග දැනුම්දීම*\n\n` +
-      `👤 {student_name} ට ඉදිරි විභාගය සිහිකරවීමක්.\n` +
+      `👤 {student_name} ({class_name}) සඳහා {date} දින ඉදිරි විභාගය පවතී.\n` +
       `කරුණාකර හොඳින් සූදානම් වන්න! 📚\n\n` +
+      `📞 _Thusitha Institute_`,
+    // Was missing entirely - message_type:'attendance' from the frontend silently fell
+    // back to `templates.general` below, sending the wrong wording for this type.
+    attendance:
+      `📋 *Thusitha Institute — පැමිණීම් දැනුම්දීම*\n\n` +
+      `👤 {student_name} ({class_name}) ගේ {date} දිනයේ පැමිණීම සම්බන්ධව දැනුම්දීමක් ඇත.\n` +
+      `කරුණාකර ආයතනය හා සම්බන්ධ වන්න.\n\n` +
       `📞 _Thusitha Institute_`,
     general:
       `📢 *Thusitha Institute — දැනුම්දීම*\n\n` +
@@ -212,15 +239,15 @@ exports.sendReminderWhatsApp = async (req, res) => {
       `📞 _Thusitha Institute_`
   };
 
-  const template = message_type === 'custom' 
+  const template = message_type === 'custom'
     ? (custom_message || 'N/A')
     : (templates[message_type] || templates.general).replace('{custom_message}', custom_message || '');
 
   try {
-    const results = await smsService.sendBulkReminder(student_ids, template, message_type || 'General');
+    const results = await smsService.sendBulkReminder(student_ids, template, message_type || 'General', course_id || null);
 
     await auditService.logAction(
-      req.user.userId, req.user.role, 'BULK_WA_REMINDER', 'SMS_Logs', null,
+      req.user.userId, req.user.role, 'BULK_WA_REMINDER', 'WhatsApp_Logs', null,
       `Bulk WhatsApp reminder: ${results.sent} sent, ${results.failed} failed. Type: ${message_type}`
     );
 

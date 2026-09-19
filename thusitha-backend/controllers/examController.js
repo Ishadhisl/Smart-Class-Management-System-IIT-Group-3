@@ -1,7 +1,9 @@
+const fs = require('node:fs');
 const db = require('../db');
 const auditService = require('../utils/auditService');
 const ExcelJS = require('exceljs'); // Assuming ExcelJS is used for uploadExcelMarks
 const { google } = require('googleapis');
+const { sanitizeText } = require('../utils/validators');
 
 // 🔒 For role 'Teacher': verifies the given course belongs to them. Non-Teachers pass through.
 const isOwnCourse = async (req, courseId) => {
@@ -24,8 +26,61 @@ const isOwnCourseByExam = async (req, examId) => {
   return result.rows.length > 0;
 };
 
+// Upcoming exams (today onward) for the logged-in user's own courses - powers the
+// Timetable tab's "Upcoming Exams" list, purely from SCMS's own Exams table (unlike the
+// Moodle Calendar link alongside it, which only ever shows Moodle-native events).
+exports.getUpcomingExams = async (req, res) => {
+  try {
+    const { userId, role } = req.user;
+    let courseIds = [];
+
+    if (role === 'Student') {
+      const sres = await db.pool.query('SELECT student_id FROM Students WHERE user_id = $1', [userId]);
+      if (sres.rows.length) {
+        const enrRes = await db.pool.query(
+          `SELECT course_id FROM Course_Enrollments WHERE student_id = $1 AND enrollment_status = 'Enrolled'`,
+          [sres.rows[0].student_id]
+        );
+        courseIds = enrRes.rows.map((r) => r.course_id);
+      }
+    } else if (role === 'Teacher') {
+      const tres = await db.pool.query('SELECT teacher_id FROM Teachers WHERE user_id = $1', [userId]);
+      if (tres.rows.length) {
+        const cRes = await db.pool.query('SELECT course_id FROM Courses WHERE teacher_id = $1', [tres.rows[0].teacher_id]);
+        courseIds = cRes.rows.map((r) => r.course_id);
+      }
+    } else {
+      const cRes = await db.pool.query('SELECT course_id FROM Courses WHERE is_active = true');
+      courseIds = cRes.rows.map((r) => r.course_id);
+    }
+
+    if (courseIds.length === 0) return res.json([]);
+
+    const result = await db.pool.query(
+      `SELECT e.exam_id, e.exam_name, e.exam_date, e.total_marks, c.course_name
+       FROM Exams e
+       JOIN Courses c ON e.course_id = c.course_id
+       WHERE e.course_id = ANY($1::int[]) AND e.exam_date >= CURRENT_DATE
+       ORDER BY e.exam_date ASC
+       LIMIT 20`,
+      [courseIds]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('❌ Get Upcoming Exams Error:', error.message);
+    res.status(500).json({ message: 'ඉදිරි විභාග ලබා ගැනීමට නොහැකි විය.', error: error.message });
+  }
+};
+
 exports.createExam = async (req, res) => {
-  const { course_id, exam_name, exam_date, total_marks, pass_percentage } = req.body;
+  const { course_id, exam_date, total_marks, pass_percentage } = req.body;
+  let { exam_name } = req.body;
+
+  if (!course_id || !exam_name || !exam_date) {
+    return res.status(400).json({ message: 'පන්තිය, විභාගයේ නම සහ දිනය අනිවාර්ය වේ.' });
+  }
+  exam_name = sanitizeText(exam_name, 150);
+
   try {
     if (!(await isOwnCourse(req, course_id))) {
       return res.status(403).json({ message: 'ප්‍රවේශය තහනම්: මෙය ඔබ ඉගැන්වන පන්තියක් නොවේ.' });
@@ -103,10 +158,14 @@ exports.uploadExcelMarks = async (req, res) => {
 
   try {
     if (!(await isOwnCourseByExam(req, exam_id))) {
+      fs.unlink(req.file.path, () => {});
       return res.status(403).json({ message: 'ප්‍රවේශය තහනම්: මෙය ඔබ ඉගැන්වන පන්තියක විභාගයක් නොවේ.' });
     }
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(req.file.path);
+    // The workbook is now fully parsed into memory — the file on disk is never read again
+    // regardless of how the rest of this request turns out, so it can be removed immediately.
+    fs.unlink(req.file.path, () => {});
     const worksheet = workbook.getWorksheet(1);
     const marksToInsert = [];
 
@@ -216,7 +275,14 @@ exports.uploadExcelMarks = async (req, res) => {
 
 exports.updateExam = async (req, res) => {
   const { id } = req.params;
-  const { exam_name, exam_date, total_marks, pass_percentage } = req.body;
+  const { exam_date, total_marks, pass_percentage } = req.body;
+  let { exam_name } = req.body;
+
+  if (!exam_name || !exam_date) {
+    return res.status(400).json({ message: 'විභාගයේ නම සහ දිනය අනිවාර්ය වේ.' });
+  }
+  exam_name = sanitizeText(exam_name, 150);
+
   try {
     if (!(await isOwnCourseByExam(req, id))) {
       return res.status(403).json({ message: 'ප්‍රවේශය තහනම්: මෙය ඔබ ඉගැන්වන පන්තියක විභාගයක් නොවේ.' });

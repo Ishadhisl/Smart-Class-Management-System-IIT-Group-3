@@ -20,7 +20,11 @@ export const NotificationProvider = ({ children }) => {
   }, []);
 
   const value = useMemo(() => ({ showNotification }), [showNotification]);
-  const bg = notification?.type === 'error' ? '#d32f2f' : '#2e7d32';
+  const bg = notification?.type === 'error'
+    ? '#d32f2f'
+    : notification?.type === 'info'
+      ? '#0277bd'
+      : '#2e7d32';
 
   return (
     <NotificationContext.Provider value={value}>

@@ -7,10 +7,26 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLat
 const qrcode = require('qrcode-terminal');
 const pino = require('pino');
 
+// Where the Baileys auth/encryption keys live. Defaults to a local folder (fine for
+// dev). On a host with an ephemeral filesystem, point this at a path INSIDE the
+// persistent disk mount (e.g. WHATSAPP_SESSION_DIR=/app/thusitha-backend/uploads/.wa-session)
+// so the phone only has to be linked once, not after every redeploy.
+const SESSION_DIR = process.env.WHATSAPP_SESSION_DIR || './whatsapp-session';
+
 let client = null;
 let isReady = false;
 let qrCodeData = null;
 let initializationPromise = null;
+let reconnectAttempts = 0;
+// An unscanned QR gets disconnected by WhatsApp's servers every ~2-3 minutes, and each
+// reconnect spins up a brand-new Baileys socket (fresh event listeners, a fetchLatestBaileysVersion
+// network call, etc.). Left uncapped, this ran indefinitely on a host nobody was watching and the
+// service OOM-restarted every 20-25 minutes - so we cap it. 20 attempts x 15s ≈ 5 minutes of
+// retries: long enough to ride out a transient network drop on a *linked* session, short enough
+// to not churn forever on an unscanned QR. Scanning the QR resets the counter via a fresh 'open';
+// restarting the process also resumes it.
+const MAX_RECONNECT_ATTEMPTS = 20;
+const RECONNECT_DELAY_MS = 15000;
 
 /**
  * WhatsApp Client initialize කිරීම (Server start වූ විට)
@@ -22,14 +38,29 @@ const initWhatsApp = async () => {
     console.log('📱 WhatsApp Service: Initializing Baileys Socket...');
 
     try {
-      const { state, saveCreds } = await useMultiFileAuthState('./whatsapp-session');
-      const { version } = await fetchLatestBaileysVersion();
+      const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
+
+      // fetchLatestBaileysVersion hits GitHub — on a locked-down host it can hang or
+      // throw, which used to kill init entirely (no socket, no QR ever). Time-box it and
+      // fall back to the version bundled with the installed baileys.
+      let version;
+      try {
+        const res = await Promise.race([
+          fetchLatestBaileysVersion(),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('version fetch timeout')), 8000)),
+        ]);
+        version = res.version;
+      } catch (vErr) {
+        console.warn('⚠️ WhatsApp: using bundled Baileys version -', vErr.message);
+        version = undefined; // makeWASocket falls back to its bundled default
+      }
 
       client = makeWASocket({
         auth: state,
-        version,
+        ...(version ? { version } : {}),
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false, // We will handle printing manually below
+        browser: ['Thusitha SCMS', 'Chrome', '1.0.0'],
       });
 
       client.ev.on('creds.update', saveCreds);
@@ -38,10 +69,17 @@ const initWhatsApp = async () => {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
-          console.log('\n📲 WhatsApp QR Code (Scan with your phone):');
-          qrcode.generate(qr, { small: true });
           qrCodeData = qr;
           isReady = false;
+          // The QR rotates every ~20s while unscanned; rendering it to the console each
+          // time floods hosted logs. Print it locally only — hosted admins scan it from
+          // the dashboard (Communication Center) instead.
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('\n📲 WhatsApp QR Code (Scan with your phone):');
+            qrcode.generate(qr, { small: true });
+          } else {
+            console.log('📲 WhatsApp QR generated — scan it from the dashboard (Communication Center).');
+          }
         }
 
         if (connection === 'close') {
@@ -54,17 +92,20 @@ const initWhatsApp = async () => {
           client = null;
           initializationPromise = null;
 
-          if (shouldReconnect) {
-            console.log('🔄 WhatsApp: Attempting reconnect in 5 seconds...');
+          if (shouldReconnect && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            reconnectAttempts++;
+            console.log(`🔄 WhatsApp: Attempting reconnect in ${RECONNECT_DELAY_MS / 1000}s... (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
             setTimeout(() => {
               initWhatsApp();
-            }, 5000);
+            }, RECONNECT_DELAY_MS);
+          } else if (shouldReconnect) {
+            console.log('🛑 WhatsApp: Max reconnect attempts reached - giving up until the server restarts.');
           } else {
             console.log('🚪 WhatsApp: Logged out successfully. Cleaning up session and restarting...');
             const fs = require('fs');
-            if (fs.existsSync('./whatsapp-session')) {
+            if (fs.existsSync(SESSION_DIR)) {
               try {
-                fs.rmSync('./whatsapp-session', { recursive: true, force: true });
+                fs.rmSync(SESSION_DIR, { recursive: true, force: true });
                 console.log('🗑️ WhatsApp: Old session deleted.');
               } catch (e) {
                 console.error('⚠️ WhatsApp: Failed to delete session folder:', e.message);
@@ -78,6 +119,7 @@ const initWhatsApp = async () => {
           console.log('✅ WhatsApp Client Ready! Messages can now be sent.');
           isReady = true;
           qrCodeData = null;
+          reconnectAttempts = 0;
         }
       });
 
@@ -132,6 +174,23 @@ const sendWhatsAppMessage = async (phone, message) => {
 };
 
 /**
+ * Force a fresh connection attempt — resets the retry cap and re-inits the socket so a
+ * new QR is generated. This is the recovery path after auto-reconnect has given up,
+ * without needing a server restart / redeploy.
+ */
+const reconnectWhatsApp = async () => {
+  if (isReady) return { success: true, message: 'Already connected' };
+  reconnectAttempts = 0;
+  if (client) {
+    try { client.end(new Error('manual reconnect')); } catch (e) { /* ignore */ }
+    client = null;
+  }
+  initializationPromise = null; // allow initWhatsApp to build a new socket
+  await initWhatsApp();
+  return { success: true, message: 'Reconnect started. Fetch the QR in a few seconds.' };
+};
+
+/**
  * QR Code data ලබාගැනීම (Frontend display සඳහා)
  */
 const getQrCode = () => qrCodeData;
@@ -167,6 +226,7 @@ const logoutWhatsApp = async () => {
 
 module.exports = {
   initWhatsApp,
+  reconnectWhatsApp,
   sendWhatsAppMessage,
   getQrCode,
   getStatus,

@@ -6,16 +6,35 @@ import {
   Home, Users, Clock, Settings, Calendar, LogOut, 
   BookOpen, CreditCard, ClipboardList, MessageSquare, 
   Smartphone, FileText, Camera, ShieldCheck,
-  ChevronLeft, ChevronRight, Menu, Activity, BarChart2, Video, QrCode
+  ChevronLeft, ChevronRight, Menu, Activity, BarChart2, Video, QrCode, X
 } from 'lucide-react';
 
-const Sidebar = ({ activeTab, setActiveTab, onLogout, role }) => {
+// Below this width the sidebar behaves as an off-canvas drawer (fixed, slides in over the
+// content, closed by default) instead of the desktop resizable rail that lives permanently
+// in the flex layout - matches Tailwind's `md` breakpoint used elsewhere in the dashboard.
+const MOBILE_BREAKPOINT = 768;
+// Fixed drawer width on mobile - the desktop drag-to-resize handle is mouse-only anyway
+// (no touch support), so mobile always gets the readable, non-collapsed expanded view.
+const MOBILE_DRAWER_WIDTH = 272;
+
+const Sidebar = ({ activeTab, setActiveTab, onLogout, role, mobileOpen = false, onCloseMobile }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(288); // Default 72rem = 288px
   const [isResizing, setIsResizing] = useState(false);
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT
+  );
 
   const userData = sessionStorage.getItem('user');
   const user = userData ? JSON.parse(userData) : null;
+
+  useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    const update = () => setIsMobile(mql.matches);
+    update();
+    mql.addEventListener('change', update);
+    return () => mql.removeEventListener('change', update);
+  }, []);
 
   useEffect(() => {
     const handleTabChange = (e) => {
@@ -50,26 +69,37 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role }) => {
     };
   }, [isResizing]);
 
-  const currentWidth = isCollapsed ? 80 : sidebarWidth;
+  const currentWidth = isMobile ? MOBILE_DRAWER_WIDTH : (isCollapsed ? 80 : sidebarWidth);
+  // On mobile the sidebar is a drawer parked off-screen to the left until opened; on
+  // desktop it always sits at x:0 in the normal flex flow (mobileOpen is irrelevant there).
+  const drawerX = isMobile ? (mobileOpen ? 0 : -currentWidth) : 0;
+
+  // On mobile the drawer always renders the full labeled list, regardless of whatever
+  // collapse state was left over from desktop use - an icon-only rail makes no sense as
+  // a full-height overlay menu.
+  const effectiveCollapsed = isCollapsed && !isMobile;
 
   const getButtonStyle = (tabName) => `
-    w-full ${isCollapsed ? 'px-0 justify-center' : 'px-4 justify-start'} py-3 cursor-pointer rounded-xl flex items-center gap-4
+    w-full ${effectiveCollapsed ? 'px-0 justify-center' : 'px-4 justify-start'} py-3 cursor-pointer rounded-xl flex items-center gap-4
     transition-all duration-300 ease-in-out relative group text-left leading-tight
-    ${activeTab === tabName 
-      ? `bg-white/20 font-bold shadow-glass text-white ${!isCollapsed ? 'translate-x-2' : ''}` 
-      : `bg-transparent border-transparent hover:bg-white/10 text-indigo-100 hover:text-white font-medium ${!isCollapsed ? 'hover:translate-x-1' : ''}`
+    ${activeTab === tabName
+      ? `bg-white/20 font-bold shadow-glass text-white ${!effectiveCollapsed ? 'translate-x-2' : ''}`
+      : `bg-transparent border-transparent hover:bg-white/10 text-indigo-100 hover:text-white font-medium ${!effectiveCollapsed ? 'hover:translate-x-1' : ''}`
     }
   `;
 
   const renderButton = (tabName, icon, label) => (
-    <button 
-      title={isCollapsed ? label : ''}
-      type="button" 
-      onClick={() => setActiveTab(tabName)} 
+    <button
+      title={effectiveCollapsed ? label : ''}
+      type="button"
+      onClick={() => {
+        setActiveTab(tabName);
+        if (isMobile) onCloseMobile?.();
+      }}
       className={getButtonStyle(tabName)}
     >
       <div className="shrink-0">{icon}</div>
-      {!isCollapsed && <span className="whitespace-normal flex-1">{label}</span>}
+      {!effectiveCollapsed && <span className="whitespace-normal flex-1">{label}</span>}
     </button>
   );
 
@@ -79,28 +109,49 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role }) => {
   const isStudent = role === 'Student';
 
   return (
-    <motion.div 
-      initial={{ x: -260 }}
-      animate={{ x: 0, width: currentWidth }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="bg-gradient-to-br from-primary-dark via-primary to-primary-light text-white flex flex-col py-6 px-3 shadow-2xl z-20 h-full relative shrink-0"
-    >
-      {/* Resizer Handle */}
-      {!isCollapsed && (
-        <div 
+    <>
+      {/* Backdrop - only exists while the mobile drawer is open, tap it to close */}
+      {isMobile && mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={onCloseMobile}
+          aria-hidden="true"
+        />
+      )}
+
+      <motion.div
+        initial={false}
+        animate={{ x: drawerX, width: currentWidth }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        className={`bg-gradient-to-br from-primary-dark via-primary to-primary-light text-white flex flex-col py-6 px-3 shadow-2xl z-40 h-full shrink-0 ${isMobile ? 'fixed inset-y-0 left-0' : 'relative'}`}
+      >
+      {/* Resizer Handle - desktop only, there's no touch equivalent */}
+      {!isCollapsed && !isMobile && (
+        <div
           className="absolute top-0 right-0 w-2 h-full cursor-col-resize hover:bg-white/20 z-50 transition-colors"
           onMouseDown={() => setIsResizing(true)}
         />
       )}
-      
-      {/* Collapse Toggle */}
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        className="absolute -right-3 top-8 bg-white text-primary rounded-full p-1.5 shadow-glass z-50 hover:scale-110 transition-transform"
-      >
-        {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-      </button>
+
+      {/* Mobile: close (X) button instead of the desktop collapse toggle */}
+      {isMobile ? (
+        <button
+          onClick={onCloseMobile}
+          aria-label="Close menu"
+          className="absolute -right-3 top-8 bg-white text-primary rounded-full p-1.5 shadow-glass z-50"
+        >
+          <X size={16} />
+        </button>
+      ) : (
+        /* Collapse Toggle */
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="absolute -right-3 top-8 bg-white text-primary rounded-full p-1.5 shadow-glass z-50 hover:scale-110 transition-transform"
+        >
+          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
+      )}
 
       <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/30 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
       <div className="absolute bottom-0 left-0 w-40 h-40 bg-accent/30 rounded-full blur-3xl -ml-10 -mb-10 pointer-events-none"></div>
@@ -108,7 +159,7 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role }) => {
       <div className="relative z-10 flex flex-col h-full overflow-hidden">
         
         <AnimatePresence mode="wait">
-          {!isCollapsed ? (
+          {!effectiveCollapsed ? (
             <motion.div 
               key="expanded-header"
               initial={{ opacity: 0, height: 0 }}
@@ -186,18 +237,19 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role }) => {
         </nav>
       </div>
       
-      <motion.button 
+      <motion.button
         whileHover={{ scale: 1.03, backgroundColor: '#e11d48' }}
         whileTap={{ scale: 0.95 }}
-        type="button" 
-        onClick={onLogout} 
-        title={isCollapsed ? 'ඉවත් වන්න' : ''}
-        className={`w-full py-3.5 bg-white/10 hover:bg-rose-600 text-white border border-white/20 hover:border-transparent rounded-xl font-bold mt-auto flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-center px-4'} gap-2 shadow-glass transition-all relative z-10 backdrop-blur-md`}
+        type="button"
+        onClick={onLogout}
+        title={effectiveCollapsed ? 'ඉවත් වන්න' : ''}
+        className={`w-full py-3.5 bg-white/10 hover:bg-rose-600 text-white border border-white/20 hover:border-transparent rounded-xl font-bold mt-auto flex items-center ${effectiveCollapsed ? 'justify-center px-0' : 'justify-center px-4'} gap-2 shadow-glass transition-all relative z-10 backdrop-blur-md`}
       >
         <div className="shrink-0"><LogOut size={20} /></div>
-        {!isCollapsed && <span className="whitespace-nowrap">ඉවත් වන්න</span>}
+        {!effectiveCollapsed && <span className="whitespace-nowrap">ඉවත් වන්න</span>}
       </motion.button>
-    </motion.div>
+      </motion.div>
+    </>
   );
 };
 
@@ -206,6 +258,8 @@ Sidebar.propTypes = {
   setActiveTab: PropTypes.func.isRequired,
   onLogout: PropTypes.func.isRequired,
   role: PropTypes.string,
+  mobileOpen: PropTypes.bool,
+  onCloseMobile: PropTypes.func,
 };
 
 export default Sidebar;

@@ -130,15 +130,14 @@ const UserTab = ({ users, onResetPassword, onCreateUser, onDeleteUser }) => {
                 />
               </div>
               <div style={{ marginBottom: '15px' }}>
-                <label htmlFor="staff-password" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px', color: '#333' }}>මුරපදය (Password)</label>
-                <input 
+                <label htmlFor="staff-password" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px', color: '#333' }}>මුරපදය (Password) <span style={{ fontWeight: 'normal', color: '#888' }}>— හිස්ව තැබුවොත් role default (Counter@123 / Admin@123)</span></label>
+                <input
                   id="staff-password"
-                  type="password" 
-                  placeholder="••••••••" 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  required 
-                  style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }} 
+                  type="password"
+                  placeholder="Counter@123"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }}
                 />
               </div>
               <div style={{ display: 'none' }}>

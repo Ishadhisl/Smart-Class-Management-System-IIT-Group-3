@@ -5,8 +5,18 @@ const fs = require('node:fs');
 
 const auditService = require('../utils/auditService');
 const attendanceController = require('./attendanceController');
+const { publicUrl } = require('../middleware/imageUpload');
+const { defaultPasswordFor } = require('../utils/authDefaults');
+const { isValidEmail, isValidPhone, sanitizeText } = require('../utils/validators');
 
 const moodleService = require('../utils/moodleService');
+
+// The AI /encode endpoint needs a real file on the shared disk. Profile photos are
+// always local ("/uploads/x.jpg").
+async function resolvePhotoToLocalPath(photoPath) {
+  const absPath = path.resolve(__dirname, '..', photoPath.replace(/^\//, ''));
+  return { absPath, cleanup: () => {} };
+}
 
 // 💡 Moodle Integration
 const createMoodleAccount = async (studentData) => {
@@ -45,22 +55,32 @@ exports.generateFaceEncoding = async (req, res) => {
 
     if (!photoPath) return res.status(400).json({ message: "ශිෂ්‍යයාට ඡායාරූපයක් එක් කර නැත." });
 
-    const absolutePhotoPath = path.resolve(__dirname, '..', photoPath.replace(/^\//, ''));
-    if (!fs.existsSync(absolutePhotoPath)) {
+    let resolved;
+    try {
+      resolved = await resolvePhotoToLocalPath(photoPath);
+    } catch (dlErr) {
+      console.warn('Photo download failed:', dlErr.message);
+      return res.status(400).json({ error: "ඡායාරූප ගොනුව ලබා ගැනීමට නොහැකි විය. කරුණාකර නැවත ඡායාරූපයක් උඩුගත කරන්න." });
+    }
+    if (!fs.existsSync(resolved.absPath)) {
+      resolved.cleanup();
       return res.status(400).json({ error: "ඡායාරූප ගොනුව සේවාදායකයේ හමුවුණේ නැත. කරුණාකර නැවත ඡායාරූපයක් උඩුගත කරන්න." });
     }
-    
+
     let aiResult;
     try {
-      aiResult = await attendanceController.runAIProcess('encode', { image_path: absolutePhotoPath.replace(/\\/g, '/') });
+      aiResult = await attendanceController.runAIProcess('encode', { image_path: resolved.absPath.replace(/\\/g, '/') });
     } catch (aiErr) {
       console.warn('AI Server is offline or failed:', aiErr.message);
       if (aiErr.message.includes("No face found") || aiErr.message.includes("no face found")) {
+        resolved.cleanup();
         return res.status(422).json({ error: "ඡායාරූපයේ මුහුණක් හඳුනා ගැනීමට නොහැකි විය. කරුණාකර වෙනත් පැහැදිලි ඡායාරූපයක් උඩුගත කරන්න." });
       }
-      return res.status(503).json({ error: 'AI පද්ධතිය ක්‍රියාත්මක නොවේ. කරුණාකර AI සේවාදායකය ක්‍රියාත්මක කරන්න.' });
+      resolved.cleanup();
+      return res.status(503).json({ error: 'AI පද්ධතිය ක්‍රියාත්මක නොවේ. කරුණාකර AI සේවාදායකය ක්‍රියාත්මක කරන්න.', ai_offline: true });
     }
-    
+    resolved.cleanup();
+
     if (aiResult.encoding) {
       await db.pool.query('UPDATE Students SET face_encoding = $1 WHERE student_id = $2', [JSON.stringify(aiResult.encoding), studentId]);
       await auditService.logAction(req.user?.userId || null, req.user?.role || 'System', 'UPDATE', 'Student', studentId, 'Pre-calculated face encoding.');
@@ -68,6 +88,10 @@ exports.generateFaceEncoding = async (req, res) => {
     } else if (aiResult.error) {
       if (aiResult.error.includes("No face found") || aiResult.error.includes("no face found")) {
         return res.status(422).json({ error: "ඡායාරූපයේ මුහුණක් හඳුනා ගැනීමට නොහැකි විය. කරුණාකර වෙනත් පැහැදිලි ඡායාරූපයක් උඩුගත කරන්න." });
+      }
+      // face_recognition library not installed in the AI container — same user story as "offline"
+      if (aiResult.error.includes("not installed")) {
+        return res.status(503).json({ error: 'AI පද්ධතිය ක්‍රියාත්මක නොවේ. කරුණාකර AI සේවාදායකය ක්‍රියාත්මක කරන්න.', ai_offline: true });
       }
       return res.status(400).json({ error: aiResult.error });
     } else {
@@ -90,20 +114,40 @@ exports.bulkGenerateEncodings = async (req, res) => {
       return res.json({ message: 'Encoding සඳහා අලුත් ශිෂ්‍යයන් හමුවුනේ නැත.' });
     }
 
+    // Pre-flight: if the AI service isn't reachable (or its face library didn't load),
+    // fail loudly instead of running the whole loop and returning a "success" message
+    // that actually encoded nobody.
+    try {
+      const aiStatus = await attendanceController.runAIProcess('status', {});
+      if (aiStatus && aiStatus.face_rec_enabled === false) {
+        return res.status(503).json({
+          error: 'AI පද්ධතිය ක්‍රියාත්මක නොවේ. කරුණාකර AI සේවාදායකය ක්‍රියාත්මක කරන්න.',
+          ai_offline: true
+        });
+      }
+    } catch (aiErr) {
+      console.warn('Bulk encode aborted — AI service offline:', aiErr.message);
+      return res.status(503).json({
+        error: 'AI පද්ධතිය ක්‍රියාත්මක නොවේ. කරුණාකර AI සේවාදායකය ක්‍රියාත්මක කරන්න.',
+        ai_offline: true
+      });
+    }
+
     let successCount = 0;
     let failCount = 0;
     let missingPhotoCount = 0;
 
     for (const student of students.rows) {
+      let resolved = null;
       try {
-        const absolutePhotoPath = path.resolve(__dirname, '..', student.profile_photo_path.replace(/^\//, ''));
-        if (!fs.existsSync(absolutePhotoPath)) {
-          console.warn(`File missing for student_id=${student.student_id}:`, absolutePhotoPath);
+        resolved = await resolvePhotoToLocalPath(student.profile_photo_path);
+        if (!fs.existsSync(resolved.absPath)) {
+          console.warn(`File missing for student_id=${student.student_id}:`, resolved.absPath);
           missingPhotoCount++;
           failCount++;
           continue;
         }
-        const aiResult = await attendanceController.runAIProcess('encode', { image_path: absolutePhotoPath.replace(/\\/g, '/') });
+        const aiResult = await attendanceController.runAIProcess('encode', { image_path: resolved.absPath.replace(/\\/g, '/') });
         if (aiResult.encoding) {
           await db.pool.query('UPDATE Students SET face_encoding = $1 WHERE student_id = $2', [JSON.stringify(aiResult.encoding), student.student_id]);
           successCount++;
@@ -113,6 +157,8 @@ exports.bulkGenerateEncodings = async (req, res) => {
       } catch (err) {
         console.error(`Encoding failed for student_id=${student.student_id}:`, err.message);
         failCount++;
+      } finally {
+        if (resolved) resolved.cleanup();
       }
     }
 
@@ -129,7 +175,25 @@ exports.bulkGenerateEncodings = async (req, res) => {
 
 // Public Registration (Adds to a pending queue)
 exports.publicRegistration = async (req, res) => {
-  const { student_name, school, grade, parent_phone, email, course_id } = req.body;
+  let { student_name, school, grade, parent_phone, email, course_id } = req.body;
+
+  // Fully public, unauthenticated endpoint - validate and sanitize as strictly as
+  // the contact form, since it's the same trust level (anyone on the internet).
+  if (!student_name || !parent_phone) {
+    return res.status(400).json({ error: 'ශිෂ්‍යයාගේ නම සහ දුරකථන අංකය අනිවාර්ය වේ.' });
+  }
+  if (!isValidPhone(parent_phone)) {
+    return res.status(400).json({ error: 'වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0712345678).' });
+  }
+  if (email && !isValidEmail(email)) {
+    return res.status(400).json({ error: 'වලංගු විද්‍යුත් තැපැල් ලිපිනයක් ඇතුළත් කරන්න.' });
+  }
+
+  student_name = sanitizeText(student_name, 150);
+  school = school ? sanitizeText(school, 150) : null;
+  grade = grade ? sanitizeText(grade, 30) : null;
+  email = email ? sanitizeText(email, 150) : null;
+
   try {
     const query = `
       INSERT INTO PendingRegistrations (name, school, grade, phone, email, course_interest, status)
@@ -168,7 +232,7 @@ exports.approveStudent = async (req, res) => {
 
     // 2. Create System User
     const username = qr_code_key; // Using QR key as username ensures uniqueness for siblings sharing parent contact info
-    const passwordHash = await bcrypt.hash('Thusitha@123', 10); // Default password
+    const passwordHash = await bcrypt.hash(defaultPasswordFor('Student'), 10); // Default password
     const userRes = await client.query(
       'INSERT INTO Users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING user_id',
       [username, passwordHash, 'Student']
@@ -218,15 +282,31 @@ exports.approveStudent = async (req, res) => {
 
 // ශිෂ්‍යයෙක් ලියාපදිංචි කිරීම
 exports.registerStudent = async (req, res) => {
-  const { username, password, student_name, school, grade, qr_code_key, parent_id, parent_name, parent_phone, address } = req.body;
+  let { username, password, student_name, school, grade, qr_code_key, parent_id, parent_name, parent_phone, address } = req.body;
+
+  if (!username || !student_name) {
+    return res.status(400).json({ message: "ශිෂ්‍ය අංකය සහ ශිෂ්‍යයාගේ නම අනිවාර්ය වේ." });
+  }
+  if (parent_phone && !isValidPhone(parent_phone)) {
+    return res.status(400).json({ message: "වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0712345678)." });
+  }
+
+  username = sanitizeText(username, 100);
+  student_name = sanitizeText(student_name, 150);
+  school = school ? sanitizeText(school, 150) : null;
+  grade = grade ? sanitizeText(grade, 30) : null;
+  qr_code_key = qr_code_key ? sanitizeText(qr_code_key, 100) : username;
+  parent_name = parent_name ? sanitizeText(parent_name, 150) : null;
+  address = address ? sanitizeText(address, 300) : null;
+
   const client = await db.pool.connect();
 
   try {
     await client.query('BEGIN');
 
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
-    
+    // Blank password => role default (Student@123); login then flags must_change_password.
+    const passwordHash = await bcrypt.hash(password || defaultPasswordFor('Student'), 10);
+
     // Resolve parent_id
     let finalParentId = parent_id || null;
     if (!finalParentId && parent_name && parent_phone) {
@@ -234,9 +314,10 @@ exports.registerStudent = async (req, res) => {
       if (existingParent.rows.length > 0) {
         finalParentId = existingParent.rows[0].parent_id;
       } else {
+        const parentPasswordHash = await bcrypt.hash(defaultPasswordFor('Parent'), 10);
         const parentUserResult = await client.query(
           'INSERT INTO Users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING user_id',
-          [parent_phone, passwordHash, 'Parent']
+          [parent_phone, parentPasswordHash, 'Parent']
         );
         const parentUserId = parentUserResult.rows[0].user_id;
         const parentResult = await client.query(
@@ -288,7 +369,20 @@ exports.registerStudent = async (req, res) => {
 // ශිෂ්‍ය දත්ත යාවත්කාලීන කිරීම (Update)
 exports.updateStudent = async (req, res) => {
   const { id } = req.params;
-  const { student_name, school, grade, parent_name, parent_phone, address } = req.body;
+  let { student_name, school, grade, parent_name, parent_phone, address } = req.body;
+
+  if (!student_name) {
+    return res.status(400).json({ message: 'ශිෂ්‍යයාගේ නම අනිවාර්ය වේ.' });
+  }
+  if (parent_phone && !isValidPhone(parent_phone)) {
+    return res.status(400).json({ message: 'වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0712345678).' });
+  }
+
+  student_name = sanitizeText(student_name, 150);
+  school = school ? sanitizeText(school, 150) : null;
+  grade = grade ? sanitizeText(grade, 30) : null;
+  parent_name = parent_name ? sanitizeText(parent_name, 150) : null;
+  address = address ? sanitizeText(address, 300) : null;
 
   const client = await db.pool.connect();
   try {
@@ -426,7 +520,8 @@ exports.uploadPhoto = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: "ඡායාරූපයක් තෝරා නැත." });
   }
-  const photoPath = `/uploads/${req.file.filename}`;
+  // Face encoding is cleared so it's regenerated from the new photo on the next encode run.
+  const photoPath = publicUrl(req.file);
   try {
     const result = await db.pool.query(
       'UPDATE Students SET profile_photo_path = $1, face_encoding = NULL WHERE student_id = $2 RETURNING *',

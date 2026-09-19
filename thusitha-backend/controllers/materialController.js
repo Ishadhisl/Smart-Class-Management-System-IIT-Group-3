@@ -2,13 +2,16 @@ const db = require('../db');
 const fs = require('node:fs');
 const path = require('node:path');
 const auditService = require('../utils/auditService');
+const { sanitizeText } = require('../utils/validators');
 
 exports.uploadMaterial = async (req, res) => {
-  const { course_id, material_title } = req.body;
+  const { course_id } = req.body;
+  let { material_title } = req.body;
 
   if (!req.file || !course_id || !material_title) {
     return res.status(400).json({ message: "විෂය දත්ත සහ ගොනුව අනිවාර්ය වේ." });
   }
+  material_title = sanitizeText(material_title, 200);
 
   // Enforce PDF only check
   const ext = path.extname(req.file.originalname).toLowerCase();

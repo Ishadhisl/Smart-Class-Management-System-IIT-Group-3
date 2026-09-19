@@ -1,6 +1,8 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
 const bcrypt = require('bcryptjs');
+const { defaultPasswordFor } = require('../utils/authDefaults');
+const { sanitizeText } = require('../utils/validators');
 
 // පද්ධති පරිශීලකයින් සියලුම දෙනා ලබා ගැනීම (Teachers/Staff)
 exports.getAllUsers = async (req, res) => {
@@ -22,19 +24,21 @@ exports.getAllUsers = async (req, res) => {
 exports.resetPassword = async (req, res) => {
   const { id } = req.params;
   try {
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash('Thusitha@123', salt);
-    
-    const result = await db.pool.query(
-      'UPDATE Users SET password_hash = $1 WHERE user_id = $2 RETURNING user_id',
+    const target = await db.pool.query('SELECT role FROM Users WHERE user_id = $1', [id]);
+    if (target.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+    const role = target.rows[0].role;
+    const defaultPw = defaultPasswordFor(role);
+    const hashedPassword = await bcrypt.hash(defaultPw, 10);
+
+    await db.pool.query(
+      'UPDATE Users SET password_hash = $1 WHERE user_id = $2',
       [hashedPassword, id]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-
-    res.status(200).json({ message: 'Password reset to default (Thusitha@123) successfully!' });
+    await auditService.logAction(req.user?.userId, req.user?.role, 'RESET_PASSWORD', 'User', id, `Reset password to role default for user ${id}`);
+    res.status(200).json({ message: `Password reset to default (${defaultPw}) successfully!` });
   } catch (error) {
     console.error('?O Reset Password Error:', error.message);
     res.status(500).json({ message: "Failed to reset password.", error: error.message });
@@ -42,14 +46,16 @@ exports.resetPassword = async (req, res) => {
 };
 
 exports.createUser = async (req, res) => {
-  const { username, password, role } = req.body;
-  if (!username || !password || !role) {
-    return res.status(400).json({ message: "පරිශීලක නාමය, මුරපදය සහ තනතුර (Role) අවශ්‍ය වේ." });
+  const { password, role } = req.body;
+  let { username } = req.body;
+  if (!username || !role) {
+    return res.status(400).json({ message: "පරිශීලක නාමය සහ තනතුර (Role) අවශ්‍ය වේ." });
   }
 
   if (!['Admin', 'Counter Person'].includes(role)) {
     return res.status(400).json({ message: "වලංගු නොවන තනතුරකි. (Invalid role)" });
   }
+  username = sanitizeText(username, 100);
 
   try {
     const checkUser = await db.pool.query('SELECT 1 FROM Users WHERE username = $1', [username]);
@@ -57,8 +63,9 @@ exports.createUser = async (req, res) => {
       return res.status(400).json({ message: "මෙම පරිශීලක නාමය (Username) දැනටමත් භාවිතයේ පවතී." });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
+    // Password is optional — a blank one falls back to the role's default (Admin@123 /
+    // Counter@123), which login then flags for change.
+    const passwordHash = await bcrypt.hash(password || defaultPasswordFor(role), 10);
 
     const result = await db.pool.query(
       'INSERT INTO Users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING user_id, username, role, created_at',

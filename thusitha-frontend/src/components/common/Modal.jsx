@@ -12,6 +12,13 @@ import { X } from 'lucide-react';
 const Modal = ({ open, onClose, title, children, maxWidth = 'max-w-lg' }) => {
   const panelRef = useRef(null);
   const triggerRef = useRef(null);
+  // Callers pass onClose as an inline arrow function, so its identity changes on every
+  // parent re-render (e.g. every keystroke in a form field elsewhere in that render tree).
+  // Reading it through a ref - instead of putting it in the effect's dependency array -
+  // keeps the effect from re-running (and re-stealing focus into the first field) on
+  // every keystroke, while still calling the latest onClose when Escape is pressed.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (open) {
@@ -26,7 +33,7 @@ const Modal = ({ open, onClose, title, children, maxWidth = 'max-w-lg' }) => {
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
       if (e.key === 'Tab' && panelRef.current) {
@@ -49,7 +56,7 @@ const Modal = ({ open, onClose, title, children, maxWidth = 'max-w-lg' }) => {
     document.addEventListener('keydown', handleKeyDown);
     panelRef.current?.querySelector('a[href], button, textarea, input, select')?.focus();
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
+  }, [open]);
 
   return createPortal(
     <AnimatePresence>

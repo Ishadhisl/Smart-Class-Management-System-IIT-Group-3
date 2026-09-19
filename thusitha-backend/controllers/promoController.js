@@ -1,5 +1,7 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
+const { publicUrl } = require('../middleware/imageUpload');
+const { sanitizeText } = require('../utils/validators');
 
 exports.getPromos = async (req, res) => {
   try {
@@ -12,12 +14,15 @@ exports.getPromos = async (req, res) => {
 };
 
 exports.createPromo = async (req, res) => {
-  const { title, content_type, description } = req.body;
-  const image_url = req.file ? `uploads/${req.file.filename}` : null; // Construct relative web path with forward slashes
+  let { title, description } = req.body;
+  const { content_type } = req.body;
+  const image_url = publicUrl(req.file);
 
   if (!title || !content_type) {
     return res.status(400).json({ message: 'Title and Content Type are required.' });
   }
+  title = sanitizeText(title, 150);
+  description = description ? sanitizeText(description, 500) : null;
 
   try {
     const result = await db.pool.query(
@@ -49,8 +54,15 @@ exports.deletePromo = async (req, res) => {
 
 exports.updatePromo = async (req, res) => {
   const { id } = req.params;
-  const { title, content_type, description } = req.body;
-  const image_url = req.file ? `uploads/${req.file.filename}` : null;
+  let { title, description } = req.body;
+  const { content_type } = req.body;
+  const image_url = publicUrl(req.file);
+
+  if (!title || !content_type) {
+    return res.status(400).json({ message: 'Title and Content Type are required.' });
+  }
+  title = sanitizeText(title, 150);
+  description = description ? sanitizeText(description, 500) : null;
 
   try {
     let query, values;

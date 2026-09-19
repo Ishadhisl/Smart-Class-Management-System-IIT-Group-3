@@ -15,7 +15,14 @@ const TeachersPage = () => {
 
   const getImageUrl = (path) => {
     if (!path) return null;
-    return `${API_URL}/${path.replace(/\\/g, '/')}`;
+    // path from the DB (e.g. '/uploads/photo-....png') already carries a leading slash -
+    // blindly inserting another '/' here produced a double-slash URL that 404'd (Express's
+    // static mount doesn't collapse it), which is why Sandaruwan's photo stayed a "?"
+    // placeholder even after the substring-match fix. See LandingPage.jsx's getImageUrl.
+    const normalizedPath = path.replace(/\\/g, '/');
+    const baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+    const finalPath = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
+    return `${baseUrl}${finalPath}`;
   };
 
   useEffect(() => {
@@ -45,11 +52,15 @@ const TeachersPage = () => {
           };
           
           const getTeacherPhoto = (name, dbPath) => {
+            // A real uploaded photo always wins - see LandingPage.jsx's getTeacherPhoto
+            // for why (a substring match like "Sandaruwan" containing "ruwan" would
+            // otherwise swap in a different teacher's placeholder portrait).
+            if (dbPath) return getImageUrl(dbPath);
             const nameLower = name?.toLowerCase() || '';
             for (const [key, path] of Object.entries(teacherPhotoMap)) {
               if (nameLower.includes(key)) return path;
             }
-            return dbPath ? getImageUrl(dbPath) : null;
+            return null;
           };
 
           // Deduplicate by name

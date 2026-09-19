@@ -1,8 +1,17 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
+const { sanitizeText } = require('../utils/validators');
 
 exports.createAnnouncement = async (req, res) => {
-  const { title, body, is_active } = req.body;
+  let { title, body } = req.body;
+  const { is_active } = req.body;
+
+  if (!title || !body) {
+    return res.status(400).json({ error: 'මාතෘකාව සහ විස්තරය අනිවාර්ය වේ.' });
+  }
+  title = sanitizeText(title, 150);
+  body = sanitizeText(body, 2000);
+
   try {
     const result = await db.pool.query(
       'INSERT INTO Announcements (title, body, is_active, created_by) VALUES ($1, $2, $3, $4) RETURNING *',
@@ -36,7 +45,15 @@ exports.getPublicAnnouncements = async (req, res) => {
 
 exports.updateAnnouncement = async (req, res) => {
   const { id } = req.params;
-  const { title, body, is_active } = req.body;
+  let { title, body } = req.body;
+  const { is_active } = req.body;
+
+  if (!title || !body) {
+    return res.status(400).json({ message: 'මාතෘකාව සහ විස්තරය අනිවාර්ය වේ.' });
+  }
+  title = sanitizeText(title, 150);
+  body = sanitizeText(body, 2000);
+
   try {
     const result = await db.pool.query(
       'UPDATE Announcements SET title = $1, body = $2, is_active = $3 WHERE announcement_id = $4 RETURNING *',

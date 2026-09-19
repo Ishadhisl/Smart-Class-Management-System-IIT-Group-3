@@ -35,21 +35,19 @@ const FaceVerificationTab = ({ activeSessions, students }) => {
 
   useEffect(() => {
     if (sessionId) {
-      const session = activeSessions.find(s => s.schedule_id === Number(sessionId));
+      const session = activeSessions.find(s => String(s.schedule_id) === String(sessionId));
       if (session) {
-        // Fetch students enrolled in this course or who scanned QR today
+        // Students who scanned QR today for this class and aren't face-verified yet
         const getAttendingStudents = async () => {
           try {
             setError(null);
-            // Fetch logs for today for this course to see who scanned QR
             const logs = await request(`/attendance/logs/${session.course_id}`);
-            // Filter to students who have scanned but not face-verified yet
-            const unverified = logs.filter(log => !log.is_face_verified);
+            const unverified = (Array.isArray(logs) ? logs : []).filter(log => !log.is_face_verified);
             setFilteredStudents(unverified);
           } catch (err) {
             console.error("Error loading attending students:", err);
-            // Fallback to all students enrolled
             setFilteredStudents([]);
+            setError('අද දින මෙම පන්තියට QR ස්කෑන් කළ සිසුන් ලබා ගැනීමට නොහැකි විය. ' + (err.message || ''));
           }
         };
         getAttendingStudents();

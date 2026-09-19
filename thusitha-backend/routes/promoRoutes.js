@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const promoController = require('../controllers/promoController');
 const { verifyToken, checkRole } = require('../middleware/authMiddleware');
-const upload = require('../middleware/uploadMiddleware'); // Assuming you have an upload middleware
+const upload = require('../middleware/imageUpload');
 
 // Public route to get promotions
 router.get('/', promoController.getPromos);

@@ -11,7 +11,9 @@ const StudentPaymentTab = ({ courses }) => {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [uploadFile, setUploadFile] = useState(null);
-  
+  const [isUploadingConfirmation, setIsUploadingConfirmation] = useState(false);
+  const [isSubmittingManual, setIsSubmittingManual] = useState(false);
+
   const user = JSON.parse(sessionStorage.getItem('user'));
 
   useEffect(() => {
@@ -150,10 +152,12 @@ const StudentPaymentTab = ({ courses }) => {
 
   const handleReceiptUpload = async (paymentId) => {
     if (!uploadFile) return showNotification('කරුණාකර රිසිට් පතක් තෝරන්න.', 'error');
-    
+    if (isUploadingConfirmation) return;
+
     const formData = new FormData();
     formData.append('receipt', uploadFile);
-    
+
+    setIsUploadingConfirmation(true);
     try {
       await request(`/payments/${paymentId}/upload-confirmation`, {
         method: 'POST',
@@ -165,6 +169,8 @@ const StudentPaymentTab = ({ courses }) => {
       fetchPayments();
     } catch (err) {
       showNotification(err.message || 'උඩුගත කිරීම අසාර්ථකයි.', 'error');
+    } finally {
+      setIsUploadingConfirmation(false);
     }
   };
 
@@ -177,6 +183,7 @@ const StudentPaymentTab = ({ courses }) => {
     if (!manualReceipt) {
       return showNotification('කරුණාකර බැංකු රිසිට් පත තෝරන්න.', 'error');
     }
+    if (isSubmittingManual) return;
 
     const course = courses.find(c => String(c.course_id) === String(selectedCourse));
     const amount = course?.monthly_fee || course?.fee || 1000;
@@ -188,6 +195,7 @@ const StudentPaymentTab = ({ courses }) => {
     formData.append('for_month', selectedMonth);
     formData.append('receipt', manualReceipt);
 
+    setIsSubmittingManual(true);
     try {
       await request('/payments/manual', {
         method: 'POST',
@@ -201,6 +209,8 @@ const StudentPaymentTab = ({ courses }) => {
       fetchPayments();
     } catch (err) {
       showNotification(err.message || 'උඩුගත කිරීම අසාර්ථකයි.', 'error');
+    } finally {
+      setIsSubmittingManual(false);
     }
   };
 
@@ -288,12 +298,12 @@ const StudentPaymentTab = ({ courses }) => {
               onChange={(e) => setManualReceipt(e.target.files[0])}
               style={{ padding: '8px', backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '4px', flex: 1 }}
             />
-            <button 
+            <button
               onClick={handleManualPayment}
-              disabled={!manualReceipt || !selectedCourse || !selectedMonth}
-              style={{ padding: '10px 20px', backgroundColor: (!manualReceipt || !selectedCourse || !selectedMonth) ? '#ccc' : '#2e7d32', color: 'white', border: 'none', borderRadius: '8px', cursor: (!manualReceipt || !selectedCourse || !selectedMonth) ? 'not-allowed' : 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}
+              disabled={!manualReceipt || !selectedCourse || !selectedMonth || isSubmittingManual}
+              style={{ padding: '10px 20px', backgroundColor: (!manualReceipt || !selectedCourse || !selectedMonth || isSubmittingManual) ? '#ccc' : '#2e7d32', color: 'white', border: 'none', borderRadius: '8px', cursor: (!manualReceipt || !selectedCourse || !selectedMonth || isSubmittingManual) ? 'not-allowed' : 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}
             >
-              <UploadCloud size={18} /> රිසිට් පත යවන්න
+              <UploadCloud size={18} /> {isSubmittingManual ? 'යවමින්...' : 'රිසිට් පත යවන්න'}
             </button>
           </div>
         </div>
@@ -367,11 +377,12 @@ const StudentPaymentTab = ({ courses }) => {
                               onChange={(e) => setUploadFile(e.target.files[0])}
                               style={{ fontSize: '12px', maxWidth: '180px' }}
                             />
-                            <button 
+                            <button
                               onClick={() => handleReceiptUpload(p.payment_id)}
-                              style={{ padding: '6px 12px', backgroundColor: '#00b0ff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                              disabled={isUploadingConfirmation}
+                              style={{ padding: '6px 12px', backgroundColor: isUploadingConfirmation ? '#ccc' : '#00b0ff', color: 'white', border: 'none', borderRadius: '4px', cursor: isUploadingConfirmation ? 'not-allowed' : 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}
                             >
-                              <UploadCloud size={14} /> Upload
+                              <UploadCloud size={14} /> {isUploadingConfirmation ? 'Uploading...' : 'Upload'}
                             </button>
                           </div>
                         )}

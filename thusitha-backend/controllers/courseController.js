@@ -1,5 +1,6 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
+const { sanitizeText } = require('../utils/validators');
 
 // ඩේටාබේස් එකෙන් සියලුම පන්ති ලබා දීම (active only by default)
 exports.getAllCourses = async (req, res) => {
@@ -30,7 +31,7 @@ exports.createCourse = async (req, res) => {
 
   try {
     const query = 'INSERT INTO Courses (course_name, monthly_fee, teacher_id, subject_id) VALUES ($1, $2, $3, $4) RETURNING *';
-    const result = await db.pool.query(query, [course_name.trim(), Number(monthly_fee), teacher_id || null, subject_id || null]);
+    const result = await db.pool.query(query, [sanitizeText(course_name.trim(), 150), Number(monthly_fee), teacher_id || null, subject_id || null]);
     
     await auditService.logAction(req.user?.userId, req.user?.role, 'CREATE', 'Course', result.rows[0].course_id, `Course "${course_name}" created.`);
     res.status(201).json({ message: 'පාඨමාලාව සාර්ථකව එකතු කළා!', course: result.rows[0] });
@@ -95,7 +96,7 @@ exports.updateCourse = async (req, res) => {
   try {
     const result = await db.pool.query(
       'UPDATE Courses SET course_name = $1, monthly_fee = $2, teacher_id = $3, subject_id = $4 WHERE course_id = $5 RETURNING *',
-      [course_name.trim(), Number(monthly_fee), teacher_id || null, subject_id || null, id]
+      [sanitizeText(course_name.trim(), 150), Number(monthly_fee), teacher_id || null, subject_id || null, id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'පාඨමාලාව හමුවුනේ නැත.' });

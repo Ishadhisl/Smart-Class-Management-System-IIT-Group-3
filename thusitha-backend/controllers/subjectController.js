@@ -1,4 +1,5 @@
 const db = require('../db');
+const { sanitizeText } = require('../utils/validators');
 
 exports.getAllSubjects = async (req, res) => {
   try {
@@ -10,10 +11,12 @@ exports.getAllSubjects = async (req, res) => {
 };
 
 exports.createSubject = async (req, res) => {
-  const { subject_name, description } = req.body;
+  let { subject_name, description } = req.body;
   if (!subject_name) {
     return res.status(400).json({ message: "විෂය නාමය අවශ්‍ය වේ." });
   }
+  subject_name = sanitizeText(subject_name, 100);
+  description = description ? sanitizeText(description, 500) : null;
 
   try {
     const result = await db.pool.query(
@@ -41,10 +44,13 @@ exports.deleteSubject = async (req, res) => {
 
 exports.updateSubject = async (req, res) => {
   const { id } = req.params;
-  const { subject_name, description } = req.body;
+  let { subject_name, description } = req.body;
   if (!subject_name) {
     return res.status(400).json({ message: "විෂය නාමය අවශ්‍ය වේ." });
   }
+  subject_name = sanitizeText(subject_name, 100);
+  description = description ? sanitizeText(description, 500) : null;
+
   try {
     const result = await db.pool.query(
       'UPDATE Subjects SET subject_name = $1, description = $2 WHERE subject_id = $3 RETURNING *',

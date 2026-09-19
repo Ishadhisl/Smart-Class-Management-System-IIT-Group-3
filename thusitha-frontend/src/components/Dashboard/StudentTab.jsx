@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
-import { API_URL } from '../../services/api';
+import { getImageUrl } from '../../services/api';
 
 const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteClick, onEncode, onUploadPhoto, onDownloadIDCard, role }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -114,7 +114,7 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
               <td style={{ padding: '12px', textAlign: 'center' }}>
                 {student.hasPhoto ? (
                   <img
-                    src={`${API_URL}${student.photoPath.replace(/\\/g, '/').startsWith('/') ? '' : '/'}${student.photoPath.replace(/\\/g, '/')}`}
+                    src={getImageUrl(student.photoPath)}
                     alt={student.name}
                     style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #ddd', display: 'block', margin: '0 auto' }}
                   />

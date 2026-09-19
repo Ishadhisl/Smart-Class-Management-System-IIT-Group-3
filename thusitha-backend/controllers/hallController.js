@@ -1,5 +1,6 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
+const { sanitizeText } = require('../utils/validators');
 
 // Get all halls
 exports.getAllHalls = async (req, res) => {
@@ -13,7 +14,14 @@ exports.getAllHalls = async (req, res) => {
 };
 
 exports.createHall = async (req, res) => {
-  const { hall_name, capacity } = req.body;
+  let { hall_name } = req.body;
+  const { capacity } = req.body;
+
+  if (!hall_name || !capacity) {
+    return res.status(400).json({ error: 'ශාලාවේ නම සහ ධාරිතාව අනිවාර්ය වේ.' });
+  }
+  hall_name = sanitizeText(hall_name, 100);
+
   try {
     const result = await db.pool.query(
       'INSERT INTO Halls (hall_name, capacity) VALUES ($1, $2) RETURNING *',
@@ -37,7 +45,14 @@ exports.deleteHall = async (req, res) => {
 
 exports.updateHall = async (req, res) => {
   const { id } = req.params;
-  const { hall_name, capacity } = req.body;
+  let { hall_name } = req.body;
+  const { capacity } = req.body;
+
+  if (!hall_name || !capacity) {
+    return res.status(400).json({ message: 'ශාලාවේ නම සහ ධාරිතාව අනිවාර්ය වේ.' });
+  }
+  hall_name = sanitizeText(hall_name, 100);
+
   try {
     const result = await db.pool.query(
       'UPDATE Halls SET hall_name = $1, capacity = $2 WHERE hall_id = $3 RETURNING *',

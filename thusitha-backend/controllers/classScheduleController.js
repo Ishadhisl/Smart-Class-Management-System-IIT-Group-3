@@ -1,10 +1,12 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
 
-// Helper function to check for time conflicts
-const checkConflict = async (client, { hall_id, lecturer_id, day_of_week, start_time, end_time, exclude_schedule_id = null }) => {
+// Conflict = the SAME hall is already booked for an overlapping time slot on the same
+// day. (Deliberately hall-only — a teacher taking two overlapping classes in different
+// halls is allowed here; only the physical room can't be double-booked.)
+const checkConflict = async (client, { hall_id, day_of_week, start_time, end_time, exclude_schedule_id = null }) => {
   const conflictQuery = `
-    SELECT 
+    SELECT
       cs.schedule_id,
       c.course_name as class_name,
       h.hall_name,
@@ -13,19 +15,15 @@ const checkConflict = async (client, { hall_id, lecturer_id, day_of_week, start_
     LEFT JOIN Courses c ON cs.course_id = c.course_id
     LEFT JOIN Halls h ON cs.hall_id = h.hall_id
     LEFT JOIN Teachers l ON c.teacher_id = l.teacher_id
-    WHERE 
-      cs.day_of_week = $1 -- Check for overlapping days
-      AND (
-        (cs.start_time < $3 AND cs.end_time > $2) OR -- New schedule starts before existing ends and ends after existing starts
-        (cs.start_time >= $2 AND cs.start_time < $3) OR -- New schedule starts within existing
-        (cs.end_time > $2 AND cs.end_time <= $3) -- New schedule ends within existing
-      )
-      AND (cs.hall_id = $4 OR (c.teacher_id IS NOT NULL AND c.teacher_id = $5))
-      ${exclude_schedule_id ? 'AND cs.schedule_id != $6' : ''}
+    WHERE
+      cs.day_of_week = $1
+      AND cs.hall_id = $2
+      AND cs.start_time < $4 AND cs.end_time > $3  -- time ranges overlap
+      ${exclude_schedule_id ? 'AND cs.schedule_id != $5' : ''}
     LIMIT 1;
   `;
 
-  const params = [day_of_week, start_time, end_time, hall_id, lecturer_id];
+  const params = [day_of_week, hall_id, start_time, end_time];
   if (exclude_schedule_id) params.push(exclude_schedule_id);
   const conflictResult = await client.query(conflictQuery, params);
   return conflictResult.rows[0];
@@ -49,7 +47,7 @@ exports.createClassSchedule = async (req, res) => {
     const conflict = await checkConflict(client, { hall_id, lecturer_id, day_of_week: normalizedDay, start_time, end_time });
     if (conflict) {
       await client.query('ROLLBACK');
-      return res.status(409).json({ error: `කාලසටහන ගැටුමක් ඇත: ${conflict.class_name} (${conflict.lecturer_name} / ${conflict.hall_name})` });
+      return res.status(409).json({ error: `ශාලා ගැටුමක් ඇත: "${conflict.hall_name}" ශාලාව එම දිනයේ එම වේලාවට "${conflict.class_name}" පන්තිය සඳහා දැනටමත් වෙන් කර ඇත.` });
     }
 
     const query = `
@@ -148,7 +146,7 @@ exports.updateClassSchedule = async (req, res) => {
     const conflict = await checkConflict(client, { hall_id, lecturer_id, day_of_week: normalizedDay, start_time, end_time, exclude_schedule_id: id });
     if (conflict) {
       await client.query('ROLLBACK');
-      return res.status(409).json({ error: `කාලසටහන ගැටුමක් ඇත: ${conflict.class_name} (${conflict.lecturer_name} / ${conflict.hall_name})` });
+      return res.status(409).json({ error: `ශාලා ගැටුමක් ඇත: "${conflict.hall_name}" ශාලාව එම දිනයේ එම වේලාවට "${conflict.class_name}" පන්තිය සඳහා දැනටමත් වෙන් කර ඇත.` });
     }
 
     const query = `

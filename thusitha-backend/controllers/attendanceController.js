@@ -3,6 +3,7 @@ const path = require('node:path');
 const smsService = require('../utils/smsService');
 const auditService = require('../utils/auditService');
 const axios = require('axios'); // Added axios for microservice calls
+const { sanitizeText } = require('../utils/validators');
 
 /**
  * 💡 Helper: Executes the AI Python microservice via HTTP
@@ -29,8 +30,22 @@ async function runAIProcess(mode, inputData) {
 
 exports.runAIProcess = runAIProcess;
 
+// The AI microservice is optional infra (needs a >=2GB host + the dlib/torch stack).
+// When it's down, every CV endpoint should answer with a calm 503 the UI can show as
+// "AI unavailable" rather than a red 500.
+function isAIUnavailable(err) {
+  const m = String(err && err.message || '');
+  return m.includes('AI Microservice Error')
+    || m.includes('ECONNREFUSED')
+    || m.includes('not installed')
+    || m.includes('socket hang up')
+    || m.includes('timeout');
+}
+const AI_OFFLINE_MESSAGE = 'AI පද්ධතිය ක්‍රියාත්මක නොවේ (මෙම සේවාව සක්‍රිය කළ සේවාදායකයක් අවශ්‍යයි). කරුණාකර පසුව උත්සාහ කරන්න.';
+exports.isAIUnavailable = isAIUnavailable;
+
 /**
- * 🛡️ Industrial Logic: Handles QR code scanning and triggers automatic SMS.
+ * 🛡️ Industrial Logic: Handles QR code scanning and triggers an automatic WhatsApp message.
  */
 exports.markAttendanceByQR = async (req, res) => {
   const { qr_code_key, course_id } = req.body;
@@ -103,10 +118,10 @@ exports.markAttendanceByQR = async (req, res) => {
     const scannedAt = result.rows[0].scanned_at;
     const timeString = new Date(scannedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    // 5. ස්වයංක්‍රීයව SMS යැවීම
+    // 5. ස්වයංක්‍රීයව WhatsApp පණිවිඩය යැවීම
     await smsService.sendAttendanceSMS(student.student_id, courseName, timeString, attendanceStatus);
 
-    res.status(201).json({ message: `පැමිණීම (${attendanceStatus === 'Late' ? 'ප්‍රමාද' : 'පැමිණි'}) ලෙස සටහන් වූ අතර මව්පියන්ට SMS පණිවිඩයක් යවන ලදී.`, student_name: student.student_name });
+    res.status(201).json({ message: `පැමිණීම (${attendanceStatus === 'Late' ? 'ප්‍රමාද' : 'පැමිණි'}) ලෙස සටහන් වූ අතර මව්පියන්ට WhatsApp පණිවිඩයක් යවන ලදී.`, student_name: student.student_name });
   } catch (error) {
     console.error('❌ QR Attendance Error:', error.message);
     res.status(500).json({ error: 'පැමිණීම සටහන් කිරීම අසාර්ථකයි.' });
@@ -212,6 +227,9 @@ exports.validateAttendanceWithZones = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Zoned Attendance Error:', error.message);
+    if (isAIUnavailable(error)) {
+      return res.status(503).json({ error: AI_OFFLINE_MESSAGE, ai_offline: true });
+    }
     res.status(500).json({ error: 'කලාපීය පැමිණීම පරීක්ෂා කිරීම අසාර්ථකයි.' });
   }
 };
@@ -254,15 +272,17 @@ exports.getSuspiciousLogs = async (req, res) => {
  * 🛠️ Bulk resolves discrepancy logs (System Audit helper).
  */
 exports.bulkResolveLogs = async (req, res) => {
-  const { logIds, comment } = req.body;
+  const { logIds } = req.body;
+  let { comment } = req.body;
   if (!logIds || !Array.isArray(logIds) || logIds.length === 0) {
     return res.status(400).json({ message: "නිරාකරණය කිරීමට වාර්තා තෝරා නොමැත." });
   }
+  comment = comment ? sanitizeText(comment, 500) : 'Resolved via System Audit';
 
   try {
     await db.pool.query(
       "UPDATE Suspicious_Attendance_Logs SET status = 'Resolved', resolution_comment = $1 WHERE log_id = ANY($2)",
-      [comment || 'Resolved via System Audit', logIds]
+      [comment, logIds]
     );
     await auditService.logAction(req.user.userId, req.user.role, 'UPDATE', 'Suspicious_Log', null, `Bulk resolved ${logIds.length} logs.`);
     res.json({ message: `වාර්තා ${logIds.length} ක් සාර්ථකව නිරාකරණය කළා!` });
@@ -276,7 +296,8 @@ exports.bulkResolveLogs = async (req, res) => {
  */
 exports.resolveLog = async (req, res) => {
   const { logId } = req.params;
-  const { comment } = req.body;
+  let { comment } = req.body;
+  comment = comment ? sanitizeText(comment, 500) : null;
   try {
     await db.pool.query(
       "UPDATE Suspicious_Attendance_Logs SET status = 'Resolved', resolution_comment = $1 WHERE log_id = $2",
@@ -306,7 +327,7 @@ exports.getLibraryOccupancyStats = async (req, res) => {
 };
 
 /**
- * 🔔 Sends an SMS alert to parents when a face verification discrepancy is found.
+ * 🔔 Sends a WhatsApp alert to parents when a face verification discrepancy is found.
  */
 exports.sendDiscrepancyAlert = async (req, res) => {
   const { student_id, session_id } = req.body;
@@ -339,13 +360,13 @@ exports.sendDiscrepancyAlert = async (req, res) => {
 
     res.status(200).json({ message: "මව්පියන්ට සාර්ථකව දැනුම් දෙන ලදී." });
   } catch (error) {
-    console.error('❌ Discrepancy SMS Error:', error.message);
-    res.status(500).json({ error: 'SMS යැවීම අසාර්ථකයි.' });
+    console.error('❌ Discrepancy WhatsApp Error:', error.message);
+    res.status(500).json({ error: 'WhatsApp පණිවිඩය යැවීම අසාර්ථකයි.' });
   }
 };
 
 /**
- * 🔔 Sends bulk SMS alerts to parents when multiple discrepancies are found.
+ * 🔔 Sends bulk WhatsApp alerts to parents when multiple discrepancies are found.
  */
 exports.bulkSendDiscrepancyAlerts = async (req, res) => {
   const { student_ids, session_id } = req.body;
@@ -368,15 +389,15 @@ exports.bulkSendDiscrepancyAlerts = async (req, res) => {
 
     let sentCount = 0;
     for (const row of result.rows) {
-      // Note: In production, consider using a queue for massive numbers of SMS
+      // Note: In production, consider using a queue for massive numbers of WhatsApp messages
       await smsService.sendDiscrepancySMS(row.parent_phone, row.student_name, row.course_name);
       sentCount++;
     }
 
     res.status(200).json({ message: `${sentCount} දෙනෙකුගේ මව්පියන්ට සාර්ථකව දැනුම් දෙන ලදී.` });
   } catch (error) {
-    console.error('❌ Bulk Discrepancy SMS Error:', error.message);
-    res.status(500).json({ error: 'Bulk SMS යැවීම අසාර්ථකයි.' });
+    console.error('❌ Bulk Discrepancy WhatsApp Error:', error.message);
+    res.status(500).json({ error: 'Bulk WhatsApp පණිවිඩ යැවීම අසාර්ථකයි.' });
   }
 };
 
@@ -440,7 +461,7 @@ exports.getActiveCongestions = async (req, res) => {
 
 /**
  * 🔔 Hall Safety Drill Mode.
- * Sends a test SMS to all registered staff phone numbers.
+ * Sends a test WhatsApp message to all registered staff phone numbers.
  */
 exports.triggerSafetyDrill = async (req, res) => {
   try {
@@ -453,7 +474,7 @@ exports.triggerSafetyDrill = async (req, res) => {
       if (phone.trim()) await smsService.sendCustomSMS(phone.trim(), message);
     }
 
-    res.json({ message: "Safety Drill සාර්ථකව ආරම්භ කළා! සියලුම කාර්ය මණ්ඩලයට SMS පණිවිඩ යවන ලදී." });
+    res.json({ message: "Safety Drill සාර්ථකව ආරම්භ කළා! සියලුම කාර්ය මණ්ඩලයට WhatsApp පණිවිඩ යවන ලදී." });
   } catch (error) { res.status(500).json({ error: error.message }); }
 };
 
@@ -465,10 +486,10 @@ const handleOverCapacityHall = async (hall, tracker, thresholdMinutes, staffPhon
     // First time detecting over-capacity
     await db.pool.query('INSERT INTO Hall_Congestion_Tracker (hall_id, first_detected_at) VALUES ($1, NOW())', [hall.hall_id]);
   } else {
-    const { first_detected_at, sms_sent } = tracker.rows[0];
+    const { first_detected_at, alert_sent } = tracker.rows[0];
     const diffMinutes = (Date.now() - new Date(first_detected_at).getTime()) / (1000 * 60);
 
-    if (diffMinutes >= thresholdMinutes && !sms_sent) {
+    if (diffMinutes >= thresholdMinutes && !alert_sent) {
       await notifyStaffOfCongestion(hall, thresholdMinutes, staffPhones, first_detected_at);
     }
   }
@@ -478,7 +499,7 @@ const handleOverCapacityHall = async (hall, tracker, thresholdMinutes, staffPhon
  * Helper: Send congestion notifications to staff
  */
 const notifyStaffOfCongestion = async (hall, thresholdMinutes, staffPhones, firstDetectedAt) => {
-  console.log(`🚨 [Alert] Hall ${hall.hall_name} is congested! Sending SMS to staff.`);
+  console.log(`🚨 [Alert] Hall ${hall.hall_name} is congested! Sending WhatsApp alert to staff.`);
   
   const message = `🚨 CONGESTION ALERT: Hall ${hall.hall_name} has ${hall.current_count} students (Capacity: ${hall.capacity}). Over-capacity for ${thresholdMinutes}+ minutes.`;
   
@@ -491,7 +512,7 @@ const notifyStaffOfCongestion = async (hall, thresholdMinutes, staffPhones, firs
     [hall.hall_id, hall.current_count, hall.capacity, firstDetectedAt]
   );
   
-  await db.pool.query('UPDATE Hall_Congestion_Tracker SET sms_sent = TRUE, active_log_id = $1 WHERE hall_id = $2', [logRes.rows[0].log_id, hall.hall_id]);
+  await db.pool.query('UPDATE Hall_Congestion_Tracker SET alert_sent = TRUE, active_log_id = $1 WHERE hall_id = $2', [logRes.rows[0].log_id, hall.hall_id]);
 };
 
 /**
@@ -678,6 +699,9 @@ exports.checkCCTVOccupancy = async (req, res) => {
     res.status(200).json({ message: "CCTV Occupancy සාර්ථකයි", data: headcountResult });
   } catch (err) {
     console.error('❌ CCTV Occupancy Error:', err.message);
+    if (isAIUnavailable(err)) {
+      return res.status(503).json({ error: AI_OFFLINE_MESSAGE, ai_offline: true });
+    }
     res.status(500).json({ error: err.message });
   }
 };
@@ -746,12 +770,18 @@ exports.getMonthlyReports = async (req, res) => {
 /**
  * ✏️ Manual Attendance Correction
  */
+const ATTENDANCE_STATUSES = ['Present', 'Late'];
+
 exports.manualCorrection = async (req, res) => {
   const { logId } = req.params;
   const { attendance_status, reason } = req.body;
-  
-  if (!attendance_status) return res.status(400).json({ message: "attendance_status අවශ්‍ය වේ." });
-  
+
+  // Student_Attendance_Logs.attendance_status also has a DB-level CHECK constraint
+  // for this - this is just a friendlier 400 instead of a raw DB error.
+  if (!ATTENDANCE_STATUSES.includes(attendance_status)) {
+    return res.status(400).json({ message: `attendance_status must be one of: ${ATTENDANCE_STATUSES.join(', ')}` });
+  }
+
   try {
     await db.pool.query('UPDATE Student_Attendance_Logs SET attendance_status = $1 WHERE log_id = $2', [attendance_status, logId]);
     await auditService.logAction(req.user?.userId, req.user?.role, 'UPDATE', 'Attendance_Log', logId, `Manual correction to ${attendance_status}. Reason: ${reason || 'Not provided'}`);
@@ -967,6 +997,20 @@ exports.uploadCCTVFootage = async (req, res) => {
   }
 
   try {
+    // A Teacher may only run CCTV analysis for a class they have Admin-approved access to.
+    if (req.user.role === 'Teacher') {
+      const cctvAccess = require('./cctvAccessController');
+      const schedRes = await db.pool.query('SELECT course_id FROM Class_Schedules WHERE schedule_id = $1', [session_id]);
+      const cid = schedRes.rows[0]?.course_id;
+      const allowed = await cctvAccess.teacherHasApproval(req.user.userId, cid);
+      if (!allowed) {
+        return res.status(403).json({
+          error: 'මෙම පන්තියේ CCTV දර්ශන බැලීමට පරිපාලක අනුමැතිය අවශ්‍යයි. කරුණාකර පළමුව අවසර ඉල්ලන්න.',
+          needs_approval: true
+        });
+      }
+    }
+
     const filePath = `uploads/${req.file.filename}`;
     
     // Call FastAPI headcount
@@ -1104,6 +1148,11 @@ exports.uploadCCTVFootage = async (req, res) => {
       await db.pool.query(suspiciousQuery, [
         session_id, qrCount, totalAIHeadcount, JSON.stringify(zoneResults), JSON.stringify(unverifiedIds), JSON.stringify({ 'Uploaded Footage': filePath })
       ]);
+    } else {
+      // No mismatch means this footage is never referenced again (headcount is already
+      // computed and stored) — only mismatched footage needs to stick around for admin review.
+      const fs = require('node:fs');
+      fs.unlink(req.file.path, () => {});
     }
 
     res.status(200).json({
@@ -1124,6 +1173,9 @@ exports.uploadCCTVFootage = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Upload CCTV error:', error.message);
+    if (isAIUnavailable(error)) {
+      return res.status(503).json({ error: AI_OFFLINE_MESSAGE, ai_offline: true });
+    }
     res.status(500).json({ error: 'CCTV දර්ශන ගණනය කිරීම අසාර්ථකයි.' });
   }
 };
@@ -1277,6 +1329,9 @@ exports.verifyFace = async (req, res) => {
     console.error('❌ verifyFace error:', error.message);
     // Cleanup if exists
     try { if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath); } catch (e) {}
+    if (isAIUnavailable(error)) {
+      return res.status(503).json({ error: AI_OFFLINE_MESSAGE, ai_offline: true });
+    }
     res.status(500).json({ error: error.message });
   }
 };

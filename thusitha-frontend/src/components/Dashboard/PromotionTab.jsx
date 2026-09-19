@@ -86,14 +86,15 @@ const PromotionTab = ({ promos, onCreate, onUpdate, onDelete }) => {
           
           <div style={{ marginBottom: '20px', padding: '15px', border: '1px dashed #1a237e', borderRadius: '5px', backgroundColor: '#f8f9fa' }}>
             <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold', fontSize: '14px', color: '#333' }}>අන්තර්ගතය (Upload Content)</label>
-            <input 
-              key={editingPromoId || (file ? 'file-present' : 'file-empty')}
-              type="file" 
-              accept="image/png, image/jpeg, image/jpg" 
-              onChange={handleFileChange} 
-              style={{ width: '100%' }} 
-              required={!editingPromoId} 
+            <input
+              key={editingPromoId ? `edit-${editingPromoId}` : 'new'}
+              type="file"
+              accept="image/png, image/jpeg, image/jpg"
+              onChange={handleFileChange}
+              style={{ width: '100%' }}
+              required={!editingPromoId}
             />
+            {file && <div style={{ fontSize: '12px', color: '#2e7d32', marginTop: '6px' }}>✓ {file.name}</div>}
           </div>
 
           <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}>

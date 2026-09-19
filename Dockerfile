@@ -1,0 +1,66 @@
+# Single container running both the Node backend and the Python AI microservice,
+# because fastapi_service/main.py resolves image/video paths as
+# `../thusitha-backend/<path>` (relative filesystem traversal) — it assumes it's running
+# on the SAME machine/disk as thusitha-backend, not a separately-deployed service. See
+# deploy/DEPLOY.md §0 for the full explanation of why this can't be split into two
+# separate Render services without a code refactor.
+#
+# server.js's existing checkAndStartAIServer() already spawns `python fastapi_service/main.py`
+# as a child process when nothing is listening on :8000 (exactly like local dev) — this image
+# just makes sure both `node` and a working `python` (with all AI deps) exist in the same
+# container, so that mechanism works unmodified.
+
+FROM node:24-bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip python3-venv python3-dev git \
+    build-essential cmake libopenblas-dev liblapack-dev libx11-dev libgtk-3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# venv so `pip install` isn't blocked by Debian's system-package protection (PEP 668).
+# Prepending it to PATH means every later `python`/`pip` call - including the
+# `spawn('python', ...)` in server.js - resolves to this venv automatically.
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# dlib's cmake build defaults to one compile job per CPU core, and Render's build
+# machines expose more cores than they give RAM for - that combination OOM-killed the
+# build (8GB+ used). Capping it to 1 job trades build speed for staying under the limit.
+ENV CMAKE_BUILD_PARALLEL_LEVEL=1
+
+# --- Everything below this line depends only on fixed package names, not on any file in
+# --- the repo, and is deliberately kept ABOVE `COPY . .`. That's what lets Docker's layer
+# --- cache reuse this ~15-20 minute dlib/torch build across deploys - a change to any app
+# --- source file (which used to sit before these RUN steps) no longer invalidates them.
+
+# Core AI-service deps (small, always succeed). fastapi_service/main.py needs these to
+# even start.  Keep this list in sync with fastapi_service/requirements.txt.
+RUN pip install --no-cache-dir fastapi uvicorn opencv-python-headless numpy requests
+
+# Heavy CV deps (ultralytics/torch + face-recognition/dlib). dlib compiles from source
+# and can OOM on a constrained builder — if it fails we DON'T want the whole backend
+# deploy to fail, so this step is allowed to error. main.py already guards both imports
+# (HAS_FACE_REC / model is None) and degrades to a clear "AI unavailable" response.
+RUN pip install --no-cache-dir ultralytics face-recognition \
+    || echo "⚠️  AI CV deps failed to build — face recognition / headcount disabled, rest of the app is unaffected"
+
+# face_recognition_models (unmaintained since ~2017) still does
+# `from pkg_resources import resource_filename` in its __init__.py. ultralytics/torch's
+# dependency chain upgrades setuptools to a version that no longer bundles pkg_resources,
+# which makes face_recognition_models raise ModuleNotFoundError at import time - main.py
+# then reports "AI unavailable" even though every package "installed successfully". Pin
+# setuptools back down (last version confirmed to still ship pkg_resources) as the final
+# pip step so nothing installed above it can upgrade it away again.
+RUN pip install --no-cache-dir --force-reinstall "setuptools<81" \
+    || echo "⚠️  setuptools/pkg_resources pin failed — face recognition stays disabled"
+
+# --- Only from here on does anything depend on the actual app source, so only these last
+# --- two steps re-run on a typical code-only deploy.
+WORKDIR /app
+COPY . .
+
+RUN cd thusitha-backend && npm install --omit=dev
+
+WORKDIR /app/thusitha-backend
+EXPOSE 5000
+CMD ["node", "server.js"]

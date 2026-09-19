@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { request } from '../../services/api';
 import { useNotification } from '../../context/NotificationContext';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
 
 const MaterialTab = ({ courses }) => {
   const [selectedCourse, setSelectedCourse] = useState('');
-  const [embedUrl, setEmbedUrl] = useState('');
+  const [embedUrl, setEmbedUrl] = useState('');       // local (iframe) mode
+  const [openUrl, setOpenUrl] = useState('');          // hosted (new-tab) mode
+  const [ssoActive, setSsoActive] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [moodleDisabled, setMoodleDisabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const { showNotification } = useNotification();
 
@@ -16,49 +19,46 @@ const MaterialTab = ({ courses }) => {
   const isStudent = user?.role === 'Student';
 
   useEffect(() => {
-    // Each call below asks Moodle for a fresh single-use SSO login key. StrictMode (and any
-    // unrelated re-render that changes the `courses` reference) re-runs this effect, which
-    // would otherwise fire a second request and load a second iframe src for the same
-    // selection - two overlapping logins race on the same Moodle PHP session and it errors
-    // out ("session mutated after it was closed"). `ignore` discards any response that isn't
-    // from the most recent invocation, so only one embed URL is ever actually navigated to.
     let ignore = false;
 
-    const fetchEmbedUrl = async () => {
+    const fetchLink = async () => {
       if (!selectedCourse) {
-        setEmbedUrl('');
-        setLoadError('');
+        setEmbedUrl(''); setOpenUrl(''); setLoadError(''); setMoodleDisabled(false);
         return;
       }
-
       setLoading(true);
       setLoadError('');
+      setMoodleDisabled(false);
+      setEmbedUrl('');
+      setOpenUrl('');
       try {
         const courseName = courses.find(c => String(c.course_id) === String(selectedCourse))?.course_name || '';
         const data = await request(`/moodle-sso/embed-url?page=course&course_id=${selectedCourse}&course_name=${encodeURIComponent(courseName)}`);
         if (ignore) return;
-        if (data && data.embedUrl && typeof data.embedUrl === 'string' && data.embedUrl.startsWith('/')) {
+        if (data?.mode === 'newtab' && data.url) {
+          setOpenUrl(data.url);
+          setSsoActive(data.sso !== false);
+        } else if (data?.embedUrl && data.embedUrl.startsWith('/')) {
           setEmbedUrl(data.embedUrl);
         } else {
-          setEmbedUrl('');
           setLoadError('Moodle සම්බන්ධතාවය අසාර්ථක විය.');
           showNotification('Moodle සම්බන්ධතාවය අසාර්ථක විය.', 'error');
         }
       } catch (err) {
         if (ignore) return;
-        console.error('Failed to fetch Moodle embed URL:', err);
-        // Show the real reason instead of silently loading Moodle's generic Dashboard,
-        // which looks like a working page but isn't the course the user asked for.
         const msg = err.message || 'Moodle වෙත ප්‍රවේශ වීමේදී දෝෂයක් ඇති විය.';
-        setEmbedUrl('');
-        setLoadError(msg);
-        showNotification(msg, 'error');
+        if (msg.includes('සකසා නැත') || msg.includes('දේශීය install')) {
+          setMoodleDisabled(true);
+        } else {
+          setLoadError(msg);
+          showNotification(msg, 'error');
+        }
       } finally {
         if (!ignore) setLoading(false);
       }
     };
 
-    fetchEmbedUrl();
+    fetchLink();
     return () => { ignore = true; };
   }, [selectedCourse, showNotification, courses]);
 
@@ -72,11 +72,11 @@ const MaterialTab = ({ courses }) => {
 
         <div className="w-full md:w-72 mt-4 md:mt-0">
           <label htmlFor="course-select" className="block text-sm font-bold text-gray-700 mb-2">පන්තිය තෝරන්න (Select Class)</label>
-          <select 
-            id="course-select" 
+          <select
+            id="course-select"
             className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
-            value={selectedCourse} 
-            onChange={(e) => setSelectedCourse(e.target.value)} 
+            value={selectedCourse}
+            onChange={(e) => setSelectedCourse(e.target.value)}
           >
             <option value="">-- පන්තිය තෝරන්න --</option>
             {courses.map(c => <option key={c.course_id} value={c.course_id}>{c.course_name}</option>)}
@@ -85,7 +85,7 @@ const MaterialTab = ({ courses }) => {
       </div>
 
       <div className="flex-1 bg-gray-50 rounded-xl overflow-hidden border border-gray-200 relative flex items-center justify-center">
-        {!selectedCourse && (
+        {!selectedCourse && !moodleDisabled && (
           <div className="text-gray-400 flex flex-col items-center">
             <div className="text-6xl mb-4">📚</div>
             <p className="text-lg font-medium">ඉගෙනුම් ද්‍රව්‍ය බැලීම සඳහා පන්තියක් තෝරන්න</p>
@@ -106,6 +106,41 @@ const MaterialTab = ({ courses }) => {
           </div>
         )}
 
+        {moodleDisabled && (
+          <div className="text-center px-6 max-w-md">
+            <div className="text-6xl mb-4">🖥️</div>
+            <p className="text-lg font-semibold text-gray-700 mb-2">Moodle මොඩියුලය මෙම deployment එකේ සකසා නැත</p>
+            <p className="text-sm text-gray-500">
+              පරිපාලක <code>MOODLE_URL</code> සහ <code>MOODLE_TOKEN</code> environment variables සැකසූ පසු
+              මෙම විශේෂාංගය ක්‍රියාත්මක වේ. අනෙකුත් සියලු පද්ධති කොටස් සාමාන්‍ය පරිදි ක්‍රියා කරයි.
+            </p>
+          </div>
+        )}
+
+        {/* Hosted Moodle — open in a new tab */}
+        {selectedCourse && !loading && openUrl && (
+          <div className="text-center px-6 max-w-md">
+            <div className="text-6xl mb-4">🎓</div>
+            <p className="text-lg font-semibold text-gray-700 mb-3">
+              {courses.find(c => String(c.course_id) === String(selectedCourse))?.course_name}
+            </p>
+            <a
+              href={openUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold hover:opacity-90 transition-opacity"
+            >
+              <ExternalLink size={18} /> Moodle හි විවෘත කරන්න
+            </a>
+            <p className="text-xs text-gray-400 mt-3">
+              {ssoActive
+                ? 'නව tab එකක Moodle ස්වයංක්‍රීයව විවෘත වේ.'
+                : 'නව tab එකක Moodle විවෘත වේ — ඔබගේ Moodle username එය ඔබගේ පද්ධති username එකමයි.'}
+            </p>
+          </div>
+        )}
+
+        {/* Local Moodle — same-origin iframe */}
         {selectedCourse && embedUrl && (
           <iframe
             src={embedUrl}

@@ -20,6 +20,7 @@ import EnrollmentTab from '../../components/Dashboard/EnrollmentTab';
 import UserTab from '../../components/Dashboard/UserTab';
 import ApprovalTab from '../../components/Dashboard/ApprovalTab';
 import HomeTab from '../../components/Dashboard/HomeTab';
+import CctvAccessRequestsAdmin from '../../components/Dashboard/CctvAccessRequestsAdmin';
 import StudyAreaTab from '../../components/Dashboard/StudyAreaTab';
 import ExamTab from '../../components/Dashboard/ExamTab';
 import ContactTab from '../../components/Dashboard/ContactTab';
@@ -39,11 +40,14 @@ import AnnouncementTab from '../../components/Dashboard/Tabs/AnnouncementTab';
 import AchievementTab from '../../components/Dashboard/Tabs/AchievementTab';
 import QRAttendanceTab from '../../components/Dashboard/QRAttendanceTab';
 
-import { UserPlus, Settings2 } from 'lucide-react';
+import { UserPlus, Settings2, Menu } from 'lucide-react';
 import Modal from '../../components/common/Modal';
 import Input from '../../components/common/Input';
 import Label from '../../components/common/Label';
+import FormError from '../../components/common/FormError';
+import { filterNameInput, filterPhoneInput, filterWithFeedback, NAME_INVALID_MSG, PHONE_INVALID_MSG, validateName, validatePhone, validateRequired } from '../../utils/formValidation';
 import Button from '../../components/common/Button';
+import TodayAgendaModal from '../../components/Dashboard/TodayAgendaModal';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -52,6 +56,10 @@ const Dashboard = () => {
   const user = userData ? JSON.parse(userData) : null;
 
   const [activeTab, setActiveTab] = useState('home');
+  // Sidebar is a fixed rail on desktop but an off-canvas drawer on mobile (see Sidebar.jsx) -
+  // closed by default so it never covers the page on first load, opened via the hamburger
+  // button in the topbar, and closed again automatically once a tab is picked.
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
   const [realCourses, setRealCourses] = useState([]);
@@ -100,6 +108,7 @@ const Dashboard = () => {
   const [parentPhone, setParentPhone] = useState('');
   const [address, setAddress] = useState('');
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [studentFormErrors, setStudentFormErrors] = useState({});
 
   // Attendance States
   const [attendanceRecords, setAttendanceRecords] = useState({});
@@ -431,13 +440,25 @@ const Dashboard = () => {
   };
 
   // ශිෂ්‍යයින් සඳහා Modal Handler ටික
+  const validateStudentForm = () => {
+    const errors = {
+      studentId: validateRequired(studentId, 'ශිෂ්‍ය අංකය'),
+      name: validateName(name, { label: 'ශිෂ්‍යයාගේ නම' }),
+      parentName: parentName ? validateName(parentName, { required: false, label: 'මව්පියන්ගේ නම' }) : '',
+      parentPhone: validatePhone(parentPhone, { required: false }),
+    };
+    setStudentFormErrors(errors);
+    return Object.values(errors).every((msg) => !msg);
+  };
+
   const handleAddStudent = async (e) => {
     e.preventDefault();
+    if (!validateStudentForm()) return;
     setSubmitLoading(true);
     try {
       await studentService.createStudent({
         username: studentId,
-        password: 'Thusitha@123',
+        // no password -> backend applies the Student role default (Student@123)
         student_name: name,
         school: schoolName,
         grade: studentGrade,
@@ -456,6 +477,7 @@ const Dashboard = () => {
       setParentPhone('');
       setAddress('');
       setSelectedParent('');
+      setStudentFormErrors({});
       fetchDatabaseData();
       showNotification('ශිෂ්‍යයා සාර්ථකව ඇතුළත් කළා!');
     } catch (err) {
@@ -833,6 +855,14 @@ const Dashboard = () => {
     }
   };
 
+  // AI face-recognition service is offline (503) — not a user error, just unavailable
+  // on this host (e.g. Render free tier can't run the Python/dlib stack).
+  const isAiOfflineError = (err) =>
+    typeof err?.message === 'string' && err.message.includes('AI පද්ධතිය');
+
+  const notifyAiOffline = () =>
+    showNotification('AI මුහුණු හඳුනාගැනීමේ සේවාව මේ මොහොතේ නොමැත — local install එකකින් හෝ AI සේවාව සක්‍රිය කළ සේවාදායකයකින් උත්සාහ කරන්න.', 'info');
+
   // සියලුම සිසුන් Encode කිරීමේ Handler එක
   const handleBulkEncode = async () => {
     try {
@@ -840,6 +870,7 @@ const Dashboard = () => {
       showNotification(response.message);
       fetchDatabaseData();
     } catch (err) {
+      if (isAiOfflineError(err)) return notifyAiOffline();
       showNotification(err.message, 'error');
     }
   };
@@ -888,6 +919,7 @@ const Dashboard = () => {
       showNotification('ශිෂ්‍යයාගේ මුහුණේ දත්ත සාර්ථකව ගණනය කළා!');
       fetchDatabaseData();
     } catch (err) {
+      if (isAiOfflineError(err)) return notifyAiOffline();
       showNotification(err.message, 'error');
     }
   };
@@ -1219,44 +1251,58 @@ const Dashboard = () => {
       <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-secondary/5 rounded-full blur-[100px] pointer-events-none"></div>
 
+      <TodayAgendaModal />
+
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onLogout={handleLogout}
         role={user.role}
+        mobileOpen={mobileSidebarOpen}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
       />
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col overflow-y-auto relative z-10 custom-scrollbar">
+      <div className="flex-1 flex flex-col overflow-y-auto relative z-10 custom-scrollbar min-w-0">
         {/* Dynamic Topbar with Glassmorphism */}
         <motion.div
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          className="sticky top-0 z-30 h-20 bg-white/60 backdrop-blur-xl border-b border-white/50 flex items-center justify-between px-10 shadow-glass"
+          className="sticky top-0 z-20 h-16 md:h-20 bg-white/60 backdrop-blur-xl border-b border-white/50 flex items-center justify-between gap-3 px-4 md:px-10 shadow-glass"
         >
-          <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary-dark to-secondary-dark flex items-center gap-3 text-2xl tracking-tight">
-            {activeTab === 'home' && '📊 Dashboard Overview'}
-            {activeTab === 'students' && '🧑‍🎓 Student Management'}
-            {activeTab === 'classes' && '📚 Class & User Management'}
-            {activeTab === 'attendance' && '📝 Attendance Management'}
-            {activeTab === 'study_area' && '📖 Study Area Booking'}
-            {activeTab === 'exams' && '📝 Exams & Results'}
-            {activeTab === 'payments' && '💰 Payment Management'}
-            {activeTab === 'approvals' && '⏳ Student Approvals'}
-            {activeTab === 'ai_panel' && '🎥 AI නිරීක්ෂණය සහ පරීක්ෂාව'}
-          </span>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(true)}
+              aria-label="Open menu"
+              className="md:hidden shrink-0 p-2 -ml-1 rounded-xl text-primary-dark bg-white/80 shadow-glass border border-white/50"
+            >
+              <Menu size={20} />
+            </button>
+            <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary-dark to-secondary-dark flex items-center gap-2 md:gap-3 text-base md:text-2xl tracking-tight truncate">
+              {activeTab === 'home' && '📊 Dashboard Overview'}
+              {activeTab === 'students' && '🧑‍🎓 Student Management'}
+              {activeTab === 'classes' && '📚 Class & User Management'}
+              {activeTab === 'attendance' && '📝 Attendance Management'}
+              {activeTab === 'study_area' && '📖 Study Area Booking'}
+              {activeTab === 'exams' && '📝 Exams & Results'}
+              {activeTab === 'payments' && '💰 Payment Management'}
+              {activeTab === 'approvals' && '⏳ Student Approvals'}
+              {activeTab === 'ai_panel' && '🎥 AI නිරීක්ෂණය සහ පරීක්ෂාව'}
+            </span>
+          </div>
+          <div className="flex items-center gap-6 shrink-0">
             <motion.div
               whileHover={{ scale: 1.05 }}
-              className="text-sm text-gray-700 bg-white/80 backdrop-blur-md px-5 py-2.5 rounded-full shadow-glass border border-white/50 font-semibold flex items-center gap-2"
+              className="text-xs md:text-sm text-gray-700 bg-white/80 backdrop-blur-md px-3 md:px-5 py-1.5 md:py-2.5 rounded-full shadow-glass border border-white/50 font-semibold flex items-center gap-2"
             >
-              පරිශීලක: <span className="text-secondary font-bold bg-secondary/10 px-2 py-0.5 rounded-md">{user.username}</span>
+              <span className="hidden sm:inline">පරිශීලක:</span> <span className="text-secondary font-bold bg-secondary/10 px-2 py-0.5 rounded-md">{user.username}</span>
             </motion.div>
           </div>
         </motion.div>
 
-        <div className="p-10 flex-1 w-full max-w-7xl mx-auto relative z-0">
+        <div className="p-4 sm:p-6 md:p-10 flex-1 w-full max-w-7xl mx-auto relative z-0">
           {error && (
             <motion.div initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="text-rose-700 bg-rose-50/80 backdrop-blur-md p-5 rounded-2xl mb-8 shadow-glass border border-rose-200 flex items-center gap-3 font-bold text-lg">
               ⚠️ {error}
@@ -1318,6 +1364,8 @@ const Dashboard = () => {
                 }
 
                 return (
+                  <>
+                  {isAdmin && <CctvAccessRequestsAdmin />}
                   <HomeTab
                     username={user.username}
                     role={user.role}
@@ -1329,6 +1377,7 @@ const Dashboard = () => {
                     attendanceData={attendanceStats}
                     profilePhotoPath={profilePhotoPath}
                   />
+                  </>
                 );
               })()}
 
@@ -1515,6 +1564,7 @@ const Dashboard = () => {
                   <SmartAttendanceLivePanel
                     halls={halls}
                     activeSessions={classSchedules}
+                    role={user.role}
                   />
                 </div>
               )}
@@ -1558,39 +1608,78 @@ const Dashboard = () => {
       </div>
 
       {/* ADD STUDENT MODAL */}
-      <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="අලුත් ශිෂ්‍යයෙක් ඇතුළත් කිරීම" maxWidth="max-w-md">
+      <Modal open={showAddModal} onClose={() => { setShowAddModal(false); setStudentFormErrors({}); }} title="අලුත් ශිෂ්‍යයෙක් ඇතුළත් කිරීම" maxWidth="max-w-md">
         <form onSubmit={handleAddStudent}>
           <div className="mb-4">
-            <Label htmlFor="modal-student-id">ශිෂ්‍ය අංකය (Student ID / Username)</Label>
-            <Input id="modal-student-id" type="text" placeholder="ST001" value={studentId} onChange={(e) => setStudentId(e.target.value)} required />
-            <small className="text-slate-400 text-[11px] block mt-1.5">මෙය Login Username ලෙසත් QR Code Key ලෙසත් භාවිතා වේ. Default Password: Thusitha@123</small>
+            <Label htmlFor="modal-student-id">ශිෂ්‍ය අංකය (Student ID / Username) *</Label>
+            <Input id="modal-student-id" type="text" placeholder="ST001" value={studentId}
+              required maxLength={20} pattern="[A-Za-z0-9._-]+" title="අකුරු, ඉලක්කම්, . _ - විතරක් යොදන්න"
+              invalid={!!studentFormErrors.studentId}
+              onChange={(e) => {
+                setStudentId(e.target.value);
+                if (studentFormErrors.studentId) setStudentFormErrors({ ...studentFormErrors, studentId: validateRequired(e.target.value, 'ශිෂ්‍ය අංකය') });
+              }}
+              onBlur={(e) => setStudentFormErrors({ ...studentFormErrors, studentId: validateRequired(e.target.value, 'ශිෂ්‍ය අංකය') })}
+            />
+            <FormError>{studentFormErrors.studentId}</FormError>
+            <small className="text-slate-400 text-[11px] block mt-1.5">මෙය Login Username ලෙසත් QR Code Key ලෙසත් භාවිතා වේ. Default Password: <b>Student@123</b></small>
           </div>
           <div className="mb-4">
-            <Label htmlFor="modal-student-name">ශිෂ්‍යයාගේ නම</Label>
-            <Input id="modal-student-name" type="text" placeholder="Dilini Kawshalya" value={name} onChange={(e) => setName(e.target.value)} required />
+            <Label htmlFor="modal-student-name">ශිෂ්‍යයාගේ නම *</Label>
+            <Input id="modal-student-name" type="text" placeholder="Dilini Kawshalya" value={name}
+              required maxLength={150}
+              invalid={!!studentFormErrors.name}
+              onChange={(e) => {
+                const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterNameInput);
+                setName(filtered);
+                setStudentFormErrors({ ...studentFormErrors, name: invalidAttempt ? NAME_INVALID_MSG : (studentFormErrors.name ? validateName(filtered, { label: 'ශිෂ්‍යයාගේ නම' }) : '') });
+              }}
+              onBlur={(e) => setStudentFormErrors({ ...studentFormErrors, name: validateName(e.target.value, { label: 'ශිෂ්‍යයාගේ නම' }) })}
+            />
+            <FormError>{studentFormErrors.name}</FormError>
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-student-school">පාසල</Label>
-            <Input id="modal-student-school" type="text" placeholder="Ananda College, Colombo" value={schoolName} onChange={(e) => setSchoolName(e.target.value)} />
+            <Input id="modal-student-school" type="text" placeholder="Ananda College, Colombo" value={schoolName} onChange={(e) => setSchoolName(e.target.value)} maxLength={150} />
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-student-grade">ශ්‍රේණිය</Label>
-            <Input id="modal-student-grade" type="text" placeholder="Grade 12" value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)} />
+            <Input id="modal-student-grade" type="text" placeholder="Grade 12" value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)} maxLength={30} />
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-parent-name">මව්පියන්ගේ නම</Label>
-            <Input id="modal-parent-name" type="text" placeholder="Parent Name" value={parentName} onChange={(e) => setParentName(e.target.value)} />
+            <Input id="modal-parent-name" type="text" placeholder="Parent Name" value={parentName}
+              maxLength={150}
+              invalid={!!studentFormErrors.parentName}
+              onChange={(e) => {
+                const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterNameInput);
+                setParentName(filtered);
+                setStudentFormErrors({ ...studentFormErrors, parentName: invalidAttempt ? NAME_INVALID_MSG : (studentFormErrors.parentName ? validateName(filtered, { required: false, label: 'මව්පියන්ගේ නම' }) : '') });
+              }}
+              onBlur={(e) => setStudentFormErrors({ ...studentFormErrors, parentName: validateName(e.target.value, { required: false, label: 'මව්පියන්ගේ නම' }) })}
+            />
+            <FormError>{studentFormErrors.parentName}</FormError>
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-parent-phone">මව්පියන්ගේ දුරකථන අංකය</Label>
-            <Input id="modal-parent-phone" type="text" placeholder="0712345678" value={parentPhone} onChange={(e) => setParentPhone(e.target.value)} />
+            <Input id="modal-parent-phone" type="tel" placeholder="0712345678" value={parentPhone}
+              pattern="(?:\+94|0)7[0-9]{8}" title="උදා: 0712345678 හෝ +94712345678"
+              invalid={!!studentFormErrors.parentPhone}
+              onChange={(e) => {
+                const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterPhoneInput);
+                setParentPhone(filtered);
+                setStudentFormErrors({ ...studentFormErrors, parentPhone: invalidAttempt ? PHONE_INVALID_MSG : (studentFormErrors.parentPhone ? validatePhone(filtered, { required: false }) : '') });
+              }}
+              onBlur={(e) => setStudentFormErrors({ ...studentFormErrors, parentPhone: validatePhone(e.target.value, { required: false }) })}
+            />
+            <FormError>{studentFormErrors.parentPhone}</FormError>
           </div>
           <div className="mb-6">
             <Label htmlFor="modal-student-address">ලිපිනය</Label>
-            <Input id="modal-student-address" type="text" placeholder="129/14 Temple road, Colombo" value={address} onChange={(e) => setAddress(e.target.value)} />
+            <Input id="modal-student-address" type="text" placeholder="129/14 Temple road, Colombo" value={address} onChange={(e) => setAddress(e.target.value)} maxLength={300} />
           </div>
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>අවලංගු කරන්න</Button>
+            <Button type="button" variant="outline" onClick={() => { setShowAddModal(false); setStudentFormErrors({}); }}>අවලංගු කරන්න</Button>
             <Button type="submit" variant="primary" loading={submitLoading} icon={<UserPlus size={16} />}>
               {submitLoading ? 'සුරකිමින්...' : 'සුරකින්න'}
             </Button>

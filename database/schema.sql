@@ -1,5 +1,3 @@
-/*
-
 -- Smart Class Management System - Complete Database Schema
 -- Database: thusithaedu_db
 -- User: smartclass
@@ -10,6 +8,8 @@ CREATE TABLE IF NOT EXISTS Users (
     username VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL CHECK (role IN ('Admin', 'Teacher', 'Counter Person', 'Parent', 'Student')),
+    failed_login_attempts INT NOT NULL DEFAULT 0,
+    locked_until TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -190,13 +190,25 @@ CREATE TABLE IF NOT EXISTS Exam_Results (
 );
 
 -- 8. Communication & Logs
-CREATE TABLE IF NOT EXISTS SMS_Logs (
+-- Named WhatsApp_Logs (not SMS_Logs) because the app only ever sends over WhatsApp
+-- (see utils/whatsappService.js) - SMS/Twilio was evaluated early on and dropped for cost,
+-- but the table kept the old name until this was renamed. whatsapp_status/channel/
+-- parent_name are columns smsService.js's INSERT always listed, but the live SMS_Logs
+-- table never actually had them - every log write silently failed (caught by its own
+-- try/catch) while the WhatsApp send itself still went through, which is how this went
+-- unnoticed until the rename migration surfaced it. Listed here so a fresh database gets
+-- the right shape from the start; migration_rename_sms_to_whatsapp.sql ADD COLUMNs them
+-- onto the live DB's recovered table.
+CREATE TABLE IF NOT EXISTS WhatsApp_Logs (
     log_id SERIAL PRIMARY KEY,
     parent_id INT REFERENCES Parents(parent_id) ON DELETE SET NULL,
     parent_phone VARCHAR(20) NOT NULL,
-    sms_type VARCHAR(50),
+    message_type VARCHAR(50),
     message_body TEXT,
     status VARCHAR(50),
+    whatsapp_status VARCHAR(50),
+    channel VARCHAR(20) DEFAULT 'WhatsApp',
+    parent_name VARCHAR(255),
     sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -245,7 +257,7 @@ CREATE TABLE IF NOT EXISTS AuditLogs (
 CREATE TABLE IF NOT EXISTS Hall_Congestion_Tracker (
     hall_id INT PRIMARY KEY REFERENCES Halls(hall_id) ON DELETE CASCADE,
     first_detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    sms_sent BOOLEAN DEFAULT FALSE,
+    alert_sent BOOLEAN DEFAULT FALSE,
     active_log_id INT
 );
 
@@ -300,7 +312,19 @@ CREATE TABLE IF NOT EXISTS Student_Achievements (
     title VARCHAR(255) NOT NULL,
     description TEXT,
     island_rank INT,
-    achieved_year INT NOT NULL,
+    achieved_year INT,
+    image_url TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-*/
+
+-- 12. Password Reset OTP (used by authController forgotPassword/verifyOtp/resetWithOtp)
+CREATE TABLE IF NOT EXISTS OTP_Store (
+    otp_id SERIAL PRIMARY KEY,
+    username VARCHAR(255) NOT NULL,
+    otp_code VARCHAR(10) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_otp_username ON OTP_Store(username);

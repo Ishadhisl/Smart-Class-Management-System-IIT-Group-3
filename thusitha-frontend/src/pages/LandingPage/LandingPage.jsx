@@ -17,6 +17,8 @@ import Select from '../../components/common/Select';
 import Textarea from '../../components/common/Textarea';
 import Modal from '../../components/common/Modal';
 import Avatar from '../../components/common/Avatar';
+import FormError from '../../components/common/FormError';
+import { filterNameInput, filterPhoneInput, filterWithFeedback, NAME_INVALID_MSG, PHONE_INVALID_MSG, validateName, validateEmail, validatePhone, validateRequired } from '../../utils/formValidation';
 
 const FEATURES = [
   { icon: QrCode, title: 'Smart QR Attendance', desc: 'ආරක්ෂිත සහ වේගවත් QR පැමිණීමේ පද්ධතිය සමඟ සිසුන්ගේ පැමිණීම නිරීක්ෂණය කරන්න.' },
@@ -110,15 +112,29 @@ const LandingPage = () => {
   });
   const [contactStatus, setContactStatus] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
   const [contactError, setContactError] = useState('');
+  const [contactFieldErrors, setContactFieldErrors] = useState({});
+
+  const validateContactForm = () => {
+    const errors = {
+      sender_name: validateName(contactForm.sender_name, { label: 'නම' }),
+      sender_email: validateEmail(contactForm.sender_email),
+      sender_phone: validatePhone(contactForm.sender_phone, { required: false }),
+      message_text: validateRequired(contactForm.message_text, 'පණිවිඩය'),
+    };
+    setContactFieldErrors(errors);
+    return Object.values(errors).every((msg) => !msg);
+  };
 
   const handleContactSubmit = async (e) => {
     e.preventDefault();
+    if (!validateContactForm()) return;
     setContactStatus('loading');
     setContactError('');
     try {
       await request('/contact/submit', { body: contactForm });
       setContactStatus('success');
       setContactForm({ sender_name: '', sender_email: '', sender_phone: '', subject: '', message_text: '' });
+      setContactFieldErrors({});
     } catch (err) {
       setContactStatus('error');
       setContactError(err.message || 'පණිවිඩය යැවීමට නොහැකි විය. නැවත උත්සාහ කරන්න.');
@@ -129,6 +145,7 @@ const LandingPage = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [achievements, setAchievements] = useState([]);
   const [promoLoading, setPromoLoading] = useState(true);
+  const [brokenPromoIds, setBrokenPromoIds] = useState([]);
 
   // ගුරු මඩුල්ලේ විස්තර (Mock data - පසුව Backend එකෙන් ලබාගත හැක)
   const [currentLecturer, setCurrentLecturer] = useState(0);
@@ -184,11 +201,16 @@ const LandingPage = () => {
           };
           
           const getTeacherPhoto = (name, dbPath) => {
+            // A real uploaded photo always wins - the name-keyed map below is only a
+            // fallback for demo/seed teachers with no photo of their own. Without this
+            // priority, a substring match (e.g. "Sandaruwan" containing "ruwan") could
+            // silently swap in a *different* teacher's placeholder portrait.
+            if (dbPath) return getImageUrl(dbPath);
             const nameLower = name?.toLowerCase() || '';
             for (const [key, path] of Object.entries(teacherPhotoMap)) {
               if (nameLower.includes(key)) return path;
             }
-            return dbPath ? getImageUrl(dbPath) : "/Project%20LOGO.png";
+            return "/Project%20LOGO.png";
           };
 
           // Deduplicate by name
@@ -214,24 +236,6 @@ const LandingPage = () => {
   const currentTeacher = lecturersList[currentLecturer];
   const isTeacherPlaceholder = currentTeacher.image.includes('Project%20LOGO.png');
 
-  // Static flyers to show alongside backend promotions
-  const staticFlyers = [
-    {
-      promo_id: 'static-flyer-1',
-      title: '2025 New Intake — Science Classes',
-      description: 'Edexcel, Cambridge සහ National විෂය නිර්දේශය සඳහා විද්‍යා පන්ති.',
-      content_type: 'Flyer',
-      image_url: '/flyers/flyer1.webp'
-    },
-    {
-      promo_id: 'static-flyer-2',
-      title: 'Advanced Level Media 2028 — ශානිකා මදුමාලි',
-      description: 'BA.Hons Kelaniya (P.G.D) Dip EDU — නිසක්මා කුරුණෑගල.',
-      content_type: 'Flyer',
-      image_url: '/flyers/flyer2.png'
-    }
-  ];
-
   // Map student names to their photos for achievements
   const achieverPhotoMap = {
     'Peshala Bandara': '/achievers/peshala.jpg',
@@ -250,13 +254,13 @@ const LandingPage = () => {
     return null;
   };
 
-  // Combine backend promotions (filtered strictly for valid images and removing known broken ones) with static flyers
-  const allPromotions = [...promotions.filter(p => {
-    if (!p.image_url || p.image_url.trim() === '' || p.image_url === 'null' || p.image_url === 'undefined') return false;
-    const titleLower = p.title?.toLowerCase() || '';
-    if (titleLower.includes('2026 a/l new intake') || titleLower.includes('a/l media')) return false;
-    return true;
-  }), ...staticFlyers];
+  // Promotions come purely from the database (Admin → ප්‍රවර්ධන tab). Only skip rows
+  // with no usable image. A card whose image later 404s hides itself via onError below.
+  const allPromotions = promotions.filter(p => {
+    const u = (p.image_url || '').trim();
+    if (u === '' || u === 'null' || u === 'undefined') return false;
+    return !brokenPromoIds.includes(p.promo_id);
+  });
 
   return (
     <div className="text-slate-700 bg-white min-h-screen w-full overflow-x-hidden">
@@ -488,7 +492,10 @@ const LandingPage = () => {
         {!promoLoading && (
           <div className="grid gap-7 justify-center" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 350px), 1fr))' }}>
             {allPromotions.map((promo) => {
-              const imgSrc = promo.image_url?.startsWith('/') ? promo.image_url : getImageUrl(promo.image_url);
+              // Always route through getImageUrl: a stored "/uploads/x.png" is a path on the
+              // BACKEND, not this Vercel origin — the old startsWith('/') shortcut sent it to
+              // the wrong host and every card 404'd.
+              const imgSrc = getImageUrl(promo.image_url);
               return (
                 <motion.button
                   key={promo.promo_id}
@@ -503,6 +510,7 @@ const LandingPage = () => {
                         src={imgSrc}
                         alt={promo.title}
                         loading="lazy"
+                        onError={() => setBrokenPromoIds((ids) => ids.includes(promo.promo_id) ? ids : [...ids, promo.promo_id])}
                         className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105 bg-indigo-50"
                       />
                       <div className="absolute bottom-3 right-3 bg-black/60 text-white px-2.5 py-1 rounded-full text-[11px] flex items-center gap-1 font-bold">
@@ -694,18 +702,31 @@ const LandingPage = () => {
                     <div className="flex-1 min-w-[200px]">
                       <Label htmlFor="contact_sender_name">ඔබේ නම *</Label>
                       <Input
-                        id="contact_sender_name" type="text" placeholder="නම ඇතුළත් කරන්න" required
+                        id="contact_sender_name" type="text" placeholder="නම ඇතුළත් කරන්න" required maxLength={100}
+                        invalid={!!contactFieldErrors.sender_name}
                         value={contactForm.sender_name}
-                        onChange={e => setContactForm({ ...contactForm, sender_name: e.target.value })}
+                        onChange={e => {
+                          const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterNameInput);
+                          setContactForm({ ...contactForm, sender_name: filtered });
+                          setContactFieldErrors({ ...contactFieldErrors, sender_name: invalidAttempt ? NAME_INVALID_MSG : (contactFieldErrors.sender_name ? validateName(filtered, { label: 'නම' }) : '') });
+                        }}
+                        onBlur={e => setContactFieldErrors({ ...contactFieldErrors, sender_name: validateName(e.target.value, { label: 'නම' }) })}
                       />
+                      <FormError>{contactFieldErrors.sender_name}</FormError>
                     </div>
                     <div className="flex-1 min-w-[200px]">
                       <Label htmlFor="contact_sender_email">ඊමේල් ලිපිනය *</Label>
                       <Input
-                        id="contact_sender_email" type="email" placeholder="email@example.com" required
+                        id="contact_sender_email" type="email" placeholder="email@example.com" required maxLength={150}
+                        invalid={!!contactFieldErrors.sender_email}
                         value={contactForm.sender_email}
-                        onChange={e => setContactForm({ ...contactForm, sender_email: e.target.value })}
+                        onChange={e => {
+                          setContactForm({ ...contactForm, sender_email: e.target.value });
+                          if (contactFieldErrors.sender_email) setContactFieldErrors({ ...contactFieldErrors, sender_email: validateEmail(e.target.value) });
+                        }}
+                        onBlur={e => setContactFieldErrors({ ...contactFieldErrors, sender_email: validateEmail(e.target.value) })}
                       />
+                      <FormError>{contactFieldErrors.sender_email}</FormError>
                     </div>
                   </div>
 
@@ -713,15 +734,22 @@ const LandingPage = () => {
                     <div className="flex-1 min-w-[200px]">
                       <Label htmlFor="contact_sender_phone">දුරකථන අංකය</Label>
                       <Input
-                        id="contact_sender_phone" type="tel" placeholder="07X-XXXXXXX"
+                        id="contact_sender_phone" type="tel" placeholder="07XXXXXXXX" maxLength={13}
+                        invalid={!!contactFieldErrors.sender_phone}
                         value={contactForm.sender_phone}
-                        onChange={e => setContactForm({ ...contactForm, sender_phone: e.target.value })}
+                        onChange={e => {
+                          const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterPhoneInput);
+                          setContactForm({ ...contactForm, sender_phone: filtered });
+                          setContactFieldErrors({ ...contactFieldErrors, sender_phone: invalidAttempt ? PHONE_INVALID_MSG : (contactFieldErrors.sender_phone ? validatePhone(filtered, { required: false }) : '') });
+                        }}
+                        onBlur={e => setContactFieldErrors({ ...contactFieldErrors, sender_phone: validatePhone(e.target.value, { required: false }) })}
                       />
+                      <FormError>{contactFieldErrors.sender_phone}</FormError>
                     </div>
                     <div className="flex-1 min-w-[200px]">
                       <Label htmlFor="contact_subject">විෂය/මාතෘකාව</Label>
                       <Input
-                        id="contact_subject" type="text" placeholder="eg: ගාස්තු විමසීම"
+                        id="contact_subject" type="text" placeholder="eg: ගාස්තු විමසීම" maxLength={150}
                         value={contactForm.subject}
                         onChange={e => setContactForm({ ...contactForm, subject: e.target.value })}
                       />
@@ -731,10 +759,16 @@ const LandingPage = () => {
                   <div className="mb-6">
                     <Label htmlFor="contact_message">ඔබේ පණිවිඩය *</Label>
                     <Textarea
-                      id="contact_message" required rows={5} placeholder="ඔබේ ප්‍රශ්නය හෝ විමසීම මෙහි ලියන්න..."
+                      id="contact_message" required rows={5} maxLength={2000} placeholder="ඔබේ ප්‍රශ්නය හෝ විමසීම මෙහි ලියන්න..."
+                      invalid={!!contactFieldErrors.message_text}
                       value={contactForm.message_text}
-                      onChange={e => setContactForm({ ...contactForm, message_text: e.target.value })}
+                      onChange={e => {
+                        setContactForm({ ...contactForm, message_text: e.target.value });
+                        if (contactFieldErrors.message_text) setContactFieldErrors({ ...contactFieldErrors, message_text: validateRequired(e.target.value, 'පණිවිඩය') });
+                      }}
+                      onBlur={e => setContactFieldErrors({ ...contactFieldErrors, message_text: validateRequired(e.target.value, 'පණිවිඩය') })}
                     />
+                    <FormError>{contactFieldErrors.message_text}</FormError>
                   </div>
 
                   <Button type="submit" variant="primary" size="lg" fullWidth loading={contactStatus === 'loading'} icon={<Send size={18} />}>

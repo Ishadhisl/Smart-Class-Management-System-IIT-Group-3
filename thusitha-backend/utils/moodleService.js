@@ -6,6 +6,20 @@ class MoodleService {
     this.token = process.env.MOODLE_TOKEN || 'DUMMY_TOKEN_FOR_DEV';
   }
 
+  // The site root, derived from MOODLE_URL. e.g.
+  //   https://scms.moodlecloud.com/webservice/rest/server.php -> https://scms.moodlecloud.com
+  //   http://localhost/moodle/webservice/rest/server.php       -> http://localhost/moodle
+  getBaseUrl() {
+    return this.moodleUrl.replace(/\/webservice\/rest\/server\.php.*$/i, '').replace(/\/+$/, '');
+  }
+
+  // True for a real hosted Moodle (MoodleCloud / a deployed instance) as opposed to the
+  // local XAMPP one the iframe-embed + Vite proxy was built for.
+  isHosted() {
+    const b = this.getBaseUrl();
+    return !!b && !b.includes('localhost') && !b.includes('127.0.0.1');
+  }
+
   async makeRequest(functionName, params = {}) {
     try {
       const urlParams = new URLSearchParams({
@@ -154,6 +168,27 @@ class MoodleService {
     } catch (err) {
       console.error('Error fetching user by username from Moodle:', err.message);
       return null;
+    }
+  }
+
+  // Assignment/Quiz due dates the teacher set up directly in Moodle - these are never
+  // pushed into SCMS's own DB, so the only way to show them (e.g. in a "today's agenda"
+  // popup) is to ask Moodle for that user's action events (its own due-date calendar feed)
+  // for a time window. Requires 'core_calendar_get_action_events_by_timesort' to be added
+  // to the SCMS external service's function list in Moodle admin.
+  async getActionEventsForUser(moodleUserId, timesortfrom, timesortto) {
+    try {
+      const params = {
+        userid: moodleUserId,
+        timesortfrom,
+        timesortto,
+        limitnum: 20,
+      };
+      const response = await this.makeRequest('core_calendar_get_action_events_by_timesort', params);
+      return (response && Array.isArray(response.events)) ? response.events : [];
+    } catch (err) {
+      console.error(`❌ [Moodle] getActionEventsForUser(${moodleUserId}) failed:`, err.message);
+      return [];
     }
   }
 
