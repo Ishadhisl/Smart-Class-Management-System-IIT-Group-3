@@ -1232,13 +1232,14 @@ exports.verifyFace = async (req, res) => {
 
     const registeredEncoding = typeof student.face_encoding === 'string' ? JSON.parse(student.face_encoding) : student.face_encoding;
 
-    // Calculate Euclidean distance
+    // Calculate Euclidean distance (dynamically handles 128-d or 512-d feature vectors)
     let sum = 0;
-    for (let i = 0; i < 128; i++) {
+    const len = Math.min(registeredEncoding.length, webcamEncoding.length);
+    for (let i = 0; i < len; i++) {
       sum += Math.pow(registeredEncoding[i] - webcamEncoding[i], 2);
     }
     const distance = Math.sqrt(sum);
-    console.log(`DEBUG Face Compare student ${student_id}: distance = ${distance}`);
+    console.log(`DEBUG Face Compare student ${student_id}: distance = ${distance} (dim: ${len})`);
 
     // If distance < 0.55, it is verified (0.6 is official recommended, 0.55 is slightly stricter for security)
     if (distance < 0.55) {
