@@ -10,6 +10,10 @@ const NAME_CHAR_RE = /^[A-Za-z඀-෿\s.'-]*$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Sri Lankan mobile: 07XXXXXXXX or +947XXXXXXXX
 const SL_PHONE_RE = /^(?:\+94|0)7\d{8}$/;
+// Subject: No numbers allowed, only letters and spaces (Latin + Sinhala)
+const SUBJECT_RE = /^[A-Za-z඀-෿\s]+$/;
+// Password: At least 8 chars, 1 letter, 1 number, 1 symbol
+const PASSWORD_RE = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&.])[A-Za-z\d@$!%*#?&.]{8,}$/;
 
 // --- As-you-type filters: strip characters that could never be valid for the field,
 // so the user simply can't type "hththtjjjjtjutjuut" into a phone box in the first place.
@@ -52,4 +56,19 @@ export function validatePhone(value, { required = false } = {}) {
 
 export function validateRequired(value, label) {
   return (value || '').toString().trim() ? '' : `${label} අනිවාර්ය වේ.`;
+}
+
+export function validatePassword(value, { required = true } = {}) {
+  const v = (value || '');
+  if (!v) return required ? 'මුරපදය අනිවාර්ය වේ.' : '';
+  if (v.length < 8) return 'මුරපදය අකුරු 8 කට වඩා දිග විය යුතුයි.';
+  if (!PASSWORD_RE.test(v)) return 'මුරපදයේ අවම වශයෙන් එක් අකුරක්, එක් ඉලක්කමක් සහ එක් විශේෂ සංකේතයක් (@$!%*#?&.) අඩංගු විය යුතුයි.';
+  return '';
+}
+
+export function validateSubject(value, { required = true, label = 'විෂය' } = {}) {
+  const v = (value || '').trim();
+  if (!v) return required ? `${label} අනිවාර්ය වේ.` : '';
+  if (!SUBJECT_RE.test(v)) return `${label} සඳහා අංක යෙදිය නොහැක, අකුරු පමණක් භාවිතා කරන්න.`;
+  return '';
 }

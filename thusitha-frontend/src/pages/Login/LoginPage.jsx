@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeOff, Clock, ArrowLeft, LogIn, KeyRound, ShieldCheck, BookOpen, GraduationCap, Atom, Calculator, PenTool } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
 import { useNotification } from '../../context/NotificationContext';
 import { authService } from '../../services/authService';
@@ -11,6 +10,7 @@ import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import Label from '../../components/common/Label';
 import FormError from '../../components/common/FormError';
+import { validatePassword } from '../../utils/formValidation';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -65,7 +65,11 @@ const LoginPage = () => {
         navigate(returnPath || '/dashboard');
       }
     } catch (err) {
-      showNotification(err.message || 'සම්බන්ධතාවයේ දෝෂයකි.', 'error');
+      if (err.message.includes('අගුලු දමා ඇත')) {
+        showNotification(`🚫 ${err.message}`, 'error');
+      } else {
+        showNotification(err.message || 'සම්බන්ධතාවයේ දෝෂයකි.', 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -73,7 +77,8 @@ const LoginPage = () => {
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    if (newPassword.length < 6) { showNotification('මුරපදය අවම වශයෙන් අකුරු 6ක් විය යුතුයි.', 'error'); return; }
+    const pwError = validatePassword(newPassword);
+    if (pwError) { showNotification(pwError, 'error'); return; }
     if (newPassword !== confirmPassword) { showNotification('මුරපද දෙක සමාන නොවේ.', 'error'); return; }
     setChangingPassword(true);
     try {
@@ -129,7 +134,8 @@ const LoginPage = () => {
   // Step 3: Set New Password
   const handleFpResetPassword = async (e) => {
     e.preventDefault();
-    if (fpNewPw.length < 6) { showNotification('මුරපදය අකුරු 6ක් විය යුතු.', 'error'); return; }
+    const pwError = validatePassword(fpNewPw);
+    if (pwError) { showNotification(pwError, 'error'); return; }
     if (fpNewPw !== fpConfirmPw) { showNotification('මුරපද දෙකෙ ගළපෙ නෑ.', 'error'); return; }
     setFpLoading(true);
     try {
@@ -194,30 +200,7 @@ const LoginPage = () => {
           className="absolute top-1/3 left-1/4 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none"
         />
 
-        {/* Floating education icons */}
-        {[BookOpen, GraduationCap, Atom, Calculator, PenTool].map((Icon, i) => (
-          <motion.div
-            key={i}
-            className="absolute text-white/10 pointer-events-none"
-            style={{
-              top: `${15 + i * 18}%`,
-              left: `${10 + (i % 3) * 30}%`,
-            }}
-            animate={{
-              y: [0, -20, 0],
-              rotate: [0, 10, -10, 0],
-              opacity: [0.08, 0.15, 0.08]
-            }}
-            transition={{
-              duration: 4 + i * 1.5,
-              repeat: Infinity,
-              ease: 'easeInOut',
-              delay: i * 0.8
-            }}
-          >
-            <Icon size={30 + i * 8} />
-          </motion.div>
-        ))}
+        {/* Floating education icons removed per user request to hide AI-generated templates */}
 
         {/* Animated rings behind logo */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -296,7 +279,7 @@ const LoginPage = () => {
             <span className="font-bold text-primary-dark">Login</span>
           </div>
 
-      <Card padding="p-8 sm:p-10" hover={false} className="!shadow-xl !border-white/60 relative overflow-hidden">
+          <Card padding="p-8 sm:p-10" hover={false} className="!shadow-xl !border-white/60 relative overflow-hidden">
             {/* Subtle gradient border effect */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-light via-secondary to-accent" />
             <div className="text-center mb-8">
@@ -320,6 +303,7 @@ const LoginPage = () => {
                       id="username"
                       type="text"
                       required
+                      placeholder="උදා: Admin / ST084 / 071XXXXXXX"
                       value={credentials.username}
                       onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('password').focus(); } }}
@@ -332,6 +316,7 @@ const LoginPage = () => {
                         id="password"
                         type={showPassword ? 'text' : 'password'}
                         required
+                        placeholder="ඔබගේ මුරපදය ඇතුළත් කරන්න"
                         className="pr-11"
                         value={credentials.password}
                         onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
@@ -339,10 +324,10 @@ const LoginPage = () => {
                       <button
                         type="button"
                         onClick={() => setShowPassword((p) => !p)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors text-lg"
                         aria-label={showPassword ? 'Hide password' : 'Show password'}
                       >
-                        {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                        {showPassword ? '👁️' : '🙈'}
                       </button>
                     </div>
                   </div>
@@ -357,7 +342,7 @@ const LoginPage = () => {
                     </button>
                   </div>
 
-                  <Button type="submit" variant="primary" size="lg" fullWidth loading={loading} icon={<LogIn size={18} />}>
+                  <Button type="submit" variant="primary" size="lg" fullWidth loading={loading} icon={<span className="text-xl">➡️</span>}>
                     {loading ? 'පරීක්ෂා කරමින්...' : 'ඇතුළු වන්න'}
                   </Button>
                 </motion.form>
@@ -374,15 +359,15 @@ const LoginPage = () => {
                 >
                   <div className="mb-5">
                     <Label htmlFor="newPassword">නව මුරපදය</Label>
-                    <Input id="newPassword" type="password" required minLength={6}
-                      value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="අවම අකුරු 6ක්" />
+                    <Input id="newPassword" type="password" required minLength={8}
+                      value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="අවම අකුරු 8ක්, අංක සහ සංකේත සහිතව" />
                   </div>
                   <div className="mb-6">
                     <Label htmlFor="confirmPassword">මුරපදය තහවුරු කරන්න</Label>
-                    <Input id="confirmPassword" type="password" required minLength={6}
+                    <Input id="confirmPassword" type="password" required minLength={8}
                       value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="නැවත ඇතුළත් කරන්න" />
                   </div>
-                  <Button type="submit" variant="success" size="lg" fullWidth loading={changingPassword} icon={<KeyRound size={18} />}>
+                  <Button type="submit" variant="success" size="lg" fullWidth loading={changingPassword} icon={<span className="text-xl">🔑</span>}>
                     {changingPassword ? 'සුරකිමින්...' : 'මුරපදය සුරකින්න'}
                   </Button>
                 </motion.form>
@@ -399,7 +384,7 @@ const LoginPage = () => {
                 >
                   <div className="mb-5">
                     <Label>Username</Label>
-                    <Input type="text" required value={fpUsername} onChange={(e) => setFpUsername(e.target.value)} placeholder="ඔබගේ username ඇතුළත් කරන්න" autoFocus />
+                    <Input type="text" required value={fpUsername} onChange={(e) => setFpUsername(e.target.value)} placeholder="උදා: ST084" autoFocus />
                   </div>
                   <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-success-light/20 text-success-dark text-sm mb-6">
                     <FaWhatsapp className="text-lg shrink-0 mt-0.5" />
@@ -410,7 +395,7 @@ const LoginPage = () => {
                   >
                     {fpLoading ? 'OTP යවමින්...' : 'WhatsApp OTP Send කරන්න'}
                   </Button>
-                  <Button type="button" variant="outline" size="lg" fullWidth className="mt-3" onClick={() => setForgotStep(0)} icon={<ArrowLeft size={16} />}>
+                  <Button type="button" variant="outline" size="lg" fullWidth className="mt-3" onClick={() => setForgotStep(0)} icon={<span className="text-xl">←</span>}>
                     Login වෙත යන්න
                   </Button>
                 </motion.form>
@@ -434,13 +419,13 @@ const LoginPage = () => {
                     />
                   </div>
                   <div className="flex items-center gap-2.5 p-3 rounded-xl bg-warning-light/20 text-warning-dark text-xs mb-6">
-                    <Clock size={16} className="shrink-0" />
+                    <span className="shrink-0 text-xl">🕒</span>
                     <span>OTP code 10 මිනිත්තු ඇතුළත භාවිත නොකළ expire වේ.</span>
                   </div>
-                  <Button type="submit" variant="primary" size="lg" fullWidth loading={fpLoading} disabled={fpOtp.length !== 6} icon={<ShieldCheck size={18} />}>
+                  <Button type="submit" variant="primary" size="lg" fullWidth loading={fpLoading} disabled={fpOtp.length !== 6} icon={<span className="text-xl">🛡️</span>}>
                     {fpLoading ? 'Verifying...' : 'OTP Verify කරන්න'}
                   </Button>
-                  <Button type="button" variant="outline" size="lg" fullWidth className="mt-3" onClick={() => { setForgotStep(1); setFpOtp(''); }} icon={<ArrowLeft size={16} />}>
+                  <Button type="button" variant="outline" size="lg" fullWidth className="mt-3" onClick={() => { setForgotStep(1); setFpOtp(''); }} icon={<span className="text-xl">←</span>}>
                     OTP නැවත ලබාගන්න
                   </Button>
                 </motion.form>
@@ -457,19 +442,19 @@ const LoginPage = () => {
                 >
                   <div className="mb-4">
                     <Label>නව මුරපදය</Label>
-                    <Input type="password" required minLength={6}
-                      value={fpNewPw} onChange={(e) => setFpNewPw(e.target.value)} placeholder="අවම වශයෙන් අකුරු 6ක්" autoFocus />
+                    <Input type="password" required minLength={8}
+                      value={fpNewPw} onChange={(e) => setFpNewPw(e.target.value)} placeholder="අවම අකුරු 8ක්, අංක සහ සංකේත සහිතව" autoFocus />
                   </div>
                   <div className="mb-2">
                     <Label>නව මුරපදය නැවත ඇතුළත් කරන්න</Label>
-                    <Input type="password" required minLength={6}
-                      value={fpConfirmPw} onChange={(e) => setFpConfirmPw(e.target.value)} placeholder="Confirm password" />
+                    <Input type="password" required minLength={8}
+                      value={fpConfirmPw} onChange={(e) => setFpConfirmPw(e.target.value)} placeholder="නැවත ඇතුළත් කරන්න" />
                   </div>
                   <FormError>
                     {fpNewPw && fpConfirmPw && fpNewPw !== fpConfirmPw ? 'මුරපද දෙකෙ ගළපෙ නෑ' : null}
                   </FormError>
                   <div className="mt-6">
-                    <Button type="submit" variant="success" size="lg" fullWidth loading={fpLoading} icon={<KeyRound size={18} />}>
+                    <Button type="submit" variant="success" size="lg" fullWidth loading={fpLoading} icon={<span className="text-xl">🔑</span>}>
                       {fpLoading ? 'සුරකිමින්...' : 'මුරපදය Reset කරන්න'}
                     </Button>
                   </div>

@@ -204,7 +204,7 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
   const userCountLabel = role === 'Teacher' ? 'පන්ති' : 'පරිශීලකයින්';
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="printable-content flex flex-col gap-7"
@@ -259,10 +259,10 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
               </div>
             </div>
           </div>
-          <motion.button 
+          <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => globalThis.print()} 
+            onClick={() => globalThis.print()}
             className="flex items-center gap-2 px-5 py-3 bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white rounded-xl font-semibold transition-colors border border-white/20"
           >
             <Printer size={18} /> Print Dashboard

@@ -55,12 +55,12 @@ const CoursesPage = () => {
     setTeacherRegistering(true);
     try {
       const messageText = `දේශක ලියාපදිංචි වීමේ අයදුම්පත:\n` +
-                          `නම: ${teacherForm.name}\n` +
-                          `දුරකථනය: ${teacherForm.phone}\n` +
-                          `ඊමේල්: ${teacherForm.email || 'නැත'}\n` +
-                          `උගන්වන විෂය: ${teacherForm.subject}\n` +
-                          `සුදුසුකම්: ${teacherForm.qualifications}\n` +
-                          `හැඳින්වීම: ${teacherForm.bio}`;
+        `නම: ${teacherForm.name}\n` +
+        `දුරකථනය: ${teacherForm.phone}\n` +
+        `ඊමේල්: ${teacherForm.email || 'නැත'}\n` +
+        `උගන්වන විෂය: ${teacherForm.subject}\n` +
+        `සුදුසුකම්: ${teacherForm.qualifications}\n` +
+        `හැඳින්වීම: ${teacherForm.bio}`;
 
       await request('/contact/submit', {
         method: 'POST',
@@ -143,35 +143,35 @@ const CoursesPage = () => {
               const theme = getCourseTheme(course);
               const ThemeIcon = theme.icon;
               return (
-              <Card key={course.course_id} hover padding="p-0" className="!rounded-2xl overflow-hidden flex flex-col">
-                <div className={`relative overflow-hidden bg-gradient-to-br ${theme.gradient} p-5 text-white`}>
-                  <ThemeIcon size={96} strokeWidth={1.5} className="absolute -right-4 -bottom-4 opacity-20 pointer-events-none" aria-hidden="true" />
-                  <h3 className="relative m-0 text-lg font-bold">{course.course_name}</h3>
-                  <div className="relative text-[13px] opacity-80 mt-1">{course.subject_name}</div>
-                </div>
-
-                <div className="p-6 flex-grow">
-                  <div className="mb-4">
-                    <small className="text-slate-400 font-bold block">දේශකයා (Teacher)</small>
-                    <div className="text-primary text-lg font-bold">{course.lecturer_name || 'විස්තර ලබා ගත නොහැක'}</div>
+                <Card key={course.course_id} hover padding="p-0" className="!rounded-2xl overflow-hidden flex flex-col">
+                  <div className={`relative overflow-hidden bg-gradient-to-br ${theme.gradient} p-5 text-white`}>
+                    <ThemeIcon size={96} strokeWidth={1.5} className="absolute -right-4 -bottom-4 opacity-20 pointer-events-none" aria-hidden="true" />
+                    <h3 className="relative m-0 text-lg font-bold">{course.course_name}</h3>
+                    <div className="relative text-[13px] opacity-80 mt-1">{course.subject_name}</div>
                   </div>
 
-                  <div className="flex justify-between items-center mt-5 pt-4 border-t border-slate-100">
-                    <div>
-                      <small className="text-slate-400 font-bold block">මාසික ගාස්තුව</small>
-                      <div className="text-success text-xl font-extrabold">Rs. {course.monthly_fee}</div>
+                  <div className="p-6 flex-grow">
+                    <div className="mb-4">
+                      <small className="text-slate-400 font-bold block">දේශකයා (Teacher)</small>
+                      <div className="text-primary text-lg font-bold">{course.lecturer_name || 'විස්තර ලබා ගත නොහැක'}</div>
                     </div>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      className="!rounded-full"
-                      onClick={() => navigate('/', { state: { openRegister: true, courseId: course.course_id } })}
-                    >
-                      ලියාපදිංචි වන්න
-                    </Button>
+
+                    <div className="flex justify-between items-center mt-5 pt-4 border-t border-slate-100">
+                      <div>
+                        <small className="text-slate-400 font-bold block">මාසික ගාස්තුව</small>
+                        <div className="text-success text-xl font-extrabold">Rs. {course.monthly_fee}</div>
+                      </div>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="!rounded-full"
+                        onClick={() => navigate('/', { state: { openRegister: true, courseId: course.course_id } })}
+                      >
+                        ලියාපදිංචි වන්න
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </Card>
+                </Card>
               );
             }) : (
               <div className="text-center col-span-full text-slate-400">පන්ති දත්ත සොයාගත නොහැක.</div>

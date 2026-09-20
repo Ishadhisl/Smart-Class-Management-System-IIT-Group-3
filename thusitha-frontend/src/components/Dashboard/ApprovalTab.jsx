@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Clock, CheckCircle } from 'lucide-react';
+import { FaClock, FaCheckCircle } from 'react-icons/fa';
 import { useNotification } from '../../context/NotificationContext';
 import Card from '../common/Card';
 import Input from '../common/Input';
@@ -20,7 +20,7 @@ const ApprovalTab = ({ pendingStudents, onApprove }) => {
   return (
     <Card padding="p-6" hover={false}>
       <h3 className="text-primary-dark font-bold text-lg mb-5 flex items-center gap-2">
-        <Clock size={20} /> ශිෂ්‍ය අනුමැතිය (Pending Approvals)
+        <FaClock size={18} /> ශිෂ්‍ය අනුමැතිය (Pending Approvals)
       </h3>
       <Table>
         <THead>
@@ -50,7 +50,7 @@ const ApprovalTab = ({ pendingStudents, onApprove }) => {
                 />
               </TD>
               <TD>
-                <Button variant="success" size="sm" icon={<CheckCircle size={14} />} onClick={() => handleApproveClick(s.id)}>
+                <Button variant="success" size="sm" icon={<FaCheckCircle size={14} />} onClick={() => handleApproveClick(s.id)}>
                   Approve
                 </Button>
               </TD>

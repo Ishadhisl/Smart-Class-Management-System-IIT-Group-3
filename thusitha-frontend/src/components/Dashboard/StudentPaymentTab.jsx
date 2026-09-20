@@ -71,14 +71,14 @@ const StudentPaymentTab = ({ courses }) => {
     if (!selectedCourse || !selectedMonth) {
       return showNotification('කරුණාකර පන්තිය සහ මාසය තෝරන්න.', 'error');
     }
-    
+
     const course = courses.find(c => String(c.course_id) === String(selectedCourse));
     const amount = course?.monthly_fee || course?.fee || 1000;
-    
+
     if (!amount) {
       return showNotification('පන්තියේ ගාස්තුව සොයාගත නොහැක.', 'error');
     }
-    
+
     // Reset modal state
     setCardDetails({
       cardholderName: '',
@@ -93,12 +93,12 @@ const StudentPaymentTab = ({ courses }) => {
 
   const handleCardPaymentSubmit = async (e) => {
     e.preventDefault();
-    
+
     const cleanCardNo = cardDetails.cardNumber.replace(/\s+/g, '');
     const cleanExpiry = cardDetails.expiryDate.trim();
     const cleanCVV = cardDetails.cvv.trim();
     const name = cardDetails.cardholderName.trim();
-    
+
     if (!name) {
       return showNotification('කරුණාකර කාඩ්පතේ හිමිකරුගේ නම ඇතුළත් කරන්න.', 'error');
     }
@@ -111,12 +111,12 @@ const StudentPaymentTab = ({ courses }) => {
     if (cleanCVV.length !== 3 || isNaN(cleanCVV)) {
       return showNotification('CVV අංකය ඉලක්කම් 3කින් යුක්ත විය යුතුය.', 'error');
     }
-    
+
     setIsProcessingPayment(true);
-    
+
     const course = courses.find(c => String(c.course_id) === String(selectedCourse));
     const amount = course?.monthly_fee || course?.fee || 1000;
-    
+
     try {
       const res = await request('/payments/create-checkout-session', {
         method: 'POST',
@@ -127,7 +127,7 @@ const StudentPaymentTab = ({ courses }) => {
           for_month: selectedMonth
         }
       });
-      
+
       setTimeout(() => {
         setIsProcessingPayment(false);
         if (res.dummy_success) {
@@ -143,7 +143,7 @@ const StudentPaymentTab = ({ courses }) => {
           window.location.href = res.url;
         }
       }, 1500);
-      
+
     } catch (err) {
       setIsProcessingPayment(false);
       showNotification(err.message || 'ගෙවීම් පිටුවට පිවිසීමට නොහැකි විය.', 'error');
@@ -215,7 +215,7 @@ const StudentPaymentTab = ({ courses }) => {
   };
 
   const getStatusColor = (status) => {
-    switch(status) {
+    switch (status) {
       case 'Completed': return '#4caf50';
       case 'Pending Verification': return '#ff9800';
       case 'Rejected': return '#f44336';
@@ -257,7 +257,7 @@ const StudentPaymentTab = ({ courses }) => {
         <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div style={{ flex: 1, minWidth: '200px' }}>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>පන්තිය</label>
-            <select 
+            <select
               style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd' }}
               value={selectedCourse}
               onChange={(e) => setSelectedCourse(e.target.value)}
@@ -270,7 +270,7 @@ const StudentPaymentTab = ({ courses }) => {
           </div>
           <div style={{ flex: 1, minWidth: '200px' }}>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>මාසය</label>
-            <select 
+            <select
               style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd' }}
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
@@ -281,7 +281,7 @@ const StudentPaymentTab = ({ courses }) => {
               ))}
             </select>
           </div>
-          <button 
+          <button
             onClick={handleOpenPaymentModal}
             style={{ padding: '12px 24px', backgroundColor: '#6772e5', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}
           >
@@ -292,8 +292,8 @@ const StudentPaymentTab = ({ courses }) => {
         <div style={{ marginTop: '20px', padding: '15px', border: '1px dashed #ccc', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
           <h4 style={{ margin: '0 0 10px 0', color: '#333' }}>බැංකු රිසිට් පත උඩුගත කිරීම (Bank Receipt Upload)</h4>
           <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <input 
-              type="file" 
+            <input
+              type="file"
               accept="image/*,.pdf"
               onChange={(e) => setManualReceipt(e.target.files[0])}
               style={{ padding: '8px', backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '4px', flex: 1 }}
@@ -371,8 +371,8 @@ const StudentPaymentTab = ({ courses }) => {
                         )}
                         {!p.confirmation_url && p.payment_status !== 'Completed' && (
                           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                            <input 
-                              type="file" 
+                            <input
+                              type="file"
                               accept="image/*,.pdf"
                               onChange={(e) => setUploadFile(e.target.files[0])}
                               style={{ fontSize: '12px', maxWidth: '180px' }}
@@ -400,7 +400,7 @@ const StudentPaymentTab = ({ courses }) => {
       {showPaymentModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '15px', width: '100%', maxWidth: '420px', boxShadow: '0 15px 35px rgba(0,0,0,0.15)', position: 'relative', fontFamily: 'sans-serif' }}>
-            
+
             {!isProcessingPayment && !paymentSuccess && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -409,61 +409,61 @@ const StudentPaymentTab = ({ courses }) => {
                   </h3>
                   <button onClick={() => setShowPaymentModal(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#666' }}>&times;</button>
                 </div>
-                
+
                 <form onSubmit={handleCardPaymentSubmit}>
                   <div style={{ marginBottom: '15px' }}>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px', color: '#555' }}>Cardholder Name</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="e.g. John Doe"
                       value={cardDetails.cardholderName}
-                      onChange={(e) => setCardDetails({...cardDetails, cardholderName: e.target.value})}
+                      onChange={(e) => setCardDetails({ ...cardDetails, cardholderName: e.target.value })}
                       style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
                       required
                     />
                   </div>
-                  
+
                   <div style={{ marginBottom: '15px' }}>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px', color: '#555' }}>Card Number</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="4242 4242 4242 4242"
                       maxLength="19"
                       value={cardDetails.cardNumber}
-                      onChange={(e) => setCardDetails({...cardDetails, cardNumber: formatCardNumber(e.target.value)})}
+                      onChange={(e) => setCardDetails({ ...cardDetails, cardNumber: formatCardNumber(e.target.value) })}
                       style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
                       required
                     />
                   </div>
-                  
+
                   <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
                     <div style={{ flex: 1 }}>
                       <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px', color: '#555' }}>Expiry Date</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         placeholder="MM/YY"
                         maxLength="5"
                         value={cardDetails.expiryDate}
-                        onChange={(e) => setCardDetails({...cardDetails, expiryDate: formatExpiry(e.target.value)})}
+                        onChange={(e) => setCardDetails({ ...cardDetails, expiryDate: formatExpiry(e.target.value) })}
                         style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
                         required
                       />
                     </div>
                     <div style={{ flex: 1 }}>
                       <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px', color: '#555' }}>CVV</label>
-                      <input 
-                        type="password" 
+                      <input
+                        type="password"
                         placeholder="123"
                         maxLength="3"
                         value={cardDetails.cvv}
-                        onChange={(e) => setCardDetails({...cardDetails, cvv: e.target.value.replace(/[^0-9]/g, '')})}
+                        onChange={(e) => setCardDetails({ ...cardDetails, cvv: e.target.value.replace(/[^0-9]/g, '') })}
                         style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
                         required
                       />
                     </div>
                   </div>
-                  
-                  <button 
+
+                  <button
                     type="submit"
                     style={{ width: '100%', padding: '12px', backgroundColor: '#2e7d32', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}
                   >
@@ -488,7 +488,7 @@ const StudentPaymentTab = ({ courses }) => {
                 <p style={{ fontSize: '14px', color: '#555', margin: 0 }}>ඔබගේ ගෙවීම සාර්ථකව සටහන් කර ගන්නා ලදී.</p>
               </div>
             )}
-            
+
           </div>
         </div>
       )}

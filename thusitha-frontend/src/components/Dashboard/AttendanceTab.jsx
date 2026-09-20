@@ -68,22 +68,20 @@ const AttendanceTab = ({
         <div className="flex bg-gray-100 p-1 rounded-xl">
           <button
             onClick={() => setViewMode('marking')}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-              viewMode === 'marking'
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${viewMode === 'marking'
                 ? 'bg-indigo-900 text-white shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
-            }`}
+              }`}
           >
             <Check size={14} />
             Marking
           </button>
           <button
             onClick={() => setViewMode('logs')}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-              viewMode === 'logs'
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${viewMode === 'logs'
                 ? 'bg-indigo-900 text-white shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
-            }`}
+              }`}
           >
             <History size={14} />
             History Logs
@@ -100,7 +98,7 @@ const AttendanceTab = ({
           <div className="text-sm">
             <h4 className="font-bold text-amber-900">⚠️ පැමිණීමේ නොගැලපීමක් හඳුනාගෙන ඇත! (AI headcount mismatch)</h4>
             <p className="text-amber-700 mt-1">
-              QR මගින් සටහන් වූ සංඛ්‍යාව: <strong className="text-indigo-950">{aiData.qr_count}</strong> | 
+              QR මගින් සටහන් වූ සංඛ්‍යාව: <strong className="text-indigo-950">{aiData.qr_count}</strong> |
               කැමරාව මගින් හඳුනාගත් සංඛ්‍යාව: <strong className="text-indigo-950">{aiData.ai_headcount}</strong>
             </p>
             <p className="text-xs text-amber-600/80 mt-0.5">කරුණාකර පන්තියේ සිටින ශිෂ්‍ය සංඛ්‍යාව නැවත පරීක්ෂා කරන්න.</p>
@@ -135,7 +133,7 @@ const AttendanceTab = ({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-extrabold text-indigo-950 text-base">📋 පැමිණීම් ඉතිහාසය (Attendance logs)</h3>
-              <button 
+              <button
                 onClick={fetchLogs}
                 disabled={logsLoading}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-indigo-700 bg-gray-50 border border-gray-200 rounded-lg hover:border-indigo-100 transition-all disabled:opacity-60"

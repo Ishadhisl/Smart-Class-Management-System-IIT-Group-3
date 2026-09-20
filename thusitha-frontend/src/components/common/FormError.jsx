@@ -1,11 +1,11 @@
 import PropTypes from 'prop-types';
-import { AlertCircle } from 'lucide-react';
+import { FaExclamationCircle } from 'react-icons/fa';
 
 const FormError = ({ children, className = '' }) => {
   if (!children) return null;
   return (
     <p className={`flex items-center gap-1.5 text-xs font-medium text-danger mt-1.5 ${className}`}>
-      <AlertCircle size={13} className="shrink-0" />
+      <FaExclamationCircle size={13} className="shrink-0" />
       {children}
     </p>
   );

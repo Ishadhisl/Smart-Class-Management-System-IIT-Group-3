@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 import { forwardRef } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { FaChevronDown } from 'react-icons/fa';
 
 const Select = forwardRef(({ children, className = '', invalid = false, ...rest }, ref) => (
   <div className="relative">
@@ -18,7 +18,7 @@ const Select = forwardRef(({ children, className = '', invalid = false, ...rest 
     >
       {children}
     </select>
-    <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+    <FaChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
   </div>
 ));
 

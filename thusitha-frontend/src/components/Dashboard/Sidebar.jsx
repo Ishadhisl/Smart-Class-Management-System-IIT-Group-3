@@ -2,12 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { request } from '../../services/api';
-import { 
-  Home, Users, Clock, Settings, Calendar, LogOut, 
-  BookOpen, CreditCard, ClipboardList, MessageSquare, 
-  Smartphone, FileText, Camera, ShieldCheck,
-  ChevronLeft, ChevronRight, Menu, Activity, BarChart2, Video, QrCode, X
-} from 'lucide-react';
+import { FaTimes } from 'react-icons/fa';
 
 // Below this width the sidebar behaves as an off-canvas drawer (fixed, slides in over the
 // content, closed by default) instead of the desktop resizable rail that lives permanently
@@ -88,7 +83,9 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role, mobileOpen = false, 
     }
   `;
 
-  const renderButton = (tabName, icon, label) => (
+  const renderButton = (tabName, label) => {
+    const initials = label ? label.substring(0, 1) : '';
+    return (
     <button
       title={effectiveCollapsed ? label : ''}
       type="button"
@@ -98,10 +95,10 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role, mobileOpen = false, 
       }}
       className={getButtonStyle(tabName)}
     >
-      <div className="shrink-0">{icon}</div>
+      <div className="shrink-0 w-6 h-6 flex items-center justify-center font-bold text-lg bg-white/10 rounded-full">{initials}</div>
       {!effectiveCollapsed && <span className="whitespace-normal flex-1">{label}</span>}
     </button>
-  );
+  )};
 
   const isAdmin = role === 'Admin';
   const isCounterPerson = role === 'Counter Person';
@@ -140,16 +137,16 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role, mobileOpen = false, 
           aria-label="Close menu"
           className="absolute -right-3 top-8 bg-white text-primary rounded-full p-1.5 shadow-glass z-50"
         >
-          <X size={16} />
+          <FaTimes size={14} />
         </button>
       ) : (
         /* Collapse Toggle */
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="absolute -right-3 top-8 bg-white text-primary rounded-full p-1.5 shadow-glass z-50 hover:scale-110 transition-transform"
+          className="absolute -right-3 top-8 bg-white text-primary rounded-full p-1.5 shadow-glass z-50 hover:scale-110 transition-transform font-bold text-xs flex items-center justify-center w-6 h-6"
         >
-          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {isCollapsed ? '>' : '<'}
         </button>
       )}
 
@@ -191,47 +188,47 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role, mobileOpen = false, 
         </AnimatePresence>
 
         <nav className="flex flex-col overflow-y-auto overflow-x-hidden flex-1 mb-6 gap-1 custom-scrollbar pr-1">
-          {renderButton('home', <Home size={20}/>, 'මුල් පිටුව')}
-          {role === 'Parent' && renderButton('parent_portal', <Users size={20}/>, 'මගේ දරුවන්')}
+          {renderButton('home', 'මුල් පිටුව')}
+          {role === 'Parent' && renderButton('parent_portal', 'මගේ දරුවන්')}
           
-          {['Admin', 'Counter Person', 'Teacher'].includes(role) && renderButton('students', <Users size={20}/>, 'ශිෂ්‍ය ලේඛනය')}
+          {['Admin', 'Counter Person', 'Teacher'].includes(role) && renderButton('students', 'ශිෂ්‍ය ලේඛනය')}
           
-          {(isAdmin || isCounterPerson) && renderButton('teachers', <Users size={20}/>, 'ගුරු ලේඛනය')}
+          {(isAdmin || isCounterPerson) && renderButton('teachers', 'ගුරු ලේඛනය')}
 
-          {role === 'Counter Person' && renderButton('approvals', <Clock size={20}/>, 'ශිෂ්‍ය අනුමැතිය')}
+          {role === 'Counter Person' && renderButton('approvals', 'ශිෂ්‍ය අනුමැතිය')}
 
           {isAdmin && (
             <>
-              {renderButton('class_management', <BookOpen size={20}/>, 'පන්ති කලමනාකරණය')}
-              {renderButton('classes', <Users size={20}/>, 'පරිශීලකයින්')}
-              {renderButton('announcements', <MessageSquare size={20}/>, 'නිවේදන')}
-              {renderButton('achievements', <FileText size={20}/>, 'ජයග්‍රහණ')}
-              {renderButton('promos', <MessageSquare size={20}/>, 'ප්‍රවර්ධන')}
-              {renderButton('admin_hub', <Settings size={20}/>, 'සන්නිවේදන මධ්‍යස්ථානය')}
+              {renderButton('class_management', 'පන්ති කලමනාකරණය')}
+              {renderButton('classes', 'පරිශීලකයින්')}
+              {renderButton('announcements', 'නිවේදන')}
+              {renderButton('achievements', 'ජයග්‍රහණ')}
+              {renderButton('promos', 'ප්‍රවර්ධන')}
+              {renderButton('admin_hub', 'සන්නිවේදන මධ්‍යස්ථානය')}
             </>
           )}
 
-          {(isTeacher || isStudent) && renderButton('my_timetable', <Calendar size={20}/>, 'මගේ කාලසටහන')}
+          {(isTeacher || isStudent) && renderButton('my_timetable', 'මගේ කාලසටහන')}
           
 
-          {(isAdmin || isCounterPerson) && renderButton('enrollment', <ClipboardList size={20}/>, 'ලියාපදිංචිය')}
-          {(isAdmin || isCounterPerson) && renderButton('qr_attendance', <QrCode size={20}/>, 'QR Attendance')}
-          {(role !== 'Parent' && !isTeacher) && renderButton('study_area', <BookOpen size={20}/>, 'අධ්‍යයන අංශය')}
+          {(isAdmin || isCounterPerson) && renderButton('enrollment', 'ලියාපදිංචිය')}
+          {(isAdmin || isCounterPerson) && renderButton('qr_attendance', 'QR Attendance')}
+          {(role !== 'Parent' && !isTeacher) && renderButton('study_area', 'අධ්‍යයන අංශය')}
           
-          {(isAdmin || isCounterPerson || isStudent) && renderButton('payments', <CreditCard size={20}/>, 'ගෙවීම්')}
+          {(isAdmin || isCounterPerson || isStudent) && renderButton('payments', 'ගෙවීම්')}
           
-          {(isAdmin || isTeacher || isStudent) && renderButton('exams', <FileText size={20}/>, 'විභාග සහ ලකුණු')}
+          {(isAdmin || isTeacher || isStudent) && renderButton('exams', 'විභාග සහ ලකුණු')}
           
-          {role !== 'Parent' && renderButton('materials', <FileText size={20}/>, 'ඉගෙනුම් ද්‍රව්‍ය')}
+          {role !== 'Parent' && renderButton('materials', 'ඉගෙනුම් ද්‍රව්‍ය')}
           
-          {(isAdmin || isTeacher || isCounterPerson) && renderButton('attendance', <ClipboardList size={20}/>, 'පැමිණීම')}
-          {(isAdmin || isTeacher) && renderButton('ai_panel', <Camera size={20}/>, 'AI නිරීක්ෂණය')}
-          {(isAdmin || isCounterPerson) && renderButton('face_verification', <ShieldCheck size={20}/>, 'මුහුණු සත්‍යාපනය')}
+          {(isAdmin || isTeacher || isCounterPerson) && renderButton('attendance', 'පැමිණීම')}
+          {(isAdmin || isTeacher) && renderButton('ai_panel', 'AI නිරීක්ෂණය')}
+          {(isAdmin || isCounterPerson) && renderButton('face_verification', 'මුහුණු සත්‍යාපනය')}
 
 
           {isAdmin && (
             <>
-              {renderButton('audit_logs', <Activity size={20}/>, 'පද්ධති විගණනය')}
+              {renderButton('audit_logs', 'පද්ධති විගණනය')}
             </>
           )}
         </nav>
@@ -245,7 +242,7 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role, mobileOpen = false, 
         title={effectiveCollapsed ? 'ඉවත් වන්න' : ''}
         className={`w-full py-3.5 bg-white/10 hover:bg-rose-600 text-white border border-white/20 hover:border-transparent rounded-xl font-bold mt-auto flex items-center ${effectiveCollapsed ? 'justify-center px-0' : 'justify-center px-4'} gap-2 shadow-glass transition-all relative z-10 backdrop-blur-md`}
       >
-        <div className="shrink-0"><LogOut size={20} /></div>
+        <div className="shrink-0 font-bold">L</div>
         {!effectiveCollapsed && <span className="whitespace-nowrap">ඉවත් වන්න</span>}
       </motion.button>
       </motion.div>

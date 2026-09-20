@@ -50,7 +50,7 @@ const TeachersPage = () => {
             'shanika': '/teachers/shanika.png',
             'thusitha': '/teachers/thusitha.png'
           };
-          
+
           const getTeacherPhoto = (name, dbPath) => {
             // A real uploaded photo always wins - see LandingPage.jsx's getTeacherPhoto
             // for why (a substring match like "Sandaruwan" containing "ruwan" would
@@ -140,11 +140,11 @@ const TeachersPage = () => {
                 className="text-center !rounded-2xl cursor-pointer"
                 onClick={() => navigate('/courses')}
               >
-                <Avatar 
-                  src={teacher.custom_photo} 
-                  alt={teacher.lecturer_name} 
-                  size="3xl" 
-                  className="mx-auto shadow-md mb-6 ring-4 ring-primary-light/20 bg-indigo-50/50" 
+                <Avatar
+                  src={teacher.custom_photo}
+                  alt={teacher.lecturer_name}
+                  size="3xl"
+                  className="mx-auto shadow-md mb-6 ring-4 ring-primary-light/20 bg-indigo-50/50"
                   fallback={
                     <div className="bg-primary/10 text-primary-dark w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold uppercase shadow-sm">
                       {teacher.lecturer_name.substring(0, 2)}

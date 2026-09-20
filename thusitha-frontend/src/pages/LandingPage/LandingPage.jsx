@@ -178,10 +178,10 @@ const LandingPage = () => {
     const fetchData = async () => {
       try {
         const [promoData, annData, achData, teacherData] = await Promise.all([
-           request('/promos').catch(() => []),
-           request('/announcements/public').catch(() => []),
-           request('/achievements/public').catch(() => []),
-           request('/teachers/public').catch(() => [])
+          request('/promos').catch(() => []),
+          request('/announcements/public').catch(() => []),
+          request('/achievements/public').catch(() => []),
+          request('/teachers/public').catch(() => [])
         ]);
         setPromotions(promoData || []);
         // Only show active announcements on public page
@@ -199,7 +199,7 @@ const LandingPage = () => {
             'shanika': '/teachers/shanika.png',
             'thusitha': '/teachers/thusitha.png'
           };
-          
+
           const getTeacherPhoto = (name, dbPath) => {
             // A real uploaded photo always wins - the name-keyed map below is only a
             // fallback for demo/seed teachers with no photo of their own. Without this
@@ -411,7 +411,7 @@ const LandingPage = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50" />
           <div className="absolute top-0 left-0 w-72 h-72 bg-warning-light/20 rounded-full blur-3xl -ml-20 -mt-20 pointer-events-none" />
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-orange-200/20 rounded-full blur-3xl -mr-20 -mb-20 pointer-events-none" />
-          
+
           <div className="relative z-10 text-center">
             {/* Animated Header */}
             <motion.div

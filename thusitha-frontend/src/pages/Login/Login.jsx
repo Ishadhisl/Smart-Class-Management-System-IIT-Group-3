@@ -33,7 +33,9 @@ const Login = () => {
       }, 2500);
       
     } catch (err) {
-      if (err.message.includes('Invalid')) {
+      if (err.message.includes('අගුලු දමා ඇත')) {
+        setError(`🚫 ${err.message}`);
+      } else if (err.message.includes('Invalid')) {
         setError('❌ ඇතුළත් කළ Username හෝ Password වැරදියි!');
       } else if (err.message.includes('Network Error')) {
         setError('⚠️ පද්ධතිය සම්බන්ධ කිරීමේ දෝෂයකි. කරුණාකර පසුව නැවත උත්සාහ කරන්න.');
@@ -67,11 +69,11 @@ const Login = () => {
         
         <form onSubmit={handleSubmit} className="login-form">
           <div className="input-group">
-            <label htmlFor="username-input">Username</label>
+            <label htmlFor="username-input">පරිශීලක නාමය (Username)</label>
             <input 
               id="username-input"
               type="text" 
-              placeholder="Enter your username" 
+              placeholder="උදා: Admin / ST084 / 071XXXXXXX" 
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required 
@@ -79,11 +81,11 @@ const Login = () => {
           </div>
 
           <div className="input-group">
-            <label htmlFor="password-input">Password</label>
+            <label htmlFor="password-input">මුරපදය (Password)</label>
             <input 
               id="password-input"
               type="password" 
-              placeholder="Enter your password" 
+              placeholder="ඔබගේ මුරපදය ඇතුළත් කරන්න" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required 

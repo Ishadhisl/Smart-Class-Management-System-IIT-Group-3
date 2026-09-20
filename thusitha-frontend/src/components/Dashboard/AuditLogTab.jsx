@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { ScrollText } from 'lucide-react';
+import { FaScroll } from 'react-icons/fa';
 import Card from '../common/Card';
 import { Table, THead, TBody, TRow, TH, TD } from '../common/Table';
 
@@ -16,7 +16,7 @@ const AuditLogTab = ({ logs }) => {
   return (
     <Card padding="p-6" hover={false}>
       <h3 className="text-primary-dark font-bold text-lg mb-5 flex items-center gap-2">
-        <ScrollText size={20} /> පද්ධති විගණන වාර්තා (Audit Logs)
+        <FaScroll size={18} /> පද්ධති විගණන වාර්තා (Audit Logs)
       </h3>
       <Table>
         <THead>

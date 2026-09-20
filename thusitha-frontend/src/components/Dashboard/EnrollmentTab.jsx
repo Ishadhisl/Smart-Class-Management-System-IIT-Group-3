@@ -5,7 +5,7 @@ import { request } from '../../services/api';
 const EnrollmentTab = ({ students, courses, onEnroll }) => {
   const [formData, setFormData] = useState({ student_id: '', course_id: '' });
   const [studentSearch, setStudentSearch] = useState('');
-  
+
   // States for viewing enrolled students
   const [viewCourseId, setViewCourseId] = useState('');
   const [enrolledStudents, setEnrolledStudents] = useState([]);
@@ -39,7 +39,7 @@ const EnrollmentTab = ({ students, courses, onEnroll }) => {
     fetchEnrolledStudents(viewCourseId);
   }, [viewCourseId]);
 
-  const filteredStudents = students.filter(s => 
+  const filteredStudents = students.filter(s =>
     s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
     String(s.studentId).toLowerCase().includes(studentSearch.toLowerCase())
   );
@@ -49,13 +49,13 @@ const EnrollmentTab = ({ students, courses, onEnroll }) => {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px', alignItems: 'start' }}>
-      
+
       {/* 1. Enrollment Form (Left Side) */}
       <div style={cardStyle}>
         <h3 style={{ color: '#1a237e', marginBottom: '20px', fontSize: '18px' }}>🔗 නව ලියාපදිංචිය (New Enrollment)</h3>
         <form onSubmit={handleSubmit}>
           <label htmlFor="enrollStudentSearch" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>ශිෂ්‍යයා සොයන්න</label>
-          <input 
+          <input
             id="enrollStudentSearch"
             type="text"
             placeholder="නමින් හෝ ශිෂ්‍ය අංකයෙන්..."
@@ -65,13 +65,13 @@ const EnrollmentTab = ({ students, courses, onEnroll }) => {
           />
 
           <label htmlFor="enrollStudent" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>ශිෂ්‍යයා තෝරන්න</label>
-          <select id="enrollStudent" style={inputStyle} value={formData.student_id} onChange={(e) => setFormData({...formData, student_id: e.target.value})} required>
+          <select id="enrollStudent" style={inputStyle} value={formData.student_id} onChange={(e) => setFormData({ ...formData, student_id: e.target.value })} required>
             <option value="">-- ශිෂ්‍යයා තෝරන්න --</option>
             {filteredStudents.map(s => <option key={s._id} value={s._id}>{s.name} ({s.studentId})</option>)}
           </select>
 
           <label htmlFor="enrollCourse" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>පන්තිය තෝරන්න</label>
-          <select id="enrollCourse" style={inputStyle} value={formData.course_id} onChange={(e) => setFormData({...formData, course_id: e.target.value})} required>
+          <select id="enrollCourse" style={inputStyle} value={formData.course_id} onChange={(e) => setFormData({ ...formData, course_id: e.target.value })} required>
             <option value="">-- පන්තිය තෝරන්න --</option>
             {courses.map(c => <option key={c.course_id} value={c.course_id}>{c.course_name} - {c.teacher_name}</option>)}
           </select>
@@ -85,13 +85,13 @@ const EnrollmentTab = ({ students, courses, onEnroll }) => {
       {/* 2. Enrolled Students List (Right Side) */}
       <div style={cardStyle}>
         <h3 style={{ color: '#1a237e', marginBottom: '20px', fontSize: '18px' }}>📋 ලියාපදිංචි සිසුන්ගේ ලැයිස්තුව (Enrolled List)</h3>
-        
+
         <div style={{ marginBottom: '20px' }}>
           <label htmlFor="viewCourse" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>ලැයිස්තුව බැලීමට පන්තිය තෝරන්න</label>
-          <select 
-            id="viewCourse" 
-            style={{ ...inputStyle, marginBottom: 0, borderColor: '#1a237e', backgroundColor: '#f8f9fa' }} 
-            value={viewCourseId} 
+          <select
+            id="viewCourse"
+            style={{ ...inputStyle, marginBottom: 0, borderColor: '#1a237e', backgroundColor: '#f8f9fa' }}
+            value={viewCourseId}
             onChange={(e) => setViewCourseId(e.target.value)}
           >
             <option value="">-- පන්තියක් තෝරාගන්න --</option>

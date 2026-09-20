@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 import { motion } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
+import { FaSpinner } from 'react-icons/fa';
 
 const MotionA = motion.a;
 
@@ -58,7 +58,7 @@ const Button = ({
       `}
       {...rest}
     >
-      {loading ? <Loader2 size={18} className="animate-spin" /> : icon}
+      {loading ? <FaSpinner size={16} className="animate-spin" /> : icon}
       {children}
     </Component>
   );

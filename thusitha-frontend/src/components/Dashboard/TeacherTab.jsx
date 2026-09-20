@@ -40,12 +40,12 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
   const resolveTeacherPhoto = (teacher) => {
     if (teacher.profile_photo_path) return getImageUrl(teacher.profile_photo_path);
     if (teacher.teacher_name) {
-       const nameKey = teacher.teacher_name.toLowerCase();
-       for (const [key, path] of Object.entries(teacherPhotoMap)) {
-         if (nameKey.includes(key) || (teacher.username && teacher.username.toLowerCase().includes(key))) {
-           return path;
-         }
-       }
+      const nameKey = teacher.teacher_name.toLowerCase();
+      for (const [key, path] of Object.entries(teacherPhotoMap)) {
+        if (nameKey.includes(key) || (teacher.username && teacher.username.toLowerCase().includes(key))) {
+          return path;
+        }
+      }
     }
     return null;
   };
@@ -151,7 +151,7 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
             required maxLength={100} pattern="[A-Za-z0-9._\- ]+" title="අකුරු, ඉලක්කම්, . _ - space විතරක් යොදන්න"
             style={formErrors.username ? invalidInputStyle : inputStyle} placeholder="teacher01"
             onChange={(e) => {
-              setFormData({...formData, username: e.target.value});
+              setFormData({ ...formData, username: e.target.value });
               if (formErrors.username) setFormErrors({ ...formErrors, username: validateRequired(e.target.value, 'පරිශීලක නාමය') });
             }}
             onBlur={(e) => setFormErrors({ ...formErrors, username: validateRequired(e.target.value, 'පරිශීලක නාමය') })}
@@ -168,7 +168,7 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
           required maxLength={150} style={formErrors.teacher_name ? invalidInputStyle : inputStyle} placeholder="Mr. Perera"
           onChange={(e) => {
             const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterNameInput);
-            setFormData({...formData, teacher_name: filtered});
+            setFormData({ ...formData, teacher_name: filtered });
             setFormErrors({ ...formErrors, teacher_name: invalidAttempt ? NAME_INVALID_MSG : (formErrors.teacher_name ? validateName(filtered, { label: 'ගුරුවරයාගේ නම' }) : '') });
           }}
           onBlur={(e) => setFormErrors({ ...formErrors, teacher_name: validateName(e.target.value, { label: 'ගුරුවරයාගේ නම' }) })}
@@ -181,7 +181,7 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
           pattern="(?:\+94|0)7[0-9]{8}" title="උදා: 0771234567 හෝ +94771234567" style={formErrors.phone ? invalidInputStyle : inputStyle} placeholder="0771234567"
           onChange={(e) => {
             const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterPhoneInput);
-            setFormData({...formData, phone: filtered});
+            setFormData({ ...formData, phone: filtered });
             setFormErrors({ ...formErrors, phone: invalidAttempt ? PHONE_INVALID_MSG : (formErrors.phone ? validatePhone(filtered, { required: false }) : '') });
           }}
           onBlur={(e) => setFormErrors({ ...formErrors, phone: validatePhone(e.target.value, { required: false }) })}
@@ -193,7 +193,7 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
         <input id="teacher-email" type="email" value={formData.email}
           maxLength={150} style={formErrors.email ? invalidInputStyle : inputStyle} placeholder="teacher@example.com"
           onChange={(e) => {
-            setFormData({...formData, email: e.target.value});
+            setFormData({ ...formData, email: e.target.value });
             if (formErrors.email) setFormErrors({ ...formErrors, email: validateEmail(e.target.value, { required: false }) });
           }}
           onBlur={(e) => setFormErrors({ ...formErrors, email: validateEmail(e.target.value, { required: false }) })}
@@ -202,15 +202,15 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
       </div>
       <div>
         <label htmlFor="teacher-spec" style={labelStyle}>විෂය / විශේෂත්වය</label>
-        <input id="teacher-spec" type="text" value={formData.specialization} onChange={(e) => setFormData({...formData, specialization: e.target.value})} maxLength={150} style={inputStyle} placeholder="Combined Mathematics" />
+        <input id="teacher-spec" type="text" value={formData.specialization} onChange={(e) => setFormData({ ...formData, specialization: e.target.value })} maxLength={150} style={inputStyle} placeholder="Combined Mathematics" />
       </div>
       <div>
         <label htmlFor="teacher-qual" style={labelStyle}>සුදුසුකම්</label>
-        <input id="teacher-qual" type="text" value={formData.qualifications} onChange={(e) => setFormData({...formData, qualifications: e.target.value})} maxLength={300} style={inputStyle} placeholder="B.Sc, M.Sc" />
+        <input id="teacher-qual" type="text" value={formData.qualifications} onChange={(e) => setFormData({ ...formData, qualifications: e.target.value })} maxLength={300} style={inputStyle} placeholder="B.Sc, M.Sc" />
       </div>
       <div>
         <label htmlFor="teacher-photo" style={labelStyle}>ඡායාරූපය (Photo)</label>
-        <input id="teacher-photo" type="file" accept="image/*" onChange={(e) => setFormData({...formData, photo: e.target.files && e.target.files[0] ? e.target.files[0] : null})} style={{ ...inputStyle, padding: '5px' }} />
+        <input id="teacher-photo" type="file" accept="image/*" onChange={(e) => setFormData({ ...formData, photo: e.target.files && e.target.files[0] ? e.target.files[0] : null })} style={{ ...inputStyle, padding: '5px' }} />
         {isEdit && editingTeacher?.profile_photo_path && (
           <div style={{ marginTop: '5px', fontSize: '12px', color: '#666' }}>
             දැනට ඇති ඡායාරූපය: <img src={getImageUrl(editingTeacher.profile_photo_path)} alt="Current" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '50%', verticalAlign: 'middle', marginLeft: '10px' }} />
@@ -261,7 +261,7 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
               <td style={{ padding: '16px', fontWeight: 'bold' }}>{teacher.teacher_id}</td>
               <td style={{ padding: '16px' }}>
                 {resolveTeacherPhoto(teacher) ? (
-                  <img src={resolveTeacherPhoto(teacher)} alt="Teacher" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} onError={(e) => { e.target.onerror = null; e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
+                  <img src={resolveTeacherPhoto(teacher)} alt="Teacher" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
                 ) : null}
                 <div style={{ display: resolveTeacherPhoto(teacher) ? 'none' : 'flex', width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#e0e0e0', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>👨‍🏫</div>
               </td>

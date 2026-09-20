@@ -166,7 +166,7 @@ const FaceVerificationTab = ({ activeSessions, students }) => {
   const handleMarkFraud = async () => {
     if (!sessionId) return;
     if (filteredStudents.length === 0) return;
-    
+
     if (!window.confirm(`සිසුන් ${filteredStudents.length} දෙනෙකු හොරෙන් පැමිණීම (Fraud) සටහන් කර ඇති බව තහවුරු කරනවාද?`)) {
       return;
     }

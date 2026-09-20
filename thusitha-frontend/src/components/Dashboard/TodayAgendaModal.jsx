@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import { request } from '../../services/api';
-import { CalendarClock, BookOpen, ClipboardList, ExternalLink } from 'lucide-react';
+import { FaCalendarAlt, FaBook, FaClipboardList, FaExternalLinkAlt } from 'react-icons/fa';
 
 // Shown once per browser session, right after login: today's classes, exams, and (best
 // effort) any Moodle Assignment/Quiz due today - so the user sees what's coming up for the
@@ -44,7 +44,7 @@ const TodayAgendaModal = () => {
         {agenda.classes.length > 0 && (
           <div>
             <h4 className="flex items-center gap-2 font-bold text-primary mb-2">
-              <CalendarClock className="w-5 h-5" /> අද පන්ති (Classes Today)
+              <FaCalendarAlt className="w-4 h-4" /> අද පන්ති (Classes Today)
             </h4>
             <ul className="space-y-2">
               {agenda.classes.map((c) => (
@@ -61,7 +61,7 @@ const TodayAgendaModal = () => {
         {agenda.exams.length > 0 && (
           <div>
             <h4 className="flex items-center gap-2 font-bold text-danger mb-2">
-              <ClipboardList className="w-5 h-5" /> අද විභාග (Exams Today)
+              <FaClipboardList className="w-4 h-4" /> අද විභාග (Exams Today)
             </h4>
             <ul className="space-y-2">
               {agenda.exams.map((e) => (
@@ -76,7 +76,7 @@ const TodayAgendaModal = () => {
         {agenda.moodleEvents.length > 0 && (
           <div>
             <h4 className="flex items-center gap-2 font-bold text-amber-600 mb-2">
-              <BookOpen className="w-5 h-5" /> අද Assignment / Quiz Deadlines
+              <FaBook className="w-4 h-4" /> අද Assignment / Quiz Deadlines
             </h4>
             <ul className="space-y-2">
               {agenda.moodleEvents.map((m, i) => (
@@ -84,7 +84,7 @@ const TodayAgendaModal = () => {
                   <span><span className="font-semibold">{m.name}</span>{m.course ? ` — ${m.course}` : ''}</span>
                   {m.url && (
                     <a href={m.url} target="_blank" rel="noopener noreferrer" className="text-primary shrink-0">
-                      <ExternalLink className="w-4 h-4" />
+                      <FaExternalLinkAlt className="w-3.5 h-3.5" />
                     </a>
                   )}
                 </li>

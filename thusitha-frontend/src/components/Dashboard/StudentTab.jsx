@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 import { getImageUrl } from '../../services/api';
+import { validateName, validatePhone } from '../../utils/formValidation';
 
 const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteClick, onEncode, onUploadPhoto, onDownloadIDCard, role }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -217,31 +218,31 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
             <form onSubmit={handleEditSubmit}>
               <div style={{ marginBottom: '15px' }}>
                 <label htmlFor="edit-name" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>ශිෂ්‍යයාගේ නම</label>
-                <input id="edit-name" type="text" value={editFormData.student_name} onChange={(e) => setEditFormData({ ...editFormData, student_name: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
+                <input id="edit-name" type="text" placeholder="උදා: කමල් පෙරේරා (e.g. Kamal Perera)" value={editFormData.student_name} onChange={(e) => setEditFormData({ ...editFormData, student_name: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
               </div>
               <div style={{ marginBottom: '15px' }}>
                 <label htmlFor="edit-school" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>පාසල</label>
-                <input id="edit-school" type="text" value={editFormData.school} onChange={(e) => setEditFormData({ ...editFormData, school: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
+                <input id="edit-school" type="text" placeholder="උදා: රාජකීය විද්‍යාලය (e.g. Royal College)" value={editFormData.school} onChange={(e) => setEditFormData({ ...editFormData, school: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
               </div>
               <div style={{ marginBottom: '15px' }}>
                 <label htmlFor="edit-grade" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>ශ්‍රේණිය</label>
-                <input id="edit-grade" type="text" value={editFormData.grade} onChange={(e) => setEditFormData({ ...editFormData, grade: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
+                <input id="edit-grade" type="text" placeholder="උදා: Grade 12 (12-AL)" value={editFormData.grade} onChange={(e) => setEditFormData({ ...editFormData, grade: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
               </div>
               {/* Parent Information */}
               <div style={{ padding: '12px', backgroundColor: '#e8eaf6', borderRadius: '8px', marginBottom: '15px' }}>
                 <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#1a237e', marginBottom: '10px' }}>👨‍👩‍👦 දෙමාපිය / භාරකාර තොරතුරු</div>
                 <div style={{ marginBottom: '10px' }}>
                   <label htmlFor="edit-parent-name" style={{ display: 'block', marginBottom: '5px', fontWeight: '500', fontSize: '13px' }}>දෙමාපිය නම</label>
-                  <input id="edit-parent-name" type="text" value={editFormData.parent_name} onChange={(e) => setEditFormData({ ...editFormData, parent_name: e.target.value })} style={{ width: '100%', padding: '9px', borderRadius: '5px', border: '1px solid #c5cae9', boxSizing: 'border-box', fontSize: '14px' }} placeholder="දෙමාපිය නම" />
+                  <input id="edit-parent-name" type="text" value={editFormData.parent_name} onChange={(e) => setEditFormData({ ...editFormData, parent_name: e.target.value })} style={{ width: '100%', padding: '9px', borderRadius: '5px', border: '1px solid #c5cae9', boxSizing: 'border-box', fontSize: '14px' }} placeholder="උදා: සුනිල් පෙරේරා (e.g. Sunil Perera)" />
                 </div>
                 <div style={{ marginBottom: '0' }}>
                   <label htmlFor="edit-parent-phone" style={{ display: 'block', marginBottom: '5px', fontWeight: '500', fontSize: '13px' }}>📞 WhatsApp දුරකථන අංකය</label>
-                  <input id="edit-parent-phone" type="tel" value={editFormData.parent_phone} onChange={(e) => setEditFormData({ ...editFormData, parent_phone: e.target.value })} style={{ width: '100%', padding: '9px', borderRadius: '5px', border: '1px solid #c5cae9', boxSizing: 'border-box', fontSize: '14px' }} placeholder="+94XXXXXXXXX" />
+                  <input id="edit-parent-phone" type="tel" value={editFormData.parent_phone} onChange={(e) => setEditFormData({ ...editFormData, parent_phone: e.target.value })} style={{ width: '100%', padding: '9px', borderRadius: '5px', border: '1px solid #c5cae9', boxSizing: 'border-box', fontSize: '14px' }} placeholder="උදා: 0771234567 හෝ +94771234567" />
                 </div>
               </div>
               <div style={{ marginBottom: '20px' }}>
                 <label htmlFor="edit-address" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>ලිපිනය</label>
-                <input id="edit-address" type="text" value={editFormData.address} onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }} placeholder="ඔබේ ලිපිනය" />
+                <input id="edit-address" type="text" value={editFormData.address} onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }} placeholder="උදා: නො: 12, මහනුවර පාර, කොළඹ" />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button type="button" onClick={() => setEditingStudent(null)} style={{ padding: '10px 20px', border: '1px solid #ccc', background: 'none', borderRadius: '6px', cursor: 'pointer' }}>අවලංගු කරන්න</button>

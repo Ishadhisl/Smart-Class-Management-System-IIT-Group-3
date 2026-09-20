@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X } from 'lucide-react';
+import { FaTimes } from 'react-icons/fa';
 
 /**
  * Shared modal: backdrop-blur overlay, glass panel, Escape-to-close,
@@ -90,7 +90,7 @@ const Modal = ({ open, onClose, title, children, maxWidth = 'max-w-lg' }) => {
                   aria-label="Close"
                   className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
                 >
-                  <X size={18} />
+                  <FaTimes size={16} />
                 </button>
               </div>
             )}

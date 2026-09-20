@@ -13,7 +13,7 @@ const ExamTab = ({ courses, role }) => {
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  
+
   const { showNotification } = useNotification();
   const isStudent = role === 'Student';
   const isTeacher = role === 'Teacher' || role === 'Admin';
@@ -89,10 +89,10 @@ const ExamTab = ({ courses, role }) => {
 
         <div className="w-full md:w-72 mt-4 md:mt-0">
           <label className="block text-sm font-bold text-gray-700 mb-2">පන්තිය තෝරන්න (Select Class)</label>
-          <select 
+          <select
             className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
-            value={selectedCourse} 
-            onChange={(e) => setSelectedCourse(e.target.value)} 
+            value={selectedCourse}
+            onChange={(e) => setSelectedCourse(e.target.value)}
           >
             <option value="">-- පන්තිය තෝරන්න --</option>
             {courses.map(c => <option key={c.course_id} value={c.course_id}>{c.course_name}</option>)}
@@ -116,7 +116,7 @@ const ExamTab = ({ courses, role }) => {
                   විභාග ලැයිස්තුව
                 </h4>
                 {isTeacher && (
-                  <button 
+                  <button
                     onClick={() => setShowCreateModal(true)}
                     className="p-2 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
                     title="නව විභාගයක් සාදන්න"
@@ -133,11 +133,10 @@ const ExamTab = ({ courses, role }) => {
                   <button
                     key={exam.exam_id}
                     onClick={() => setSelectedExam(exam.exam_id)}
-                    className={`w-full text-left p-4 rounded-xl border transition-all ${
-                      selectedExam === exam.exam_id 
-                        ? 'border-primary bg-primary/5 shadow-sm' 
+                    className={`w-full text-left p-4 rounded-xl border transition-all ${selectedExam === exam.exam_id
+                        ? 'border-primary bg-primary/5 shadow-sm'
                         : 'border-gray-100 hover:border-primary/30 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     <div className="font-semibold text-gray-800">{exam.exam_name}</div>
                     <div className="text-xs text-gray-500 mt-1 flex items-center justify-between">
@@ -156,7 +155,7 @@ const ExamTab = ({ courses, role }) => {
                   <Loader2 className="w-8 h-8 animate-spin" />
                 </div>
               )}
-              
+
               {!selectedExam ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8">
                   <FileSpreadsheet className="w-16 h-16 mb-4 opacity-20" />
@@ -170,7 +169,7 @@ const ExamTab = ({ courses, role }) => {
                       ප්‍රතිඵල සාරාංශය
                     </h4>
                     {isTeacher && (
-                      <button 
+                      <button
                         onClick={() => setShowUploadModal(true)}
                         className="flex items-center gap-2 bg-secondary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-secondary/90 transition-colors shadow-sm"
                       >
@@ -179,7 +178,7 @@ const ExamTab = ({ courses, role }) => {
                       </button>
                     )}
                   </div>
-                  
+
                   <div className="flex-1 overflow-y-auto p-4">
                     {results.length === 0 && !loading ? (
                       <div className="bg-blue-50 text-blue-800 p-4 rounded-xl border border-blue-100 flex items-start gap-3">
@@ -230,8 +229,8 @@ const ExamTab = ({ courses, role }) => {
 
       {/* Upload Modal */}
       {showUploadModal && isTeacher && (
-        <UploadModal 
-          examId={selectedExam} 
+        <UploadModal
+          examId={selectedExam}
           onClose={() => setShowUploadModal(false)}
           onSuccess={() => {
             setShowUploadModal(false);
@@ -244,7 +243,7 @@ const ExamTab = ({ courses, role }) => {
 
       {/* Create Exam Modal */}
       {showCreateModal && isTeacher && (
-        <CreateExamModal 
+        <CreateExamModal
           courseId={selectedCourse}
           onClose={() => setShowCreateModal(false)}
           onSuccess={() => {
@@ -282,8 +281,8 @@ const UploadModal = ({ examId, onClose, onSuccess, onDownloadTemplate }) => {
         body: formData,
         isFormData: true
       });
-      if(res) {
-          onSuccess();
+      if (res) {
+        onSuccess();
       }
     } catch (err) {
       showNotification(err.message || 'උඩුගත කිරීම අසාර්ථකයි.', 'error');
@@ -309,7 +308,7 @@ const UploadModal = ({ examId, onClose, onSuccess, onDownloadTemplate }) => {
             <li>තීරුව 1: ශිෂ්‍ය අංකය (ST10001)</li>
             <li>තීරුව 2: ලකුණු (0-100)</li>
           </ul>
-          <button 
+          <button
             onClick={onDownloadTemplate}
             className="flex items-center gap-1.5 text-primary font-semibold hover:underline text-xs"
           >
@@ -319,10 +318,10 @@ const UploadModal = ({ examId, onClose, onSuccess, onDownloadTemplate }) => {
         </div>
 
         <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-primary/50 transition-colors bg-gray-50 mb-6">
-          <input 
-            type="file" 
-            id="excel-upload" 
-            className="hidden" 
+          <input
+            type="file"
+            id="excel-upload"
+            className="hidden"
             accept=".xlsx, .xls"
             onChange={(e) => setFile(e.target.files[0])}
           />
@@ -339,7 +338,7 @@ const UploadModal = ({ examId, onClose, onSuccess, onDownloadTemplate }) => {
           <button onClick={onClose} className="px-5 py-2.5 rounded-xl font-medium text-gray-600 hover:bg-gray-100 transition-colors">
             අවලංගු කරන්න
           </button>
-          <button 
+          <button
             onClick={handleUpload}
             disabled={uploading || !file}
             className="px-5 py-2.5 rounded-xl font-medium bg-primary text-white hover:bg-primary-dark transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md shadow-primary/20"
@@ -387,48 +386,48 @@ const CreateExamModal = ({ courseId, onClose, onSuccess }) => {
           <Plus className="w-5 h-5 text-primary" />
           නව විභාගයක් සාදන්න
         </h3>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">විභාගයේ නම</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-gray-50"
               placeholder="උදා: 2026 Mid-Term Exam"
               value={formData.exam_name}
-              onChange={(e) => setFormData({...formData, exam_name: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, exam_name: e.target.value })}
               required
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">දිනය</label>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-gray-50"
                 value={formData.exam_date}
-                onChange={(e) => setFormData({...formData, exam_date: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, exam_date: e.target.value })}
                 required
               />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">මුළු ලකුණු</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-gray-50"
                 value={formData.total_marks}
-                onChange={(e) => setFormData({...formData, total_marks: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, total_marks: e.target.value })}
                 required min="1"
               />
             </div>
           </div>
-          
+
           <div className="flex gap-3 justify-end mt-8">
             <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl font-medium text-gray-600 hover:bg-gray-100 transition-colors">
               අවලංගු කරන්න
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={loading}
               className="px-5 py-2.5 rounded-xl font-medium bg-primary text-white hover:bg-primary-dark transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md shadow-primary/20"
             >

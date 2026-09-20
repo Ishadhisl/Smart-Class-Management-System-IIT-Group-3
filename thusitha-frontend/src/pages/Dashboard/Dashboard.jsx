@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Menu, UserPlus, Settings2 } from 'lucide-react';
 import { studentService } from '../../services/studentService';
 import { classService } from '../../services/classService';
 import { attendanceService } from '../../services/attendanceService';
@@ -40,7 +41,6 @@ import AnnouncementTab from '../../components/Dashboard/Tabs/AnnouncementTab';
 import AchievementTab from '../../components/Dashboard/Tabs/AchievementTab';
 import QRAttendanceTab from '../../components/Dashboard/QRAttendanceTab';
 
-import { UserPlus, Settings2, Menu } from 'lucide-react';
 import Modal from '../../components/common/Modal';
 import Input from '../../components/common/Input';
 import Label from '../../components/common/Label';
@@ -1327,30 +1327,30 @@ const Dashboard = () => {
               {/* HOME TAB */}
               {!loading && activeTab === 'home' && (() => {
                 const currentTeacher = isTeacher ? lecturers.find(t => t.user_id === user.id) : null;
-                
+
                 const teacherPhotoMap = {
-                    'ruwan': '/teachers/ruwan.png',
-                    'sunil': '/teachers/sunil.png',
-                    'sumeera': '/teachers/sumeera.png',
-                    'sampath': '/teachers/sampath.png',
-                    'nimali': '/teachers/nimali.png',
-                    'namal': '/teachers/namal.png',
-                    'shanika': '/teachers/shanika.png',
-                    'thusitha': '/teachers/thusitha.png'
+                  'ruwan': '/teachers/ruwan.png',
+                  'sunil': '/teachers/sunil.png',
+                  'sumeera': '/teachers/sumeera.png',
+                  'sampath': '/teachers/sampath.png',
+                  'nimali': '/teachers/nimali.png',
+                  'namal': '/teachers/namal.png',
+                  'shanika': '/teachers/shanika.png',
+                  'thusitha': '/teachers/thusitha.png'
                 };
-                
+
                 let resolvedPhoto = null;
                 if (currentTeacher?.teacher_name) {
-                    const nameKey = currentTeacher.teacher_name.toLowerCase();
-                    for (const [key, path] of Object.entries(teacherPhotoMap)) {
-                        if (nameKey.includes(key) || user?.username?.toLowerCase().includes(key)) {
-                            resolvedPhoto = path;
-                            break;
-                        }
+                  const nameKey = currentTeacher.teacher_name.toLowerCase();
+                  for (const [key, path] of Object.entries(teacherPhotoMap)) {
+                    if (nameKey.includes(key) || user?.username?.toLowerCase().includes(key)) {
+                      resolvedPhoto = path;
+                      break;
                     }
+                  }
                 }
                 if (!resolvedPhoto && user?.username && teacherPhotoMap[user.username.toLowerCase()]) {
-                    resolvedPhoto = teacherPhotoMap[user.username.toLowerCase()];
+                  resolvedPhoto = teacherPhotoMap[user.username.toLowerCase()];
                 }
                 const profilePhotoPath = isStudent
                   ? (myProfilePhoto || null)
@@ -1359,24 +1359,24 @@ const Dashboard = () => {
                 let displayUserCount = classes.length;
 
                 if (isTeacher && currentTeacher) {
-                   const myCourses = realCourses.filter(c => c.teacher_id === currentTeacher.teacher_id);
-                   displayUserCount = myCourses.length;
+                  const myCourses = realCourses.filter(c => c.teacher_id === currentTeacher.teacher_id);
+                  displayUserCount = myCourses.length;
                 }
 
                 return (
                   <>
-                  {isAdmin && <CctvAccessRequestsAdmin />}
-                  <HomeTab
-                    username={user.username}
-                    role={user.role}
-                    studentCount={students.length}
-                    userCount={displayUserCount}
-                    enrolledCourses={enrolledCourses}
-                    revenueData={revenueData}
-                    currentMonthRevenue={currentMonthRevenue}
-                    attendanceData={attendanceStats}
-                    profilePhotoPath={profilePhotoPath}
-                  />
+                    {isAdmin && <CctvAccessRequestsAdmin />}
+                    <HomeTab
+                      username={user.username}
+                      role={user.role}
+                      studentCount={students.length}
+                      userCount={displayUserCount}
+                      enrolledCourses={enrolledCourses}
+                      revenueData={revenueData}
+                      currentMonthRevenue={currentMonthRevenue}
+                      attendanceData={attendanceStats}
+                      profilePhotoPath={profilePhotoPath}
+                    />
                   </>
                 );
               })()}
