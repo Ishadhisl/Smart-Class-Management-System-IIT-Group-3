@@ -17,4 +17,9 @@ router.put('/:id/verify', verifyToken, checkRole(['Admin', 'Counter Person']), p
 router.get('/:id/receipt', verifyToken, checkRole(['Admin', 'Counter Person', 'Student', 'Parent']), paymentController.getReceipt);
 router.get('/reports/overdue', verifyToken, checkRole(['Admin', 'Counter Person']), paymentController.getOverduePayments);
 
+// PayHere Integration
+router.post('/payhere/initiate', verifyToken, checkRole(['Student']), paymentController.initiatePayHereCheckout);
+router.post('/payhere/notify', paymentController.handlePayHereNotify); // No auth: server-to-server callback from PayHere
+router.get('/payhere/status/:orderId', verifyToken, paymentController.getPayHerePaymentStatus);
+
 module.exports = router;

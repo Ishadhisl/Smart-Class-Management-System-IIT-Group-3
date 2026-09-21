@@ -14,7 +14,7 @@ const StudentPaymentTab = ({ courses }) => {
   const [isUploadingConfirmation, setIsUploadingConfirmation] = useState(false);
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
-  const user = JSON.parse(sessionStorage.getItem('user'));
+  const user = JSON.parse(sessionStorage.getItem('user') || localStorage.getItem('user') || '{}');
 
   useEffect(() => {
     fetchPayments();
@@ -32,42 +32,9 @@ const StudentPaymentTab = ({ courses }) => {
     setLoading(false);
   };
 
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [cardDetails, setCardDetails] = useState({
-    cardholderName: '',
-    cardNumber: '',
-    expiryDate: '',
-    cvv: ''
-  });
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [isInitiatingPayHere, setIsInitiatingPayHere] = useState(false);
 
-  const formatCardNumber = (value) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    const matches = v.match(/\d{4,16}/g);
-    const match = (matches && matches[0]) || '';
-    const parts = [];
-
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
-    }
-
-    if (parts.length > 0) {
-      return parts.join(' ');
-    } else {
-      return v;
-    }
-  };
-
-  const formatExpiry = (value) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    if (v.length >= 2) {
-      return `${v.slice(0, 2)}/${v.slice(2, 4)}`;
-    }
-    return v;
-  };
-
-  const handleOpenPaymentModal = () => {
+  const handlePayHerePayment = async () => {
     if (!selectedCourse || !selectedMonth) {
       return showNotification('කරුණාකර පන්තිය සහ මාසය තෝරන්න.', 'error');
     }
@@ -79,74 +46,44 @@ const StudentPaymentTab = ({ courses }) => {
       return showNotification('පන්තියේ ගාස්තුව සොයාගත නොහැක.', 'error');
     }
 
-    // Reset modal state
-    setCardDetails({
-      cardholderName: '',
-      cardNumber: '',
-      expiryDate: '',
-      cvv: ''
-    });
-    setPaymentSuccess(false);
-    setIsProcessingPayment(false);
-    setShowPaymentModal(true);
-  };
-
-  const handleCardPaymentSubmit = async (e) => {
-    e.preventDefault();
-
-    const cleanCardNo = cardDetails.cardNumber.replace(/\s+/g, '');
-    const cleanExpiry = cardDetails.expiryDate.trim();
-    const cleanCVV = cardDetails.cvv.trim();
-    const name = cardDetails.cardholderName.trim();
-
-    if (!name) {
-      return showNotification('කරුණාකර කාඩ්පතේ හිමිකරුගේ නම ඇතුළත් කරන්න.', 'error');
-    }
-    if (cleanCardNo.length !== 16 || isNaN(cleanCardNo)) {
-      return showNotification('කාඩ්පත් අංකය ඉලක්කම් 16කින් යුක්ත විය යුතුය.', 'error');
-    }
-    if (!/^\d{2}\/\d{2}$/.test(cleanExpiry)) {
-      return showNotification('කල් ඉකුත්වන දිනය MM/YY ආකාරයට ඇතුළත් කරන්න.', 'error');
-    }
-    if (cleanCVV.length !== 3 || isNaN(cleanCVV)) {
-      return showNotification('CVV අංකය ඉලක්කම් 3කින් යුක්ත විය යුතුය.', 'error');
-    }
-
-    setIsProcessingPayment(true);
-
-    const course = courses.find(c => String(c.course_id) === String(selectedCourse));
-    const amount = course?.monthly_fee || course?.fee || 1000;
+    setIsInitiatingPayHere(true);
 
     try {
-      const res = await request('/payments/create-checkout-session', {
+      const res = await request('/payments/payhere/initiate', {
         method: 'POST',
         body: {
           student_id: (user.userId || user.id),
           course_id: selectedCourse,
-          amount_paid: amount,
           for_month: selectedMonth
         }
       });
 
-      setTimeout(() => {
-        setIsProcessingPayment(false);
-        if (res.dummy_success) {
-          setPaymentSuccess(true);
-          setTimeout(() => {
-            setShowPaymentModal(false);
-            showNotification('ගෙවීම් කටයුත්ත සාර්ථකව නිම කරන ලදී!');
-            setSelectedCourse('');
-            setSelectedMonth('');
-            fetchPayments();
-          }, 1500);
-        } else if (res.url) {
-          window.location.href = res.url;
-        }
-      }, 1500);
+      if (!res || !res.action_url || !res.params) {
+        throw new Error('PayHere ගෙවීම් දත්ත ලබා ගැනීමට නොහැකි විය.');
+      }
 
+      showNotification('PayHere වෙත යොමු කෙරේ... කරුණාකර රැඳී සිටින්න.');
+
+      // Create hidden form and submit to PayHere checkout
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = res.action_url;
+
+      Object.entries(res.params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null) {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = val;
+          form.appendChild(input);
+        }
+      });
+
+      document.body.appendChild(form);
+      form.submit();
     } catch (err) {
-      setIsProcessingPayment(false);
-      showNotification(err.message || 'ගෙවීම් පිටුවට පිවිසීමට නොහැකි විය.', 'error');
+      setIsInitiatingPayHere(false);
+      showNotification(err.message || 'PayHere ගෙවීම ආරම්භ කිරීමට නොහැකි විය.', 'error');
     }
   };
 
@@ -218,6 +155,7 @@ const StudentPaymentTab = ({ courses }) => {
     switch (status) {
       case 'Completed': return '#4caf50';
       case 'Pending Verification': return '#ff9800';
+      case 'Pending': return '#ff9800';
       case 'Rejected': return '#f44336';
       default: return '#666';
     }
@@ -282,10 +220,24 @@ const StudentPaymentTab = ({ courses }) => {
             </select>
           </div>
           <button
-            onClick={handleOpenPaymentModal}
-            style={{ padding: '12px 24px', backgroundColor: '#6772e5', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}
+            onClick={handlePayHerePayment}
+            disabled={isInitiatingPayHere || !selectedCourse || !selectedMonth}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: (isInitiatingPayHere || !selectedCourse || !selectedMonth) ? '#a5d6a7' : '#2e7d32',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: (isInitiatingPayHere || !selectedCourse || !selectedMonth) ? 'not-allowed' : 'pointer',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+              transition: 'background-color 0.2s'
+            }}
           >
-            <CreditCard size={18} /> Pay with Card (Stripe)
+            <CreditCard size={18} /> {isInitiatingPayHere ? 'PayHere වෙත යොමු කරමින්...' : 'Pay with PayHere (කාඩ්පත් / HelaPay)'}
           </button>
         </div>
 
@@ -316,9 +268,9 @@ const StudentPaymentTab = ({ courses }) => {
         ) : payments.length === 0 ? (
           <p style={{ color: '#666' }}>ගෙවීම් කිසිවක් හමුවුනේ නැත.</p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'max(300px, calc(100vh - 420px))', border: '1px solid #e3e6f0', borderRadius: '10px' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                 <tr style={{ backgroundColor: '#f5f6fa', color: '#333' }}>
                   <th style={{ padding: '12px', borderBottom: '2px solid #ddd' }}>දිනය</th>
                   <th style={{ padding: '12px', borderBottom: '2px solid #ddd' }}>පන්තිය</th>
@@ -396,113 +348,6 @@ const StudentPaymentTab = ({ courses }) => {
         )}
       </div>
 
-      {/* 💳 DUMMY PAYMENT MODAL */}
-      {showPaymentModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '15px', width: '100%', maxWidth: '420px', boxShadow: '0 15px 35px rgba(0,0,0,0.15)', position: 'relative', fontFamily: 'sans-serif' }}>
-
-            {!isProcessingPayment && !paymentSuccess && (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                  <h3 style={{ margin: 0, color: '#1a237e', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CreditCard size={22} /> Card Details (Sandbox)
-                  </h3>
-                  <button onClick={() => setShowPaymentModal(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#666' }}>&times;</button>
-                </div>
-
-                <form onSubmit={handleCardPaymentSubmit}>
-                  <div style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px', color: '#555' }}>Cardholder Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. John Doe"
-                      value={cardDetails.cardholderName}
-                      onChange={(e) => setCardDetails({ ...cardDetails, cardholderName: e.target.value })}
-                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
-                      required
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px', color: '#555' }}>Card Number</label>
-                    <input
-                      type="text"
-                      placeholder="4242 4242 4242 4242"
-                      maxLength="19"
-                      value={cardDetails.cardNumber}
-                      onChange={(e) => setCardDetails({ ...cardDetails, cardNumber: formatCardNumber(e.target.value) })}
-                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
-                      required
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px', color: '#555' }}>Expiry Date</label>
-                      <input
-                        type="text"
-                        placeholder="MM/YY"
-                        maxLength="5"
-                        value={cardDetails.expiryDate}
-                        onChange={(e) => setCardDetails({ ...cardDetails, expiryDate: formatExpiry(e.target.value) })}
-                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
-                        required
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px', color: '#555' }}>CVV</label>
-                      <input
-                        type="password"
-                        placeholder="123"
-                        maxLength="3"
-                        value={cardDetails.cvv}
-                        onChange={(e) => setCardDetails({ ...cardDetails, cvv: e.target.value.replace(/[^0-9]/g, '') })}
-                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    style={{ width: '100%', padding: '12px', backgroundColor: '#2e7d32', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}
-                  >
-                    Pay LKR {(courses.find(c => String(c.course_id) === String(selectedCourse))?.monthly_fee || 1000)}
-                  </button>
-                </form>
-              </>
-            )}
-
-            {isProcessingPayment && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0' }}>
-                <div style={{ width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #1a237e', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                <h4 style={{ marginTop: '20px', color: '#1a237e' }}>ගනුදෙනුව සිදුවෙමින් පවතී...</h4>
-                <p style={{ fontSize: '12px', color: '#666', margin: 0 }}>කරුණාකර මෙම ජනේලය වසා නොදමන්න.</p>
-              </div>
-            )}
-
-            {paymentSuccess && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0', textAlign: 'center' }}>
-                <div style={{ fontSize: '50px', color: '#2e7d32', animation: 'scaleUp 0.3s ease-out' }}>✓</div>
-                <h3 style={{ color: '#2e7d32', margin: '10px 0' }}>ගෙවීම සාර්ථකයි!</h3>
-                <p style={{ fontSize: '14px', color: '#555', margin: 0 }}>ඔබගේ ගෙවීම සාර්ථකව සටහන් කර ගන්නා ලදී.</p>
-              </div>
-            )}
-
-          </div>
-        </div>
-      )}
-
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        @keyframes scaleUp {
-          0% { transform: scale(0); }
-          100% { transform: scale(1); }
-        }
-      `}</style>
     </div>
   );
 };

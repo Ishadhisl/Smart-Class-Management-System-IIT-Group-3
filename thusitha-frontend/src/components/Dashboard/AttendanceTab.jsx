@@ -152,9 +152,9 @@ const AttendanceTab = ({
                 <p className="text-gray-400 text-sm font-medium">පැමිණීම් වාර්තා කිසිවක් හමු නොවිණි.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto border border-gray-100 rounded-xl">
+              <div className="overflow-x-auto overflow-y-auto max-h-[max(300px,calc(100vh_-_380px))] border border-gray-100 rounded-xl">
                 <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider border-b border-gray-100">
+                  <thead className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider border-b border-gray-100 sticky top-0 z-10">
                     <tr>
                       <th className="px-6 py-3.5">දිනය & වේලාව (Date & Time)</th>
                       <th className="px-6 py-3.5">Student ID / Ref</th>
@@ -214,9 +214,9 @@ const AttendanceTab = ({
                 </div>
 
                 {/* Students check list table */}
-                <div className="overflow-x-auto border border-gray-100 rounded-xl">
+                <div className="overflow-x-auto overflow-y-auto max-h-[max(300px,calc(100vh_-_380px))] border border-gray-100 rounded-xl">
                   <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider border-b border-gray-100">
+                    <thead className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider border-b border-gray-100 sticky top-0 z-10">
                       <tr>
                         <th className="px-6 py-3.5">Student ID</th>
                         <th className="px-6 py-3.5">ශිෂ්‍යයාගේ නම</th>

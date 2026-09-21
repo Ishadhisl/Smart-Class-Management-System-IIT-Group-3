@@ -152,7 +152,8 @@ CREATE TABLE IF NOT EXISTS Payments (
     payment_status VARCHAR(50) DEFAULT 'Completed',
     payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     confirmation_url VARCHAR(255),
-    verification_comments TEXT
+    verification_comments TEXT,
+    payhere_payment_id VARCHAR(100) -- set by the PayHere notify callback (see migration_payhere_payment_id.sql)
 );
 
 -- 6. Study Area Management

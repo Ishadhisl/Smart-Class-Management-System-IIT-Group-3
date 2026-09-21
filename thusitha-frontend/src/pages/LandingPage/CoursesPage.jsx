@@ -9,6 +9,13 @@ import Input from '../../components/common/Input';
 import Label from '../../components/common/Label';
 import Textarea from '../../components/common/Textarea';
 import Modal from '../../components/common/Modal';
+import FormError from '../../components/common/FormError';
+import {
+  filterNameInput, filterPhoneInput, filterTextInput,
+  NAME_INVALID_MSG, PHONE_INVALID_MSG, TEXT_INVALID_MSG,
+  validateName, validatePhone, validateEmail, validateSubject, validateText,
+} from '../../utils/formValidation';
+import { useFieldValidation } from '../../utils/useFieldValidation';
 
 // Keyword → { icon, gradient } lookup for course header art. Matched against
 // subject_name (falling back to course_name) case-insensitively; first match wins.
@@ -50,8 +57,30 @@ const CoursesPage = () => {
     bio: ''
   });
 
+  const teacherRules = (d) => ({
+    name: () => validateName(d.name, { label: 'නම' }),
+    phone: () => validatePhone(d.phone, { required: true }),
+    subject: () => validateSubject(d.subject, { label: 'විෂයය' }),
+    email: () => validateEmail(d.email, { required: false }),
+    qualifications: () => validateText(d.qualifications, { required: true, label: 'සුදුසුකම්', max: 300 }),
+    bio: () => validateText(d.bio, { required: true, label: 'දේශක විස්තරය', min: 20, max: 1000 }),
+  });
+  const tv = useFieldValidation(teacherForm, setTeacherForm, teacherRules, {
+    name: 'teacher_name', phone: 'teacher_phone', subject: 'teacher_subject',
+    email: 'teacher_email', qualifications: 'teacher_qualifications', bio: 'teacher_bio',
+  });
+
+  const closeTeacherModal = () => {
+    setIsTeacherModalOpen(false);
+    tv.clear();
+  };
+
   const handleTeacherRegisterSubmit = async (e) => {
     e.preventDefault();
+    if (!tv.validateAll()) {
+      showNotification('කරුණාකර රතු පාටින් සලකුණු කර ඇති තොරතුරු නිවැරදි කරන්න.', 'error');
+      return;
+    }
     setTeacherRegistering(true);
     try {
       const messageText = `දේශක ලියාපදිංචි වීමේ අයදුම්පත:\n` +
@@ -73,7 +102,7 @@ const CoursesPage = () => {
         }
       });
       showNotification('දේශක ලියාපදිංචි වීමේ අයදුම්පත සාර්ථකව ඉදිරිපත් කරන ලදී! පාලක මඩුල්ල විසින් ඉක්මනින් ඔබව සම්බන්ධ කරගනු ඇත.');
-      setIsTeacherModalOpen(false);
+      closeTeacherModal();
       setTeacherForm({ name: '', phone: '', email: '', subject: '', qualifications: '', bio: '' });
     } catch (err) {
       console.error('Teacher registration submit error:', err);
@@ -181,35 +210,61 @@ const CoursesPage = () => {
       </main>
 
       {/* Teacher Registration Modal */}
-      <Modal open={isTeacherModalOpen} onClose={() => setIsTeacherModalOpen(false)} title="දේශකයා (Teacher) ලියාපදිංචිය" maxWidth="max-w-lg">
-        <p className="text-center text-slate-500 mb-5 text-[13px]">ඔබේ තොරතුරු ඇතුළත් කර අයදුම්පත ඉදිරිපත් කරන්න.</p>
+      <Modal open={isTeacherModalOpen} onClose={closeTeacherModal} title="දේශකයා (Teacher) ලියාපදිංචිය" maxWidth="max-w-lg">
+        <p className="text-center text-slate-500 mb-1 text-[13px]">ඔබේ තොරතුරු ඇතුළත් කර අයදුම්පත ඉදිරිපත් කරන්න.</p>
+        <p className="text-center text-slate-400 mb-5 text-xs"><span className="text-danger">*</span> සලකුණු කළ තොරතුරු අනිවාර්ය වේ.</p>
 
-        <form onSubmit={handleTeacherRegisterSubmit}>
+        <form onSubmit={handleTeacherRegisterSubmit} noValidate>
           <div className="mb-4">
-            <Label>නම *</Label>
-            <Input type="text" value={teacherForm.name} onChange={e => setTeacherForm({ ...teacherForm, name: e.target.value })} required />
+            <Label htmlFor="teacher_name">නම <span className="text-danger">*</span></Label>
+            <Input id="teacher_name" type="text" placeholder="උදා: Nimal Perera / නිමල් පෙරේරා" maxLength={150}
+              value={teacherForm.name} invalid={tv.invalid('name')}
+              onChange={e => tv.set('name', e.target.value, filterNameInput, NAME_INVALID_MSG)}
+              onBlur={() => tv.blur('name')} />
+            <FormError>{tv.errors.name}</FormError>
           </div>
           <div className="flex gap-3 mb-4">
             <div className="flex-1">
-              <Label>දුරකථනය *</Label>
-              <Input type="tel" value={teacherForm.phone} onChange={e => setTeacherForm({ ...teacherForm, phone: e.target.value })} required />
+              <Label htmlFor="teacher_phone">දුරකථනය <span className="text-danger">*</span></Label>
+              <Input id="teacher_phone" type="tel" inputMode="numeric" placeholder="උදා: 0771234567" maxLength={12}
+                value={teacherForm.phone} invalid={tv.invalid('phone')}
+                onChange={e => tv.set('phone', e.target.value, filterPhoneInput, PHONE_INVALID_MSG)}
+                onBlur={() => tv.blur('phone')} />
+              <FormError>{tv.errors.phone}</FormError>
             </div>
             <div className="flex-1">
-              <Label>විෂයය *</Label>
-              <Input type="text" value={teacherForm.subject} onChange={e => setTeacherForm({ ...teacherForm, subject: e.target.value })} required />
+              <Label htmlFor="teacher_subject">විෂයය <span className="text-danger">*</span></Label>
+              <Input id="teacher_subject" type="text" placeholder="උදා: A/L Physics" maxLength={100}
+                value={teacherForm.subject} invalid={tv.invalid('subject')}
+                onChange={e => tv.set('subject', e.target.value, filterTextInput, TEXT_INVALID_MSG)}
+                onBlur={() => tv.blur('subject')} />
+              <FormError>{tv.errors.subject}</FormError>
             </div>
           </div>
           <div className="mb-4">
-            <Label>ඊමේල් ලිපිනය</Label>
-            <Input type="email" value={teacherForm.email} onChange={e => setTeacherForm({ ...teacherForm, email: e.target.value })} />
+            <Label htmlFor="teacher_email">ඊමේල් ලිපිනය</Label>
+            <Input id="teacher_email" type="email" placeholder="උදා: nimal@gmail.com" maxLength={150}
+              value={teacherForm.email} invalid={tv.invalid('email')}
+              onChange={e => tv.set('email', e.target.value, filterTextInput, TEXT_INVALID_MSG, { live: true })}
+              onBlur={() => tv.blur('email')} />
+            <FormError>{tv.errors.email}</FormError>
           </div>
           <div className="mb-4">
-            <Label>සුදුසුකම් *</Label>
-            <Input type="text" placeholder="BSc, PhD, A/L Physics..." value={teacherForm.qualifications} onChange={e => setTeacherForm({ ...teacherForm, qualifications: e.target.value })} required />
+            <Label htmlFor="teacher_qualifications">සුදුසුකම් <span className="text-danger">*</span></Label>
+            <Input id="teacher_qualifications" type="text" placeholder="උදා: BSc (Physics), PGDE" maxLength={300}
+              value={teacherForm.qualifications} invalid={tv.invalid('qualifications')}
+              onChange={e => tv.set('qualifications', e.target.value, filterTextInput, TEXT_INVALID_MSG)}
+              onBlur={() => tv.blur('qualifications')} />
+            <FormError>{tv.errors.qualifications}</FormError>
           </div>
           <div className="mb-6">
-            <Label>දේශක විස්තරය (Bio) *</Label>
-            <Textarea rows={4} value={teacherForm.bio} onChange={e => setTeacherForm({ ...teacherForm, bio: e.target.value })} required />
+            <Label htmlFor="teacher_bio">දේශක විස්තරය (Bio) <span className="text-danger">*</span></Label>
+            <Textarea id="teacher_bio" rows={4} maxLength={1000}
+              placeholder="උදා: වසර 10ක ඉගැන්වීමේ පළපුරුද්ද, A/L Physics theory සහ revision පන්ති..."
+              value={teacherForm.bio} invalid={tv.invalid('bio')}
+              onChange={e => tv.set('bio', e.target.value, filterTextInput, TEXT_INVALID_MSG)}
+              onBlur={() => tv.blur('bio')} />
+            <FormError>{tv.errors.bio}</FormError>
           </div>
 
           <Button type="submit" variant="primary" size="lg" fullWidth loading={teacherRegistering} icon={<GraduationCap size={18} />}>

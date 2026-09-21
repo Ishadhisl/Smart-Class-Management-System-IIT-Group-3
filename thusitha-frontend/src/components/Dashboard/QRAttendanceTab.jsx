@@ -293,8 +293,9 @@ const QRAttendanceTab = ({ courses }) => {
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">දිනය</p>
               <p className="text-base font-semibold">{new Date(session.session_date).toLocaleDateString('si-LK')}</p>
             </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">QR කාලය ඉකුත් වේ</p>
+            {/* Expiry countdown is intentionally not shown to staff; the timer still runs
+                (hidden) so the session flips to expired at the right moment. */}
+            <div className="hidden" aria-hidden="true">
               <Countdown expiresAt={session.expires_at} onExpired={handleQRExpired} />
             </div>
             <StatusBadge status="ACTIVE" />
@@ -328,9 +329,9 @@ const QRAttendanceTab = ({ courses }) => {
             <h3 className="font-bold text-indigo-900">📋 ශිෂ්‍ය පැමිණීම් ලැයිස්තුව</h3>
             {listLoading && <span className="text-xs text-gray-400 animate-pulse">යාවත්කාලීන වෙමින්...</span>}
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-auto max-h-[max(300px,calc(100vh_-_560px))]">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
+              <thead className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider sticky top-0 z-10">
                 <tr>
                   <th className="px-6 py-3 text-left">Student ID</th>
                   <th className="px-6 py-3 text-left">ශිෂ්‍ය නාමය</th>

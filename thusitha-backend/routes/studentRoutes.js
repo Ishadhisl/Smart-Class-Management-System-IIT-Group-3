@@ -18,6 +18,7 @@ router.delete('/:id', verifyToken, checkRole(['Admin']), studentController.delet
 
 // Pending registrations (Counter Person)
 router.get('/pending', verifyToken, checkRole(['Admin', 'Counter Person']), studentController.getPendingRegistrations);
+router.get('/next-id', verifyToken, checkRole(['Admin', 'Counter Person']), studentController.getNextStudentIds);
 router.post('/approve', verifyToken, checkRole(['Admin', 'Counter Person']), studentController.approveStudent);
 router.post('/bulk-encode', verifyToken, checkRole(['Admin', 'Counter Person']), studentController.bulkGenerateEncodings);
 router.post('/encode/:studentId', verifyToken, checkRole(['Admin', 'Counter Person']), studentController.generateFaceEncoding);

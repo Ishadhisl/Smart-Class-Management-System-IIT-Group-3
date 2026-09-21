@@ -25,10 +25,40 @@ const toRelativeMoodleUrl = (absoluteUrl) => {
   }
 };
 
+// Moodle role ids: 3 = editingteacher (Teachers, full course editing), 5 = student (view only).
+// Counter Persons get a purpose-built "SCMS Material Uploader" role - can add files/folders/
+// pages/URLs but not touch settings, enrolments, grades or assignments/quizzes. Created by
+// scripts/moodle_create_uploader_role.js; the id lives in .env. Falls back to non-editing
+// teacher (4 - read only) rather than silently handing out editing rights.
+const MOODLE_ROLE = {
+  editingTeacher: 3,
+  student: 5,
+  uploader: Number(process.env.MOODLE_UPLOADER_ROLE_ID) || 4,
+};
+
 const moodleUsernameFor = (req) => {
   let username = (req.user.username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (['Admin', 'Counter Person', 'Staff', 'Director'].includes(req.user.role)) username = 'admin';
+  // Admin (and legacy staff roles) use Moodle's site admin. Counter Persons get their OWN
+  // Moodle account so they can be enrolled with the limited uploader role.
+  if (['Admin', 'Staff', 'Director'].includes(req.user.role)) username = 'admin';
   return username;
+};
+
+// Make sure a Moodle account exists for the SCMS user (students/teachers are created by the
+// registration sync; counter staff only reach Moodle through here).
+const ensureMoodleUser = async (req, username) => {
+  if (username === 'admin') return null;
+  try {
+    return await moodleService.findOrCreateUser({
+      username,
+      firstname: req.user.role === 'Counter Person' ? 'Counter' : (req.user.username || username),
+      lastname: req.user.role === 'Counter Person' ? (req.user.username || 'Staff') : 'User',
+      email: `${username}@thusitha.edu.lk`,
+    });
+  } catch (err) {
+    console.warn(`⚠️ [Moodle] could not ensure user ${username}:`, err.message);
+    return null;
+  }
 };
 
 // Best-effort one-click login URL via the auth_userkey plugin. Returns null (not throw)
@@ -48,6 +78,7 @@ exports.getSsoUrl = async (req, res) => {
   try {
     const username = moodleUsernameFor(req);
     if (!username) return res.status(400).json({ message: "Username is missing from token." });
+    await ensureMoodleUser(req, username);
 
     const loginUrl = await trySsoLoginUrl(username);
     if (moodleService.isHosted()) {
@@ -68,6 +99,7 @@ exports.getEmbedUrl = async (req, res) => {
     const { page, course_id, course_name } = req.query;
     const username = moodleUsernameFor(req);
     if (!username) return res.status(400).json({ message: "Username is missing from token." });
+    const moodleUser = await ensureMoodleUser(req, username);
 
     const hosted = moodleService.isHosted();
     const base = hosted ? moodleService.getBaseUrl() : '/moodle';
@@ -79,14 +111,19 @@ exports.getEmbedUrl = async (req, res) => {
       if (!moodleCourse || !moodleCourse.id) {
         return res.status(502).json({ message: 'Moodle හි මෙම පන්තිය සකස් කිරීමට නොහැකි විය. කරුණාකර Admin අමතන්න.' });
       }
-      if (req.user.role === 'Teacher') {
+      // Enrol the opener with the role their SCMS role maps to (students are enrolled by the
+      // registration/enrolment sync and just view).
+      const roleForOpener = req.user.role === 'Teacher' ? MOODLE_ROLE.editingTeacher
+        : req.user.role === 'Counter Person' ? MOODLE_ROLE.uploader
+          : null;
+      if (roleForOpener) {
         try {
-          const moodleTeacher = await moodleService.getUserByUsername(username);
-          if (moodleTeacher && moodleTeacher.id) {
-            await moodleService.enrollUser(moodleTeacher.id, moodleCourse.id, 3); // editingteacher
+          const opener = moodleUser || await moodleService.getUserByUsername(username);
+          if (opener && opener.id) {
+            await moodleService.enrollUser(opener.id, moodleCourse.id, roleForOpener);
           }
         } catch (enrolErr) {
-          console.warn(`⚠️ [Moodle] Teacher enrolment into course ${moodleCourse.id} skipped:`, enrolErr.message);
+          console.warn(`⚠️ [Moodle] ${req.user.role} enrolment into course ${moodleCourse.id} skipped:`, enrolErr.message);
         }
       }
       targetPath = `/course/view.php?id=${moodleCourse.id}`;

@@ -4,7 +4,7 @@ import { Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { motion } from 'framer-motion';
 import {
-  Printer, Users, BookOpen, TrendingUp, CheckCircle, GraduationCap, Calendar,
+  Users, BookOpen, TrendingUp, CheckCircle, GraduationCap, Calendar,
   Sparkles, Zap, Clock, CreditCard, ClipboardList, BarChart2, Activity
 } from 'lucide-react';
 import { API_URL } from '../../services/api';
@@ -259,14 +259,6 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
               </div>
             </div>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => globalThis.print()}
-            className="flex items-center gap-2 px-5 py-3 bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white rounded-xl font-semibold transition-colors border border-white/20"
-          >
-            <Printer size={18} /> Print Dashboard
-          </motion.button>
         </div>
       </div>
 

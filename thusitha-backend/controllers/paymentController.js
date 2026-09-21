@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const fs = require('fs');
 const db = require('../db');
 const auditService = require('../utils/auditService');
@@ -5,7 +6,28 @@ const smsService = require('../utils/smsService');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || 'sk_test_51Px_placeholder'); // Use env in prod
 const { sanitizeText } = require('../utils/validators');
 
-const PAYMENT_STATUSES = ['Completed', 'Rejected', 'Pending Verification'];
+// 'Pending Verification' = bank-slip upload awaiting admin review; 'Pending' = PayHere
+// checkout started but the gateway's notify callback hasn't confirmed it yet (on a
+// localhost backend PayHere can never reach notify_url, so those stay Pending until an
+// Admin/Counter Person approves them from the Payments tab).
+const PAYMENT_STATUSES = ['Completed', 'Rejected', 'Pending Verification', 'Pending'];
+const VERIFY_TARGET_STATUSES = ['Completed', 'Rejected'];
+
+// PayHere hash generator: strtoupper(md5(merchant_id + order_id + amount_formatted + currency + strtoupper(md5(merchant_secret))))
+const generatePayHereHash = (merchantId, orderId, amount, currency, merchantSecret) => {
+  const formattedAmount = Number(amount).toFixed(2);
+  const hashedSecret = crypto.createHash('md5').update(merchantSecret).digest('hex').toUpperCase();
+  const hashString = `${merchantId}${orderId}${formattedAmount}${currency}${hashedSecret}`;
+  return crypto.createHash('md5').update(hashString).digest('hex').toUpperCase();
+};
+
+// PayHere callback signature verifier: strtoupper(md5(merchant_id + order_id + payhere_amount + payhere_currency + status_code + strtoupper(md5(merchant_secret))))
+const verifyPayHereSignature = (merchantId, orderId, payhereAmount, payhereCurrency, statusCode, merchantSecret, receivedSig) => {
+  const hashedSecret = crypto.createHash('md5').update(merchantSecret).digest('hex').toUpperCase();
+  const checkString = `${merchantId}${orderId}${payhereAmount}${payhereCurrency}${statusCode}${hashedSecret}`;
+  const localSig = crypto.createHash('md5').update(checkString).digest('hex').toUpperCase();
+  return localSig === (receivedSig || '').toUpperCase();
+};
 
 // 🔒 Resolves the caller's own student_id (for role 'Student') from their user_id.
 // Returns null if the role isn't 'Student' or no matching Students row exists.
@@ -194,7 +216,7 @@ exports.sendLatePaymentReminders = async (req, res) => {
       JOIN Parents p ON s.parent_id = p.parent_id
       JOIN Courses c ON ce.course_id = c.course_id
       WHERE ce.course_id = $1
-        AND ce.enrollment_status = 'Enrolled'
+        AND ce.enrollment_status IN ('Enrolled', 'Active')
         AND NOT EXISTS (
           SELECT 1 FROM Payments pay
           WHERE pay.student_id = ce.student_id
@@ -274,8 +296,8 @@ exports.verifyPayment = async (req, res) => {
   let { comments } = req.body;
   const { status } = req.body; // 'Completed' or 'Rejected'
 
-  if (!PAYMENT_STATUSES.includes(status)) {
-    return res.status(400).json({ error: `status must be one of: ${PAYMENT_STATUSES.join(', ')}` });
+  if (!VERIFY_TARGET_STATUSES.includes(status)) {
+    return res.status(400).json({ error: `status must be one of: ${VERIFY_TARGET_STATUSES.join(', ')}` });
   }
   comments = comments ? sanitizeText(comments, 500) : null;
 
@@ -329,25 +351,34 @@ exports.getReceipt = async (req, res) => {
  * ⏳ Get Overdue Payments
  */
 exports.getOverduePayments = async (req, res) => {
-  const { month } = req.query; // e.g. '2026-05'
-  
+  // month = English month name as stored in Payments.for_month ("June"; "June 2026" also
+  // matches via prefix). course_id narrows to one class (used by the WhatsApp reminder).
+  const { month, course_id } = req.query;
+  if (!month) {
+    return res.status(400).json({ error: 'month අනිවාර්ය වේ.' });
+  }
+
   try {
+    const params = [month];
+    if (course_id) params.push(course_id);
     const query = `
-      SELECT ce.student_id, s.student_name, c.course_name, p.parent_phone
+      SELECT ce.student_id, s.student_name, s.qr_code_key, c.course_id, c.course_name, p.parent_name, p.parent_phone
       FROM Course_Enrollments ce
       JOIN Students s ON ce.student_id = s.student_id
-      JOIN Parents p ON s.parent_id = p.parent_id
+      LEFT JOIN Parents p ON s.parent_id = p.parent_id
       JOIN Courses c ON ce.course_id = c.course_id
-      WHERE ce.enrollment_status = 'Enrolled'
+      WHERE ce.enrollment_status IN ('Enrolled', 'Active')
+        ${course_id ? 'AND ce.course_id = $2' : ''}
         AND NOT EXISTS (
           SELECT 1 FROM Payments pay
           WHERE pay.student_id = ce.student_id
             AND pay.course_id = ce.course_id
-            AND pay.for_month = $1
-            AND pay.payment_status = 'Completed'
+            AND LOWER(pay.for_month) LIKE LOWER($1) || '%'
+            AND pay.payment_status IN ('Completed', 'Pending Verification')
         )
+      ORDER BY c.course_name, s.student_name
     `;
-    const result = await db.pool.query(query, [month]);
+    const result = await db.pool.query(query, params);
     res.status(200).json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -478,6 +509,255 @@ exports.getAllPayments = async (req, res) => {
     res.status(200).json(result.rows);
   } catch (error) {
     console.error('❌ Get All Payments Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ============================================
+// PAYHERE PAYMENT GATEWAY INTEGRATION
+// ============================================
+
+/**
+ * 🔒 Initiate PayHere Checkout
+ * Generates required params and MD5 hash server-side, records a 'Pending' payment in DB.
+ */
+exports.initiatePayHereCheckout = async (req, res) => {
+  const { course_id, for_month } = req.body;
+  let student_id = req.body.student_id;
+
+  try {
+    if (req.user && req.user.role === 'Student') {
+      const ownId = await resolveOwnStudentId(req);
+      if (!ownId) {
+        return res.status(404).json({ message: "ශිෂ්‍යයා සොයාගත නොහැක." });
+      }
+      student_id = ownId;
+    }
+
+    if (!student_id || !course_id || !for_month) {
+      return res.status(400).json({ message: "අත්‍යවශ්‍ය සියලු දත්ත (course_id, for_month) ඇතුළත් කරන්න." });
+    }
+
+    // Look up the course
+    const courseRes = await db.pool.query('SELECT course_id, course_name, monthly_fee FROM Courses WHERE course_id = $1', [course_id]);
+    if (courseRes.rows.length === 0) {
+      return res.status(404).json({ message: "පාඨමාලාව හමුවුනේ නැත." });
+    }
+    const course = courseRes.rows[0];
+    const courseFee = Number(course.monthly_fee);
+
+    // Check for existing completed or pending verification payment
+    const existingPayment = await db.pool.query(
+      `SELECT * FROM Payments WHERE student_id = $1 AND course_id = $2 AND for_month = $3 AND payment_status IN ('Completed', 'Pending Verification')`,
+      [student_id, course_id, for_month]
+    );
+    if (existingPayment.rows.length > 0) {
+      return res.status(400).json({ message: "මෙම මාසය සඳහා අදාළ පන්තියට දැනටමත් ගෙවීමක් කර ඇත." });
+    }
+
+    // Get student details for customer parameters required by PayHere
+    const studentRes = await db.pool.query(
+      `SELECT s.student_id, s.student_name, s.address, u.username, p.parent_name, p.parent_phone
+       FROM Students s
+       JOIN Users u ON s.user_id = u.user_id
+       LEFT JOIN Parents p ON s.parent_id = p.parent_id
+       WHERE s.student_id = $1`,
+      [student_id]
+    );
+    const student = studentRes.rows[0] || {};
+    const studentName = (student.student_name || student.username || 'Student').trim();
+    const nameParts = studentName.split(/\s+/);
+    const firstName = nameParts[0] || 'Student';
+    const lastName = nameParts.slice(1).join(' ') || 'Student';
+    const email = `${(student.username || 'student').toLowerCase().replace(/[^a-z0-9]/g, '')}${student_id}@scms.lk`;
+    const phone = student.parent_phone || '0770000000';
+    const address = student.address || 'Sri Lanka';
+    const city = 'Colombo';
+    const country = 'Sri Lanka';
+
+    const merchantId = process.env.PAYHERE_MERCHANT_ID || '1238125';
+    const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || process.env.MERCHANT_SECRET || 'MjE2ODMzNjU2MjE1NTIwNzEwNDY2OTU3NTY1ODExMjAyODk4MTQ5';
+    const mode = (process.env.PAYHERE_MODE || 'sandbox').toLowerCase();
+    const actionUrl = mode === 'live'
+      ? 'https://www.payhere.lk/pay/checkout'
+      : 'https://sandbox.payhere.lk/pay/checkout';
+
+    const orderId = `PH-${student_id}-${course_id}-${Date.now()}`;
+    const currency = 'LKR';
+    const formattedAmount = courseFee.toFixed(2);
+    const hash = generatePayHereHash(merchantId, orderId, formattedAmount, currency, merchantSecret);
+
+    // Dynamic return, cancel, and notify URLs
+    const frontendOrigin = req.headers.origin
+      || process.env.PROD_FRONTEND_URL
+      || process.env.FRONTEND_URL
+      || 'https://scms-frontend-lac.vercel.app';
+    const returnUrl = `${frontendOrigin}/dashboard?payment=success&order_id=${orderId}&course_id=${course_id}&month=${encodeURIComponent(for_month)}`;
+    const cancelUrl = `${frontendOrigin}/dashboard?payment=cancel&order_id=${orderId}`;
+
+    const backendBase = process.env.BACKEND_PUBLIC_URL 
+      || process.env.BACKEND_URL 
+      || (req.headers['x-forwarded-host'] ? `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers['x-forwarded-host']}` : `${req.protocol}://${req.get('host')}`);
+    const notifyUrl = process.env.PAYHERE_NOTIFY_URL || `${backendBase}/api/payments/payhere/notify`;
+
+    // Record pending payment in database
+    await db.pool.query(
+      `INSERT INTO Payments (student_id, course_id, issued_by, amount_paid, payment_method, for_month, receipt_number, payment_status)
+       VALUES ($1, $2, NULL, $3, 'PayHere', $4, $5, 'Pending')`,
+      [student_id, course_id, courseFee, for_month, orderId]
+    );
+
+    res.status(200).json({
+      action_url: actionUrl,
+      mode,
+      params: {
+        merchant_id: merchantId,
+        return_url: returnUrl,
+        cancel_url: cancelUrl,
+        notify_url: notifyUrl,
+        order_id: orderId,
+        items: `${course.course_name} (${for_month})`,
+        currency: currency,
+        amount: formattedAmount,
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        phone: phone,
+        address: address,
+        city: city,
+        country: country,
+        custom_1: String(student_id),
+        custom_2: String(course_id),
+        hash: hash
+      }
+    });
+  } catch (error) {
+    console.error('❌ PayHere Checkout Initiation Error:', error.message);
+    res.status(500).json({ message: "PayHere ගෙවීම ආරම්භ කිරීම අසාර්ථකයි.", error: error.message });
+  }
+};
+
+/**
+ * 🔔 PayHere Server-to-Server Notify Callback
+ * Validates md5sig checksum and marks the payment Completed upon status 2.
+ */
+exports.handlePayHereNotify = async (req, res) => {
+  try {
+    const {
+      merchant_id,
+      order_id,
+      payment_id,
+      payhere_amount,
+      payhere_currency,
+      status_code,
+      md5sig,
+      method,
+      status_message
+    } = req.body;
+
+    console.log(`🔔 PayHere notify callback received for order ${order_id}: status_code=${status_code}, amount=${payhere_amount}, payment_id=${payment_id}`);
+
+    const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || process.env.MERCHANT_SECRET || 'MjE2ODMzNjU2MjE1NTIwNzEwNDY2OTU3NTY1ODExMjAyODk4MTQ5';
+    const isSigValid = verifyPayHereSignature(merchant_id, order_id, payhere_amount, payhere_currency, status_code, merchantSecret, md5sig);
+
+    if (!isSigValid) {
+      console.error(`❌ PayHere notification rejected: Invalid signature for order ${order_id}`);
+      return res.status(400).send('Invalid signature');
+    }
+
+    const statusCodeNum = parseInt(status_code, 10);
+
+    if (statusCodeNum === 2) {
+      // 2 = Success
+      const paymentMethod = method ? `PayHere (${method})` : 'PayHere';
+      const updateResult = await db.pool.query(
+        `UPDATE Payments
+         SET payment_status = 'Completed',
+             payhere_payment_id = $1,
+             payment_method = $2,
+             verification_comments = $3
+         WHERE receipt_number = $4
+         RETURNING *`,
+        [String(payment_id), paymentMethod, `PayHere Online Payment Successful. Payment ID: ${payment_id}`, order_id]
+      );
+
+      if (updateResult.rows.length > 0) {
+        const payment = updateResult.rows[0];
+        console.log(`✅ PayHere Payment Completed: Order ${order_id}, Payment ID: ${payment_id}`);
+        try {
+          await auditService.logAction(
+            payment.student_id,
+            'Student',
+            'UPDATE',
+            'Payment',
+            payment.payment_id,
+            `PayHere online payment completed. Amount: ${payhere_amount}, Order: ${order_id}`
+          );
+        } catch (auditErr) {
+          console.warn('Audit log error:', auditErr.message);
+        }
+      } else {
+        console.warn(`⚠️ PayHere update: No payment found with receipt_number=${order_id}`);
+      }
+    } else if (statusCodeNum === 0) {
+      // 0 = Pending
+      console.log(`⏳ PayHere Payment Pending: Order ${order_id}`);
+    } else {
+      // Failed / Canceled / Chargedback
+      console.log(`❌ PayHere Payment ${status_message || 'Failed'}: Order ${order_id}, status_code=${status_code}`);
+      await db.pool.query(
+        `UPDATE Payments
+         SET payment_status = 'Rejected',
+             payhere_payment_id = $1,
+             verification_comments = $2
+         WHERE receipt_number = $3 AND payment_status != 'Completed'`,
+        [String(payment_id || ''), `PayHere payment failed or cancelled: ${status_message || status_code}`, order_id]
+      );
+    }
+
+    return res.status(200).send('OK');
+  } catch (error) {
+    console.error('❌ PayHere notify error:', error);
+    return res.status(500).send('Internal Error');
+  }
+};
+
+/**
+ * 🔍 Check PayHere Payment Status
+ * Allows frontend to query status for an order_id after returning from PayHere
+ */
+exports.getPayHerePaymentStatus = async (req, res) => {
+  const { orderId } = req.params;
+  try {
+    const result = await db.pool.query(
+      `SELECT p.*, c.course_name, s.student_name
+       FROM Payments p
+       JOIN Courses c ON p.course_id = c.course_id
+       JOIN Students s ON p.student_id = s.student_id
+       WHERE p.receipt_number = $1`,
+      [orderId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "ගෙවීම් තොරතුරු හමුවුනේ නැත." });
+    }
+
+    const payment = result.rows[0];
+    // 🔒 A student may only look up their own orders; parents only their children's.
+    if (req.user.role === 'Student') {
+      const ownId = await resolveOwnStudentId(req);
+      if (!ownId || ownId !== payment.student_id) {
+        return res.status(403).json({ message: "ප්‍රවේශය තහනම්: මෙය ඔබගේ ගෙවීමක් නොවේ." });
+      }
+    } else if (req.user.role === 'Parent') {
+      if (!(await isOwnChild(req, payment.student_id))) {
+        return res.status(403).json({ message: "ප්‍රවේශය තහනම්: මෙය ඔබගේ දරුවෙකුගේ ගෙවීමක් නොවේ." });
+      }
+    }
+
+    res.status(200).json(payment);
+  } catch (error) {
+    console.error('❌ Get PayHere Payment Status Error:', error.message);
     res.status(500).json({ error: error.message });
   }
 };

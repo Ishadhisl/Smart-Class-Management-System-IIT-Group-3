@@ -57,7 +57,7 @@ exports.enrollStudent = async (req, res) => {
     const capacityQuery = `
       SELECT h.capacity, 
         (SELECT COUNT(*) FROM Course_Enrollments ce 
-         WHERE ce.course_id = $1 AND ce.enrollment_status = 'Enrolled') as current_count
+         WHERE ce.course_id = $1 AND ce.enrollment_status IN ('Enrolled', 'Active')) as current_count
       FROM Class_Schedules cs
       JOIN Halls h ON cs.hall_id = h.hall_id
       WHERE cs.course_id = $1
@@ -121,7 +121,7 @@ exports.getMyEnrolledCourses = async (req, res) => {
       SELECT c.* 
       FROM Course_Enrollments e
       JOIN Courses c ON e.course_id = c.course_id
-      WHERE e.student_id = $1 AND e.enrollment_status = 'Enrolled'
+      WHERE e.student_id = $1 AND e.enrollment_status IN ('Enrolled', 'Active')
       ORDER BY c.course_name ASC
     `;
     const result = await db.pool.query(coursesQuery, [studentId]);

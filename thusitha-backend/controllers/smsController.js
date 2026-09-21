@@ -203,7 +203,7 @@ exports.sendCustomSms = async (req, res) => {
 // 📢 Bulk Reminder (Admin/Counter Person)
 // ═══════════════════════════════════════════════════════════
 exports.sendReminderWhatsApp = async (req, res) => {
-  const { student_ids, message_type, course_id } = req.body;
+  const { student_ids, message_type, course_id, for_month } = req.body;
   let { custom_message } = req.body;
 
   if (!student_ids || student_ids.length === 0) {
@@ -244,7 +244,7 @@ exports.sendReminderWhatsApp = async (req, res) => {
     : (templates[message_type] || templates.general).replace('{custom_message}', custom_message || '');
 
   try {
-    const results = await smsService.sendBulkReminder(student_ids, template, message_type || 'General', course_id || null);
+    const results = await smsService.sendBulkReminder(student_ids, template, message_type || 'General', course_id || null, for_month || null);
 
     await auditService.logAction(
       req.user.userId, req.user.role, 'BULK_WA_REMINDER', 'WhatsApp_Logs', null,
@@ -253,9 +253,10 @@ exports.sendReminderWhatsApp = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `✅ ${results.sent} WhatsApp messages සාර්ථකව යවන ලදී. ❌ ${results.failed} අසාර්ථකයි.`,
+      message: `✅ ${results.sent} WhatsApp messages සාර්ථකව යවන ලදී. ❌ ${results.failed} අසාර්ථකයි.${results.skipped ? ` (ගෙවා ඇති ${results.skipped} දෙනෙකු මඟ හැරිණි)` : ''}`,
       sent: results.sent,
       failed: results.failed,
+      skipped: results.skipped || 0,
       details: results.details
     });
   } catch (error) {

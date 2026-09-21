@@ -52,7 +52,7 @@ describe('AuthController Unit Tests', () => {
       await authController.login(req, res);
 
       expect(res.status).toHaveBeenCalledWith(401);
-      expect(res.json).toHaveBeenCalledWith({ message: 'මුරපදය වැරදියි.' });
+      expect(res.json).toHaveBeenCalledWith({ message: expect.stringContaining('මුරපදය වැරදියි.') });
     });
 
     it('should login successfully and return token', async () => {

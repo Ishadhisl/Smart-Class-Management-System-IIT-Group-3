@@ -70,7 +70,7 @@ exports.getCourseMaterials = async (req, res) => {
       const studentId = studentRes.rows[0].student_id;
       const checkEnrollQuery = `
         SELECT 1 FROM Course_Enrollments 
-        WHERE student_id = $1 AND course_id = $2 AND enrollment_status = 'Enrolled'
+        WHERE student_id = $1 AND course_id = $2 AND enrollment_status IN ('Enrolled', 'Active')
       `;
       const enrollCheck = await db.pool.query(checkEnrollQuery, [studentId, courseId]);
       if (enrollCheck.rows.length === 0) {

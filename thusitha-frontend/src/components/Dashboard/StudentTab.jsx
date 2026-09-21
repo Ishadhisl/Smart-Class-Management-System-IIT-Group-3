@@ -2,7 +2,17 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 import { getImageUrl } from '../../services/api';
-import { validateName, validatePhone } from '../../utils/formValidation';
+import FormError from '../common/FormError';
+import {
+  filterNameInput, filterPhoneInput, filterTextInput,
+  NAME_INVALID_MSG, PHONE_INVALID_MSG, TEXT_INVALID_MSG,
+  validateName, validatePhone, validateText,
+} from '../../utils/formValidation';
+import { useFieldValidation } from '../../utils/useFieldValidation';
+import { canIssueIdCard } from '../../utils/studentGrade';
+
+const thSticky = { position: 'sticky', top: 0, backgroundColor: '#f5f5f5', zIndex: 1 };
+
 
 const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteClick, onEncode, onUploadPhoto, onDownloadIDCard, role }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,11 +54,26 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
     });
   };
 
+  const editRules = (d) => ({
+    student_name: () => validateName(d.student_name, { label: 'ශිෂ්‍යයාගේ නම' }),
+    school: () => validateText(d.school, { label: 'පාසල', max: 150 }),
+    grade: () => validateText(d.grade, { label: 'ශ්‍රේණිය', max: 30 }),
+    parent_name: () => validateName(d.parent_name, { required: false, label: 'දෙමාපිය නම' }),
+    parent_phone: () => validatePhone(d.parent_phone, { required: false }),
+    address: () => validateText(d.address, { label: 'ලිපිනය', max: 300 }),
+  });
+  const ev = useFieldValidation(editFormData, setEditFormData, editRules, {
+    student_name: 'edit-name', school: 'edit-school', grade: 'edit-grade',
+    parent_name: 'edit-parent-name', parent_phone: 'edit-parent-phone', address: 'edit-address',
+  });
+  const closeEdit = () => { setEditingStudent(null); ev.clear(); };
+
   const handleEditSubmit = async (e) => {
     e.preventDefault();
+    if (!ev.validateAll()) return;
     try {
       await onEditClick(editingStudent._id, editFormData);
-      setEditingStudent(null);
+      closeEdit();
     } catch (err) {
       console.error('Error editing student:', err);
     }
@@ -95,16 +120,18 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
         </div>
       </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px' }}>
+      {/* ~10 rows visible; the rest scroll inside the box (header stays pinned) */}
+      <div style={{ maxHeight: 'max(300px, calc(100vh - 330px))', overflowY: 'auto', overflowX: 'auto', marginTop: '15px', border: '1px solid #e3e6f0', borderRadius: '10px' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ backgroundColor: '#f5f5f5', textAlign: 'left' }}>
-            <th style={{ padding: '12px' }}>Student ID</th>
-            <th style={{ padding: '12px', textAlign: 'center' }}>ඡායාරූපය (Photo)</th>
-            <th style={{ padding: '12px' }}>නම</th>
-            <th style={{ padding: '12px' }}>පාසල</th>
-            <th style={{ padding: '12px', textAlign: 'center' }}>AI Biometrics</th>
-            <th style={{ padding: '12px' }}>මව්පියන්ගේ නම / දුරකථනය</th>
-            {(canEdit || canDelete) && <th style={{ padding: '12px' }}>ක්‍රියාමාර්ග</th>}
+            <th style={{ ...thSticky, padding: '12px' }}>Student ID</th>
+            <th style={{ ...thSticky, padding: '12px', textAlign: 'center' }}>ඡායාරූපය (Photo)</th>
+            <th style={{ ...thSticky, padding: '12px' }}>නම</th>
+            <th style={{ ...thSticky, padding: '12px' }}>පාසල</th>
+            <th style={{ ...thSticky, padding: '12px', textAlign: 'center' }}>AI Biometrics</th>
+            <th style={{ ...thSticky, padding: '12px' }}>මව්පියන්ගේ නම / දුරකථනය</th>
+            {(canEdit || canDelete) && <th style={{ ...thSticky, padding: '12px' }}>ක්‍රියාමාර්ග</th>}
           </tr>
         </thead>
         <tbody>
@@ -173,10 +200,13 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
                       {student.hasEncoding ? '🔄 Re-encode' : '⚙️ AI Encode'}
                     </button>
                   )}
-                  <button
-                    onClick={() => onDownloadIDCard(student)}
-                    style={{ padding: '5px 10px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
-                  >🆔 ID Card</button>
+                  {canIssueIdCard(student) && (
+                    <button
+                      onClick={() => onDownloadIDCard(student)}
+                      title={`ශ්‍රේණිය: ${student.grade || 'නොදනී'}`}
+                      style={{ padding: '5px 10px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                    >🆔 ID Card</button>
+                  )}
                   {canDelete && (
                     <button
                       onClick={() => setConfirmDeleteId(student._id)}
@@ -191,6 +221,7 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
           ))}
         </tbody>
       </table>
+      </div>
 
       {/* Delete Confirmation Modal */}
       {confirmDeleteId && createPortal(
@@ -215,37 +246,43 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
           <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', width: '450px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
             <h3 style={{ margin: '0 0 20px 0', color: '#1a237e', textAlign: 'center' }}>✏️ ශිෂ්‍ය දත්ත සංස්කරණය</h3>
-            <form onSubmit={handleEditSubmit}>
+            <form onSubmit={handleEditSubmit} noValidate>
               <div style={{ marginBottom: '15px' }}>
                 <label htmlFor="edit-name" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>ශිෂ්‍යයාගේ නම</label>
-                <input id="edit-name" type="text" placeholder="උදා: කමල් පෙරේරා (e.g. Kamal Perera)" value={editFormData.student_name} onChange={(e) => setEditFormData({ ...editFormData, student_name: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
+                <input id="edit-name" type="text" placeholder="උදා: කමල් පෙරේරා (e.g. Kamal Perera)" maxLength={150} value={editFormData.student_name} onChange={(e) => ev.set('student_name', e.target.value, filterNameInput, NAME_INVALID_MSG)} onBlur={() => ev.blur('student_name')} style={{ ...{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }, ...(ev.errors.student_name ? { border: '1px solid #d32f2f' } : {}) }} />
+                <FormError>{ev.errors.student_name}</FormError>
               </div>
               <div style={{ marginBottom: '15px' }}>
                 <label htmlFor="edit-school" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>පාසල</label>
-                <input id="edit-school" type="text" placeholder="උදා: රාජකීය විද්‍යාලය (e.g. Royal College)" value={editFormData.school} onChange={(e) => setEditFormData({ ...editFormData, school: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
+                <input id="edit-school" type="text" placeholder="උදා: රාජකීය විද්‍යාලය (e.g. Royal College)" maxLength={150} value={editFormData.school} onChange={(e) => ev.set('school', e.target.value, filterTextInput, TEXT_INVALID_MSG)} onBlur={() => ev.blur('school')} style={{ ...{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }, ...(ev.errors.school ? { border: '1px solid #d32f2f' } : {}) }} />
+                <FormError>{ev.errors.school}</FormError>
               </div>
               <div style={{ marginBottom: '15px' }}>
                 <label htmlFor="edit-grade" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>ශ්‍රේණිය</label>
-                <input id="edit-grade" type="text" placeholder="උදා: Grade 12 (12-AL)" value={editFormData.grade} onChange={(e) => setEditFormData({ ...editFormData, grade: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
+                <input id="edit-grade" type="text" placeholder="උදා: Grade 12 (12-AL)" maxLength={30} value={editFormData.grade} onChange={(e) => ev.set('grade', e.target.value, filterTextInput, TEXT_INVALID_MSG)} onBlur={() => ev.blur('grade')} style={{ ...{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }, ...(ev.errors.grade ? { border: '1px solid #d32f2f' } : {}) }} />
+                <FormError>{ev.errors.grade}</FormError>
               </div>
               {/* Parent Information */}
               <div style={{ padding: '12px', backgroundColor: '#e8eaf6', borderRadius: '8px', marginBottom: '15px' }}>
                 <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#1a237e', marginBottom: '10px' }}>👨‍👩‍👦 දෙමාපිය / භාරකාර තොරතුරු</div>
                 <div style={{ marginBottom: '10px' }}>
                   <label htmlFor="edit-parent-name" style={{ display: 'block', marginBottom: '5px', fontWeight: '500', fontSize: '13px' }}>දෙමාපිය නම</label>
-                  <input id="edit-parent-name" type="text" value={editFormData.parent_name} onChange={(e) => setEditFormData({ ...editFormData, parent_name: e.target.value })} style={{ width: '100%', padding: '9px', borderRadius: '5px', border: '1px solid #c5cae9', boxSizing: 'border-box', fontSize: '14px' }} placeholder="උදා: සුනිල් පෙරේරා (e.g. Sunil Perera)" />
+                  <input id="edit-parent-name" type="text" maxLength={150} value={editFormData.parent_name} onChange={(e) => ev.set('parent_name', e.target.value, filterNameInput, NAME_INVALID_MSG)} onBlur={() => ev.blur('parent_name')} style={{ ...{ width: '100%', padding: '9px', borderRadius: '5px', border: '1px solid #c5cae9', boxSizing: 'border-box', fontSize: '14px' }, ...(ev.errors.parent_name ? { border: '1px solid #d32f2f' } : {}) }} placeholder="උදා: සුනිල් පෙරේරා (e.g. Sunil Perera)" />
+                  <FormError>{ev.errors.parent_name}</FormError>
                 </div>
                 <div style={{ marginBottom: '0' }}>
                   <label htmlFor="edit-parent-phone" style={{ display: 'block', marginBottom: '5px', fontWeight: '500', fontSize: '13px' }}>📞 WhatsApp දුරකථන අංකය</label>
-                  <input id="edit-parent-phone" type="tel" value={editFormData.parent_phone} onChange={(e) => setEditFormData({ ...editFormData, parent_phone: e.target.value })} style={{ width: '100%', padding: '9px', borderRadius: '5px', border: '1px solid #c5cae9', boxSizing: 'border-box', fontSize: '14px' }} placeholder="උදා: 0771234567 හෝ +94771234567" />
+                  <input id="edit-parent-phone" type="tel" inputMode="numeric" maxLength={12} value={editFormData.parent_phone} onChange={(e) => ev.set('parent_phone', e.target.value, filterPhoneInput, PHONE_INVALID_MSG)} onBlur={() => ev.blur('parent_phone')} style={{ ...{ width: '100%', padding: '9px', borderRadius: '5px', border: '1px solid #c5cae9', boxSizing: 'border-box', fontSize: '14px' }, ...(ev.errors.parent_phone ? { border: '1px solid #d32f2f' } : {}) }} placeholder="උදා: 0771234567 හෝ +94771234567" />
+                  <FormError>{ev.errors.parent_phone}</FormError>
                 </div>
               </div>
               <div style={{ marginBottom: '20px' }}>
                 <label htmlFor="edit-address" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>ලිපිනය</label>
-                <input id="edit-address" type="text" value={editFormData.address} onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }} placeholder="උදා: නො: 12, මහනුවර පාර, කොළඹ" />
+                <input id="edit-address" type="text" maxLength={300} value={editFormData.address} onChange={(e) => ev.set('address', e.target.value, filterTextInput, TEXT_INVALID_MSG)} onBlur={() => ev.blur('address')} style={{ ...{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }, ...(ev.errors.address ? { border: '1px solid #d32f2f' } : {}) }} placeholder="උදා: නො: 12, මහනුවර පාර, කොළඹ" />
+                <FormError>{ev.errors.address}</FormError>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button type="button" onClick={() => setEditingStudent(null)} style={{ padding: '10px 20px', border: '1px solid #ccc', background: 'none', borderRadius: '6px', cursor: 'pointer' }}>අවලංගු කරන්න</button>
+                <button type="button" onClick={closeEdit} style={{ padding: '10px 20px', border: '1px solid #ccc', background: 'none', borderRadius: '6px', cursor: 'pointer' }}>අවලංගු කරන්න</button>
                 <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>💾 සුරකින්න</button>
               </div>
             </form>

@@ -264,9 +264,9 @@ const SMSLogTab = ({ logs, onResend, onDelete, onBulkResend, onResendFilteredFai
       </div>
 
       {/* Table */}
-      <div style={{ overflowX: 'auto' }}>
+      <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'max(300px, calc(100vh - 420px))', border: '1px solid #eef0f7', borderRadius: '10px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
+          <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
             <tr style={{ backgroundColor: '#f0f4ff', textAlign: 'left' }}>
               <th style={{ padding: '12px', fontSize: '13px' }}>මව්පිය නම</th>
               <th style={{ padding: '12px', fontSize: '13px' }}>දුරකථනය</th>

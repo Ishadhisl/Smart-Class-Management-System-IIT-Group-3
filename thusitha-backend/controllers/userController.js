@@ -2,7 +2,7 @@ const db = require('../db');
 const auditService = require('../utils/auditService');
 const bcrypt = require('bcryptjs');
 const { defaultPasswordFor } = require('../utils/authDefaults');
-const { sanitizeText } = require('../utils/validators');
+const { sanitizeText, passwordPolicyError } = require('../utils/validators');
 
 // පද්ධති පරිශීලකයින් සියලුම දෙනා ලබා ගැනීම (Teachers/Staff)
 exports.getAllUsers = async (req, res) => {
@@ -64,7 +64,11 @@ exports.createUser = async (req, res) => {
     }
 
     // Password is optional — a blank one falls back to the role's default (Admin@123 /
-    // Counter@123), which login then flags for change.
+    // Counter@123), which login then flags for change. A supplied one must meet the policy.
+    if (password) {
+      const policyError = passwordPolicyError(password, { role });
+      if (policyError) return res.status(400).json({ message: policyError });
+    }
     const passwordHash = await bcrypt.hash(password || defaultPasswordFor(role), 10);
 
     const result = await db.pool.query(

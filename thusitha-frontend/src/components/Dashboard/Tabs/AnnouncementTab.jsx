@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { request } from '../../../services/api';
+import FormError from '../../common/FormError';
+import { filterTextInput, TEXT_INVALID_MSG, validateText } from '../../../utils/formValidation';
+import { useFieldValidation } from '../../../utils/useFieldValidation';
+
+const baseInput = { display: 'block', width: '100%', marginBottom: '15px', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' };
+const errInput = (msg, extra = {}) => ({ ...baseInput, ...extra, ...(msg ? { border: '1px solid #d32f2f', marginBottom: '4px' } : {}) });
 
 const AnnouncementTab = () => {
   const [announcements, setAnnouncements] = useState([]);
@@ -17,8 +23,15 @@ const AnnouncementTab = () => {
 
   useEffect(() => { fetchAnnouncements(); }, []);
 
+  const rules = (d) => ({
+    title: () => validateText(d.title, { required: true, label: 'මාතෘකාව', min: 3, max: 150 }),
+    body: () => validateText(d.body, { required: true, label: 'විස්තරය', min: 5, max: 2000 }),
+  });
+  const v = useFieldValidation(formData, setFormData, rules, { title: 'announcement-title', body: 'announcement-body' });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!v.validateAll()) return;
     try {
       if (editingId) {
         await request(`/announcements/${editingId}`, { method: 'PUT', body: formData });
@@ -26,6 +39,7 @@ const AnnouncementTab = () => {
         await request('/announcements', { method: 'POST', body: formData });
       }
       setFormData({ title: '', body: '', is_active: true });
+      v.clear();
       setEditingId(null);
       fetchAnnouncements();
     } catch (err) { alert('Error: ' + err.message); }
@@ -48,23 +62,29 @@ const AnnouncementTab = () => {
     <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
       <h2 style={{ color: '#1a237e', marginBottom: '20px' }}>📢 නිවේදන කළමනාකරණය (Announcements)</h2>
       
-      <form onSubmit={handleSubmit} style={{ marginBottom: '30px', padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+      <form onSubmit={handleSubmit} noValidate style={{ marginBottom: '30px', padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
         <h4 style={{ marginTop: 0, marginBottom: '15px' }}>{editingId ? 'නිවේදනය සංස්කරණය කරන්න' : 'නව නිවේදනයක් පළ කරන්න'}</h4>
-        <input 
-          type="text" 
-          placeholder="නිවේදනයේ මාතෘකාව (Title)" 
-          value={formData.title} 
-          onChange={e => setFormData({...formData, title: e.target.value})} 
-          required 
-          style={{ display: 'block', width: '100%', marginBottom: '15px', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
+        <input
+          id="announcement-title"
+          type="text"
+          placeholder="උදා: පෝය දින නිවාඩුව (නිවේදනයේ මාතෘකාව) *"
+          maxLength={150}
+          value={formData.title}
+          onChange={e => v.set('title', e.target.value, filterTextInput, TEXT_INVALID_MSG)}
+          onBlur={() => v.blur('title')}
+          style={errInput(v.errors.title)}
         />
-        <textarea 
-          placeholder="විස්තරය (Message body)" 
-          value={formData.body} 
-          onChange={e => setFormData({...formData, body: e.target.value})} 
-          required 
-          style={{ display: 'block', width: '100%', marginBottom: '15px', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', minHeight: '100px', boxSizing: 'border-box' }} 
+        {v.errors.title && <FormError className="mb-3">{v.errors.title}</FormError>}
+        <textarea
+          id="announcement-body"
+          placeholder="උදා: සෑම පෝය දිනකම ආයතනය වසා තැබේ. (විස්තරය) *"
+          maxLength={2000}
+          value={formData.body}
+          onChange={e => v.set('body', e.target.value, filterTextInput, TEXT_INVALID_MSG)}
+          onBlur={() => v.blur('body')}
+          style={errInput(v.errors.body, { minHeight: '100px' })}
         />
+        {v.errors.body && <FormError className="mb-3">{v.errors.body}</FormError>}
         <label style={{ display: 'flex', alignItems: 'center', marginBottom: '20px', cursor: 'pointer', fontWeight: 'bold' }}>
           <input 
             type="checkbox" 

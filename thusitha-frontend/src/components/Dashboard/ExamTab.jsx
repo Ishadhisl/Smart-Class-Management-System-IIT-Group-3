@@ -4,6 +4,12 @@ import { request } from '../../services/api';
 import { useNotification } from '../../context/NotificationContext';
 import { Loader2, Upload, FileSpreadsheet, Plus, AlertCircle, Download, CheckCircle2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import FormError from '../common/FormError';
+import { filterTextInput, TEXT_INVALID_MSG, validateText, validateNumber, validateDate, blockNegativeKeys, filterNonNegativeNumber, NUMBER_INVALID_MSG } from '../../utils/formValidation';
+import { useFieldValidation } from '../../utils/useFieldValidation';
+
+const examInputClass = (invalid) =>
+  `w-full p-3 rounded-xl border focus:ring-2 focus:border-transparent outline-none bg-gray-50 ${invalid ? 'border-danger focus:ring-danger/40' : 'border-gray-200 focus:ring-primary'}`;
 
 const ExamTab = ({ courses, role }) => {
   const [selectedCourse, setSelectedCourse] = useState('');
@@ -361,9 +367,16 @@ const CreateExamModal = ({ courseId, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const { showNotification } = useNotification();
 
+  const rules = (d) => ({
+    exam_name: () => validateText(d.exam_name, { required: true, label: 'විභාගයේ නම', min: 3, max: 150 }),
+    exam_date: () => validateDate(d.exam_date, { label: 'දිනය' }),
+    total_marks: () => validateNumber(d.total_marks, { label: 'මුළු ලකුණු', min: 1, max: 1000 }),
+  });
+  const v = useFieldValidation(formData, setFormData, rules, { exam_name: 'exam-name', exam_date: 'exam-date', total_marks: 'exam-total' });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.exam_name) return showNotification('විභාගයේ නම ඇතුළත් කරන්න', 'error');
+    if (!v.validateAll()) return;
 
     setLoading(true);
     try {
@@ -387,38 +400,48 @@ const CreateExamModal = ({ courseId, onClose, onSuccess }) => {
           නව විභාගයක් සාදන්න
         </h3>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">විභාගයේ නම</label>
+            <label htmlFor="exam-name" className="block text-sm font-semibold text-gray-700 mb-1">විභාගයේ නම <span className="text-danger">*</span></label>
             <input
+              id="exam-name"
               type="text"
-              className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-gray-50"
+              className={examInputClass(v.invalid('exam_name'))}
               placeholder="උදා: 2026 Mid-Term Exam"
+              maxLength={150}
               value={formData.exam_name}
-              onChange={(e) => setFormData({ ...formData, exam_name: e.target.value })}
-              required
+              onChange={(e) => v.set('exam_name', e.target.value, filterTextInput, TEXT_INVALID_MSG)}
+              onBlur={() => v.blur('exam_name')}
             />
+            <FormError>{v.errors.exam_name}</FormError>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">දිනය</label>
+              <label htmlFor="exam-date" className="block text-sm font-semibold text-gray-700 mb-1">දිනය <span className="text-danger">*</span></label>
               <input
+                id="exam-date"
                 type="date"
-                className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-gray-50"
+                className={examInputClass(v.invalid('exam_date'))}
                 value={formData.exam_date}
-                onChange={(e) => setFormData({ ...formData, exam_date: e.target.value })}
-                required
+                onChange={(e) => v.set('exam_date', e.target.value)}
+                onBlur={() => v.blur('exam_date')}
               />
+              <FormError>{v.errors.exam_date}</FormError>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">මුළු ලකුණු</label>
+              <label htmlFor="exam-total" className="block text-sm font-semibold text-gray-700 mb-1">මුළු ලකුණු <span className="text-danger">*</span></label>
               <input
+                id="exam-total"
                 type="number"
-                className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-gray-50"
+                className={examInputClass(v.invalid('total_marks'))}
+                placeholder="උදා: 100"
                 value={formData.total_marks}
-                onChange={(e) => setFormData({ ...formData, total_marks: e.target.value })}
-                required min="1"
+                onKeyDown={blockNegativeKeys}
+                onChange={(e) => v.set('total_marks', e.target.value, filterNonNegativeNumber, NUMBER_INVALID_MSG)}
+                onBlur={() => v.blur('total_marks')}
+                min="1"
               />
+              <FormError>{v.errors.total_marks}</FormError>
             </div>
           </div>
 

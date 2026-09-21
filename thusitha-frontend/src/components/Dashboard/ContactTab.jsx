@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
+import { filterTextInput, TEXT_INVALID_MSG } from '../../utils/formValidation';
 
 const ContactTab = ({ messages, onMarkRead, onMarkSpam, onRecoverFromSpam, onBulkDeleteSpam, onMarkAllRead, templates, onToggleImportant, onQuickReply }) => {
   const [filter, setFilter] = useState('Inbox');
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [selectedMsg, setSelectedMsg] = useState(null);
   const [customReplyMsg, setCustomReplyMsg] = useState('');
+  const [replyNotice, setReplyNotice] = useState('');
   const [showCustomReply, setShowCustomReply] = useState(false);
 
   const openReply = (msg) => { setSelectedMsg(msg); setShowCustomReply(true); setCustomReplyMsg(''); };
@@ -31,16 +33,16 @@ const ContactTab = ({ messages, onMarkRead, onMarkSpam, onRecoverFromSpam, onBul
         <button onClick={() => setFilter('Important')} style={{ padding: '8px 15px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'Important' ? '#ffd600' : '#eee', color: filter === 'Important' ? '#1a237e' : '#333', fontWeight: filter === 'Important' ? 'bold' : 'normal' }}>⭐ Important ({messages.filter(m => m.is_important && m.status !== 'Spam').length})</button>
         <button onClick={() => setFilter('Spam')} style={{ padding: '8px 15px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'Spam' ? '#1a237e' : '#eee', color: filter === 'Spam' ? 'white' : '#333' }}>Spam ({messages.filter(m => m.status === 'Spam').length})</button>
         <button onClick={() => setFilter('All')} style={{ padding: '8px 15px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'All' ? '#1a237e' : '#eee', color: filter === 'All' ? 'white' : '#333' }}>All ({messages.length})</button>
-        
+
         {filter === 'Inbox' && messages.some(m => m.status !== 'Spam' && !m.is_read) && (
-          <button 
+          <button
             onClick={onMarkAllRead}
             style={{ marginLeft: 'auto', padding: '8px 15px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: '#3f51b5', color: 'white', fontWeight: 'bold' }}
           >✔️ Mark All as Read</button>
         )}
 
         {filter === 'Spam' && messages.some(m => m.status === 'Spam') && (
-          <button 
+          <button
             onClick={onBulkDeleteSpam}
             style={{ marginLeft: 'auto', padding: '8px 15px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: '#d32f2f', color: 'white', fontWeight: 'bold' }}
           >🗑️ Bulk Delete Spam</button>
@@ -49,16 +51,16 @@ const ContactTab = ({ messages, onMarkRead, onMarkSpam, onRecoverFromSpam, onBul
       <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         {filteredMessages.length === 0 && <p>පණිවිඩ කිසිවක් නොමැත.</p>}
         {filteredMessages.map((msg) => (
-          <div key={msg.message_id} style={{ 
-            padding: '15px', 
-            borderRadius: '8px', 
-            border: '1px solid #eee', 
+          <div key={msg.message_id} style={{
+            padding: '15px',
+            borderRadius: '8px',
+            border: '1px solid #eee',
             backgroundColor: msg.is_read ? '#fafafa' : '#fff',
             borderLeft: msg.is_read ? '5px solid #ccc' : '5px solid #3f51b5'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <button 
+                <button
                   onClick={() => onToggleImportant(msg.message_id)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', padding: 0, color: msg.is_important ? '#ffd600' : '#ccc' }}
                   title={msg.is_important ? "වැදගත් ලෙස සලකුණු කර ඇත" : "වැදගත් ලෙස සලකුණු කරන්න"}
@@ -122,10 +124,11 @@ const ContactTab = ({ messages, onMarkRead, onMarkSpam, onRecoverFromSpam, onBul
                 </div>
               </div>
             )}
-            <textarea rows={5} value={customReplyMsg} onChange={e => setCustomReplyMsg(e.target.value)}
+            <textarea rows={5} value={customReplyMsg} maxLength={1000} onChange={e => { const v = filterTextInput(e.target.value); setCustomReplyMsg(v); setReplyNotice(v !== e.target.value ? TEXT_INVALID_MSG : ''); }}
               style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box', fontSize: '14px', lineHeight: '1.5', resize: 'vertical', fontFamily: 'inherit' }}
               placeholder="WhatsApp message ටයිප් කරන්න..."
             />
+            {replyNotice && <p style={{ color: '#d32f2f', fontSize: '12px', margin: '4px 0 0' }}>{replyNotice}</p>}
             <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
               <button onClick={() => setShowCustomReply(false)} style={{ flex: 1, padding: '11px', border: '1px solid #ddd', background: 'none', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
               <button onClick={() => { sendWhatsAppReply(selectedMsg, customReplyMsg); setShowCustomReply(false); }}

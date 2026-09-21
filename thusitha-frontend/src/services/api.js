@@ -1,5 +1,7 @@
 const getApiUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
+  // Dev-only: talk to the backend through Vite's own /api proxy (see vite.config.js)
+  if (import.meta.env.VITE_SAME_ORIGIN_API === 'true') return '';
   
   if (typeof window !== 'undefined' && window.location) {
     const hostname = window.location.hostname;
@@ -90,7 +92,9 @@ export const request = async (endpoint, { body, isFormData = false, noAuth = fal
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('user');
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-          window.location.href = '/login';
+          // Tell the login page WHY, so the user sees "session expired" rather than thinking
+          // the app randomly logged them out.
+          window.location.href = '/login?reason=expired';
         }
       }
 

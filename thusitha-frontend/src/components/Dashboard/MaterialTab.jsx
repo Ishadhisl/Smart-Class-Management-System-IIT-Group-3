@@ -4,8 +4,9 @@ import { request } from '../../services/api';
 import { useNotification } from '../../context/NotificationContext';
 import { Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
 
-const MaterialTab = ({ courses }) => {
-  const [selectedCourse, setSelectedCourse] = useState('');
+const MaterialTab = ({ courses, autoSelect = false }) => {
+  // Students/teachers land straight in their (first) class instead of an empty picker.
+  const [selectedCourse, setSelectedCourse] = useState(() => (autoSelect && courses[0] ? String(courses[0].course_id) : ''));
   const [embedUrl, setEmbedUrl] = useState('');       // local (iframe) mode
   const [openUrl, setOpenUrl] = useState('');          // hosted (new-tab) mode
   const [ssoActive, setSsoActive] = useState(true);
@@ -17,6 +18,14 @@ const MaterialTab = ({ courses }) => {
   const userData = sessionStorage.getItem('user');
   const user = userData ? JSON.parse(userData) : null;
   const isStudent = user?.role === 'Student';
+  const isTeacher = user?.role === 'Teacher';
+
+  // Courses can arrive after first render (dashboard fetch) - pick the first one once they do.
+  useEffect(() => {
+    if (!autoSelect || selectedCourse || !courses.length) return undefined;
+    const timer = setTimeout(() => setSelectedCourse(String(courses[0].course_id)), 0);
+    return () => clearTimeout(timer);
+  }, [autoSelect, courses, selectedCourse]);
 
   useEffect(() => {
     let ignore = false;
@@ -88,7 +97,11 @@ const MaterialTab = ({ courses }) => {
         {!selectedCourse && !moodleDisabled && (
           <div className="text-gray-400 flex flex-col items-center">
             <div className="text-6xl mb-4">📚</div>
-            <p className="text-lg font-medium">ඉගෙනුම් ද්‍රව්‍ය බැලීම සඳහා පන්තියක් තෝරන්න</p>
+            <p className="text-lg font-medium">
+              {autoSelect && courses.length === 0
+                ? (isTeacher ? 'ඔබට තවම පන්ති නියම කර නැත. කරුණාකර Admin අමතන්න.' : 'ඔබ තවම කිසිදු පන්තියකට ලියාපදිංචි වී නැත.')
+                : 'ඉගෙනුම් ද්‍රව්‍ය බැලීම සඳහා පන්තියක් තෝරන්න'}
+            </p>
           </div>
         )}
 
@@ -157,6 +170,7 @@ const MaterialTab = ({ courses }) => {
 
 MaterialTab.propTypes = {
   courses: PropTypes.arrayOf(PropTypes.object).isRequired,
+  autoSelect: PropTypes.bool,
 };
 
 export default MaterialTab;

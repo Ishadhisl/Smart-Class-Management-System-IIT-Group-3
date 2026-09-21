@@ -21,7 +21,7 @@ const initCronJobs = () => {
         JOIN Students s ON ce.student_id = s.student_id
         JOIN Parents p ON s.parent_id = p.parent_id
         JOIN Courses c ON ce.course_id = c.course_id
-        WHERE ce.enrollment_status = 'Enrolled'
+        WHERE ce.enrollment_status IN ('Enrolled', 'Active')
           AND NOT EXISTS (
             SELECT 1 FROM Payments pay
             WHERE pay.student_id = ce.student_id

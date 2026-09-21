@@ -7,7 +7,7 @@ const auditService = require('../utils/auditService');
 const attendanceController = require('./attendanceController');
 const { publicUrl } = require('../middleware/imageUpload');
 const { defaultPasswordFor } = require('../utils/authDefaults');
-const { isValidEmail, isValidPhone, sanitizeText } = require('../utils/validators');
+const { isValidEmail, isValidPhone, isValidName, NAME_ERROR, sanitizeText, passwordPolicyError } = require('../utils/validators');
 
 const moodleService = require('../utils/moodleService');
 
@@ -182,6 +182,9 @@ exports.publicRegistration = async (req, res) => {
   if (!student_name || !parent_phone) {
     return res.status(400).json({ error: 'ශිෂ්‍යයාගේ නම සහ දුරකථන අංකය අනිවාර්ය වේ.' });
   }
+  if (!isValidName(student_name)) {
+    return res.status(400).json({ error: `ශිෂ්‍යයාගේ ${NAME_ERROR}` });
+  }
   if (!isValidPhone(parent_phone)) {
     return res.status(400).json({ error: 'වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0712345678).' });
   }
@@ -218,12 +221,56 @@ exports.getPendingRegistrations = async (req, res) => {
 };
 
 // Approve and Create Account (Counter Person Action)
+// Student IDs are sequential "ST<number>" keys (ST10001, ST10002 ...). The next free one is
+// max(existing)+1 across BOTH Students.qr_code_key and Users.username (the key doubles as the
+// login name), so a manually typed id can never be handed out twice.
+const STUDENT_ID_PREFIX = 'ST';
+const STUDENT_ID_START = 10001;
+const nextStudentIds = async (count = 1, executor = db.pool) => {
+  const r = await executor.query(
+    `SELECT COALESCE(MAX(n), 0) AS max_n FROM (
+       SELECT (substring(qr_code_key from 3))::bigint AS n FROM Students WHERE qr_code_key ~ '^ST[0-9]+$'
+       UNION ALL
+       SELECT (substring(username from 3))::bigint AS n FROM Users WHERE username ~ '^ST[0-9]+$'
+     ) t`
+  );
+  const start = Math.max(Number(r.rows[0].max_n) + 1, STUDENT_ID_START);
+  return Array.from({ length: count }, (_, i) => `${STUDENT_ID_PREFIX}${start + i}`);
+};
+
+// GET /api/students/next-id?count=N  → { ids: ['ST10008', ...] } for the approvals list.
+exports.getNextStudentIds = async (req, res) => {
+  const count = Math.min(Math.max(parseInt(req.query.count, 10) || 1, 1), 100);
+  try {
+    res.json({ ids: await nextStudentIds(count) });
+  } catch (error) {
+    res.status(500).json({ message: 'ඊළඟ ශිෂ්‍ය අංකය ගණනය කළ නොහැක.', error: error.message });
+  }
+};
+
 exports.approveStudent = async (req, res) => {
-  const { pending_id, qr_code_key, parent_id } = req.body;
+  const { pending_id, parent_id } = req.body;
+  let { qr_code_key } = req.body;
   const client = await db.pool.connect();
 
   try {
     await client.query('BEGIN');
+
+    // Auto-assign the next sequential id when the client didn't send one; when it did,
+    // make sure nobody else grabbed it in the meantime.
+    qr_code_key = qr_code_key ? sanitizeText(String(qr_code_key), 50).trim() : '';
+    if (!qr_code_key) {
+      [qr_code_key] = await nextStudentIds(1, client);
+    } else {
+      const taken = await client.query(
+        'SELECT 1 FROM Users WHERE username = $1 UNION ALL SELECT 1 FROM Students WHERE qr_code_key = $1 LIMIT 1',
+        [qr_code_key]
+      );
+      if (taken.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ message: `ශිෂ්‍ය අංකය ${qr_code_key} දැනටමත් භාවිතයේ ඇත. ලැයිස්තුව refresh කර නැවත උත්සාහ කරන්න.` });
+      }
+    }
 
     // 1. Fetch pending data
     const pending = await client.query('SELECT * FROM PendingRegistrations WHERE id = $1', [pending_id]);
@@ -287,6 +334,12 @@ exports.registerStudent = async (req, res) => {
   if (!username || !student_name) {
     return res.status(400).json({ message: "ශිෂ්‍ය අංකය සහ ශිෂ්‍යයාගේ නම අනිවාර්ය වේ." });
   }
+  if (!isValidName(student_name)) {
+    return res.status(400).json({ message: `ශිෂ්‍යයාගේ ${NAME_ERROR}` });
+  }
+  if (parent_name && !isValidName(parent_name)) {
+    return res.status(400).json({ message: `මව්පියන්ගේ ${NAME_ERROR}` });
+  }
   if (parent_phone && !isValidPhone(parent_phone)) {
     return res.status(400).json({ message: "වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0712345678)." });
   }
@@ -305,6 +358,10 @@ exports.registerStudent = async (req, res) => {
     await client.query('BEGIN');
 
     // Blank password => role default (Student@123); login then flags must_change_password.
+    if (password) {
+      const policyError = passwordPolicyError(password, { role: 'Student' });
+      if (policyError) { await client.query('ROLLBACK'); return res.status(400).json({ message: policyError }); }
+    }
     const passwordHash = await bcrypt.hash(password || defaultPasswordFor('Student'), 10);
 
     // Resolve parent_id
@@ -373,6 +430,12 @@ exports.updateStudent = async (req, res) => {
 
   if (!student_name) {
     return res.status(400).json({ message: 'ශිෂ්‍යයාගේ නම අනිවාර්ය වේ.' });
+  }
+  if (!isValidName(student_name)) {
+    return res.status(400).json({ message: `ශිෂ්‍යයාගේ ${NAME_ERROR}` });
+  }
+  if (parent_name && !isValidName(parent_name)) {
+    return res.status(400).json({ message: `මව්පියන්ගේ ${NAME_ERROR}` });
   }
   if (parent_phone && !isValidPhone(parent_phone)) {
     return res.status(400).json({ message: 'වලංගු දුරකථන අංකයක් ඇතුළත් කරන්න (උදා: 0712345678).' });
@@ -462,7 +525,7 @@ exports.getAllStudents = async (req, res) => {
 
     // Fetch enrollments
     const enrollmentsRes = await db.pool.query(
-      "SELECT student_id, course_id FROM Course_Enrollments WHERE enrollment_status = 'Active'"
+      "SELECT student_id, course_id FROM Course_Enrollments WHERE enrollment_status IN ('Enrolled', 'Active')"
     );
     const enrollmentsMap = {};
     enrollmentsRes.rows.forEach(row => {
@@ -477,6 +540,9 @@ exports.getAllStudents = async (req, res) => {
       studentId: student.qr_code_key || `ST-${student.user_id}`,
       name: student.student_name || 'Unknown',
       email: student.school || 'N/A',
+      // Needed by the list UI: the ID Card button is only offered up to Grade 11, and the
+      // edit modal pre-fills the grade from here.
+      grade: student.grade || '',
       parentName: student.parent_name || 'N/A',
       parentPhone: student.parent_phone || 'N/A',
       hasEncoding: !!student.face_encoding,

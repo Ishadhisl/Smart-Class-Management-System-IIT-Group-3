@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { request } from '../../services/api';
-import { FaSpinner, FaExclamationTriangle, FaExternalLinkAlt, FaClipboardList } from 'react-icons/fa';
+import { Loader2, AlertTriangle, ExternalLink, ClipboardList } from 'lucide-react';
 
 const TimetableTab = ({ schedules, role }) => {
   const [embedUrl, setEmbedUrl] = useState('');

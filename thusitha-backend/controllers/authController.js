@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const auditService = require('../utils/auditService');
 const { sendWhatsAppMessage } = require('../utils/whatsappService');
 const { isUsingDefaultPassword } = require('../utils/authDefaults');
+const { passwordPolicyError } = require('../utils/validators');
 
 const MAX_LOGIN_ATTEMPTS = 3;
 const LOCKOUT_MINUTES = 5;
@@ -91,6 +92,8 @@ exports.resetPassword = async (req, res) => {
   const { newPassword } = req.body;
   const userId = req.user.userId;
   try {
+    const policyError = passwordPolicyError(newPassword, { role: req.user.role });
+    if (policyError) return res.status(400).json({ message: policyError });
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(newPassword, salt);
     await db.pool.query('UPDATE Users SET password_hash = $1 WHERE user_id = $2', [passwordHash, userId]);
@@ -233,22 +236,21 @@ exports.verifyOtp = async (req, res) => {
 exports.resetWithOtp = async (req, res) => {
   const { username, otp, newPassword } = req.body;
   try {
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ message: 'මුරපදය අකුරු 6කට වද විය යුතුයි.' });
-    }
     // OTP validate
     const otpResult = await db.pool.query(
       `SELECT * FROM OTP_Store WHERE username = $1 AND otp_code = $2 AND expires_at > NOW() AND used = FALSE`,
       [username, otp]
     );
     if (otpResult.rows.length === 0) {
-      return res.status(400).json({ message: 'OTP වාර්දියි හේතෑ කාලය ඔ්රේරි ගියා.' });
+      return res.status(400).json({ message: 'OTP වැරදියි හෝ කාලය ඉකුත් වී ඇත.' });
     }
-    // Password update
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(newPassword, salt);
+    // Password update (same strength policy as the first-login change form)
     const userRes = await db.pool.query('SELECT user_id, role FROM Users WHERE username = $1', [username]);
     const userId = userRes.rows[0]?.user_id;
+    const policyError = passwordPolicyError(newPassword, { role: userRes.rows[0]?.role });
+    if (policyError) return res.status(400).json({ message: policyError });
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(newPassword, salt);
     await db.pool.query('UPDATE Users SET password_hash = $1 WHERE username = $2', [passwordHash, username]);
     // Mark OTP as used
     await db.pool.query('UPDATE OTP_Store SET used = TRUE WHERE username = $1 AND otp_code = $2', [username, otp]);
@@ -265,9 +267,8 @@ exports.changePassword = async (req, res) => {
   const { newPassword } = req.body;
   const userId = req.user.userId;
   try {
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ message: 'මුරපදය අකුරු 6කට වඩා විය යුතුයි.' });
-    }
+    const policyError = passwordPolicyError(newPassword, { role: req.user.role });
+    if (policyError) return res.status(400).json({ message: policyError });
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(newPassword, salt);
     await db.pool.query('UPDATE Users SET password_hash = $1 WHERE user_id = $2', [passwordHash, userId]);

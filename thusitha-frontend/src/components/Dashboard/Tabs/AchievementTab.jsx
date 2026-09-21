@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { request, API_URL } from '../../../services/api';
+import FormError from '../../common/FormError';
+import { filterTextInput, TEXT_INVALID_MSG, validateText, validateNumber, validateYear, validateRequired, blockNegativeKeys, filterNonNegativeNumber, NUMBER_INVALID_MSG } from '../../../utils/formValidation';
+import { useFieldValidation } from '../../../utils/useFieldValidation';
+
+const baseInput = { display: 'block', width: '100%', marginBottom: '15px', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' };
+const errInput = (msg, extra = {}) => ({ ...baseInput, ...extra, ...(msg ? { border: '1px solid #d32f2f', marginBottom: '4px' } : {}) });
 
 export const SearchableSelect = ({ options, value, onChange }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -95,8 +101,18 @@ const AchievementTab = ({ students }) => {
 
   useEffect(() => { fetchAchievements(); }, []);
 
+  const rules = (d) => ({
+    student_id: () => validateRequired(d.student_id, 'ශිෂ්‍යයා'),
+    title: () => validateText(d.title, { required: true, label: 'ජයග්‍රහණය', min: 3, max: 150 }),
+    description: () => validateText(d.description, { label: 'විස්තරය', max: 1000 }),
+    island_rank: () => validateNumber(d.island_rank, { required: false, label: 'දිවයිනේ ස්ථානය', min: 1, max: 100000, integer: true }),
+    achieved_year: () => validateYear(d.achieved_year, { required: true, label: 'වසර' }),
+  });
+  const v = useFieldValidation(formData, setFormData, rules, { title: 'ach-title', description: 'ach-desc', island_rank: 'ach-rank', achieved_year: 'ach-year' });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!v.validateAll()) return;
     try {
       const data = new FormData();
       data.append('student_id', formData.student_id);
@@ -118,6 +134,7 @@ const AchievementTab = ({ students }) => {
         await request('/achievements', { method: 'POST', body: data, isFormData: true });
       }
       setFormData({ student_id: '', title: '', description: '', island_rank: '', achieved_year: new Date().getFullYear() });
+      v.clear();
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       setEditingId(null);
@@ -150,33 +167,41 @@ const AchievementTab = ({ students }) => {
     <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
       <h2 style={{ color: '#1a237e', marginBottom: '20px' }}>🏆 ශිෂ්‍ය ජයග්‍රහණ කළමනාකරණය (Achievements)</h2>
       
-      <form onSubmit={handleSubmit} style={{ marginBottom: '30px', padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+      <form onSubmit={handleSubmit} noValidate style={{ marginBottom: '30px', padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
         <h4 style={{ marginTop: 0, marginBottom: '15px' }}>{editingId ? 'ජයග්‍රහණය සංස්කරණය කරන්න' : 'නව ජයග්‍රහණයක් ඇතුළත් කරන්න'}</h4>
         
         <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>ශිෂ්‍යයා තෝරන්න (Search Student)</label>
         <SearchableSelect 
           options={students?.map(s => ({ value: s._id, label: `${s.name} (${s.studentId})` })) || []}
           value={formData.student_id}
-          onChange={(val) => setFormData({...formData, student_id: val})}
+          onChange={(val) => v.set('student_id', val)}
         />
+        {v.errors.student_id && <FormError className="-mt-3 mb-3">{v.errors.student_id}</FormError>}
 
-        <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>ජයග්‍රහණය (Title)</label>
-        <input 
-          type="text" 
-          placeholder="උදා: A/L Biology - Island 1st" 
-          value={formData.title} 
-          onChange={e => setFormData({...formData, title: e.target.value})} 
-          required 
-          style={{ display: 'block', width: '100%', marginBottom: '15px', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
+        <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>ජයග්‍රහණය (Title) *</label>
+        <input
+          id="ach-title"
+          type="text"
+          placeholder="උදා: A/L Biology - Island 1st"
+          maxLength={150}
+          value={formData.title}
+          onChange={e => v.set('title', e.target.value, filterTextInput, TEXT_INVALID_MSG)}
+          onBlur={() => v.blur('title')}
+          style={errInput(v.errors.title)}
         />
+        {v.errors.title && <FormError className="mb-3">{v.errors.title}</FormError>}
 
         <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>විස්තරය (Description)</label>
-        <textarea 
-          placeholder="වැඩිදුර විස්තර..." 
-          value={formData.description} 
-          onChange={e => setFormData({...formData, description: e.target.value})} 
-          style={{ display: 'block', width: '100%', marginBottom: '15px', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', minHeight: '80px', boxSizing: 'border-box' }} 
+        <textarea
+          id="ach-desc"
+          placeholder="උදා: 2026 A/L Biology - District 1st, Island 22nd"
+          maxLength={1000}
+          value={formData.description}
+          onChange={e => v.set('description', e.target.value, filterTextInput, TEXT_INVALID_MSG)}
+          onBlur={() => v.blur('description')}
+          style={errInput(v.errors.description, { minHeight: '80px' })}
         />
+        {v.errors.description && <FormError className="mb-3">{v.errors.description}</FormError>}
 
         <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>ජයග්‍රහණ ඡායාරූපය (Photo - Optional)</label>
         <input 
@@ -190,24 +215,32 @@ const AchievementTab = ({ students }) => {
         <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
           <div style={{ flex: 1 }}>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>දිවයිනේ ස්ථානය (Rank - Optional)</label>
-            <input 
-              type="number" 
-              placeholder="Island Rank" 
-              value={formData.island_rank} 
-              onChange={e => setFormData({...formData, island_rank: e.target.value})} 
-              style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
+            <input
+              id="ach-rank"
+              type="number"
+              min="1"
+              placeholder="උදා: 10"
+              value={formData.island_rank}
+              onKeyDown={blockNegativeKeys}
+              onChange={e => v.set('island_rank', e.target.value, filterNonNegativeNumber, NUMBER_INVALID_MSG)}
+              onBlur={() => v.blur('island_rank')}
+              style={{ ...errInput(v.errors.island_rank), marginBottom: v.errors.island_rank ? '4px' : 0 }}
             />
+            {v.errors.island_rank && <FormError>{v.errors.island_rank}</FormError>}
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>වසර (Year)</label>
-            <input 
-              type="number" 
-              placeholder="Year" 
-              value={formData.achieved_year} 
-              onChange={e => setFormData({...formData, achieved_year: e.target.value})} 
-              required 
-              style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>වසර (Year) *</label>
+            <input
+              id="ach-year"
+              type="number"
+              placeholder="උදා: 2026"
+              value={formData.achieved_year}
+              onKeyDown={blockNegativeKeys}
+              onChange={e => v.set('achieved_year', e.target.value, filterNonNegativeNumber, NUMBER_INVALID_MSG)}
+              onBlur={() => v.blur('achieved_year')}
+              style={{ ...errInput(v.errors.achieved_year), marginBottom: v.errors.achieved_year ? '4px' : 0 }}
             />
+            {v.errors.achieved_year && <FormError>{v.errors.achieved_year}</FormError>}
           </div>
         </div>
 

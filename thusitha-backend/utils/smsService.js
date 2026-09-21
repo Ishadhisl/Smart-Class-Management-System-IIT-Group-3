@@ -194,7 +194,34 @@ const formatDate = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.ge
 // Resolves the {class_name} / {month} / {date} placeholders for one student. Separate
 // per-student lookup (rather than once for the whole batch) because different students in
 // the same send can be enrolled in different courses with different upcoming exam dates.
-const resolveTemplateVars = async (studentId, messageType, courseId) => {
+// Payments.for_month is stored as the English month name the admin picked ("June", sometimes
+// "June 2026"). Map it to the Sinhala label used in messages.
+const ENGLISH_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const monthLabel = (forMonth) => {
+  if (!forMonth) return null;
+  const idx = ENGLISH_MONTHS.findIndex((m) => String(forMonth).toLowerCase().startsWith(m.toLowerCase()));
+  const yearMatch = String(forMonth).match(/\d{4}/);
+  const year = yearMatch ? yearMatch[0] : new Date().getFullYear();
+  return idx >= 0 ? `${SINHALA_MONTHS[idx]} ${year}` : String(forMonth);
+};
+
+// True when a Completed / Pending-Verification payment already exists for this
+// student+course+month (prefix match so "June" also covers "June 2026").
+const hasPaidForMonth = async (studentId, courseId, forMonth) => {
+  if (!studentId || !courseId || !forMonth) return false;
+  const r = await db.pool.query(
+    `SELECT 1 FROM Payments
+     WHERE student_id = $1 AND course_id = $2
+       AND LOWER(for_month) LIKE LOWER($3) || '%'
+       AND payment_status IN ('Completed', 'Pending Verification')
+     LIMIT 1`,
+    [studentId, courseId, forMonth]
+  );
+  return r.rows.length > 0;
+};
+exports.hasPaidForMonth = hasPaidForMonth;
+
+const resolveTemplateVars = async (studentId, messageType, courseId, forMonth = null) => {
   let className = 'N/A';
   let resolvedCourseId = courseId || null;
   try {
@@ -218,8 +245,9 @@ const resolveTemplateVars = async (studentId, messageType, courseId) => {
   const now = new Date();
   let dateOrMonth = '';
   if (messageType === 'payment') {
-    // The reminder is about the currently-running month's fee, not a ledger balance lookup.
-    dateOrMonth = `${SINHALA_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+    // Use the month the admin picked in the Communication Center; fall back to the
+    // currently-running month when none was sent (older callers).
+    dateOrMonth = monthLabel(forMonth) || `${SINHALA_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
   } else if (messageType === 'exam') {
     if (resolvedCourseId) {
       try {
@@ -238,14 +266,21 @@ const resolveTemplateVars = async (studentId, messageType, courseId) => {
     dateOrMonth = formatDate(now);
   }
 
-  return { className, dateOrMonth };
+  return { className, dateOrMonth, resolvedCourseId };
 };
 
-exports.sendBulkReminder = async (studentIds, messageTemplate, messageType, courseId = null) => {
-  const results = { sent: 0, failed: 0, details: [] };
+exports.sendBulkReminder = async (studentIds, messageTemplate, messageType, courseId = null, forMonth = null) => {
+  const results = { sent: 0, failed: 0, skipped: 0, details: [] };
 
   for (const studentId of studentIds) {
     try {
+      // Payment reminders must never reach a parent who has already paid for that month -
+      // the frontend filters the list, but re-check here so a stale list can't misfire.
+      if (messageType === 'payment' && forMonth && courseId && (await hasPaidForMonth(studentId, courseId, forMonth))) {
+        results.skipped++;
+        results.details.push({ studentId, status: 'Skipped (already paid)' });
+        continue;
+      }
       const res = await db.pool.query(
         `SELECT s.student_name, p.parent_phone, p.parent_id, p.parent_name
          FROM Students s
@@ -256,7 +291,7 @@ exports.sendBulkReminder = async (studentIds, messageTemplate, messageType, cour
       if (res.rows.length === 0) continue;
 
       const { student_name, parent_phone, parent_id, parent_name } = res.rows[0];
-      const { className, dateOrMonth } = await resolveTemplateVars(studentId, messageType, courseId);
+      const { className, dateOrMonth } = await resolveTemplateVars(studentId, messageType, courseId, forMonth);
 
       // Template variables replace කිරීම
       const finalMessage = messageTemplate

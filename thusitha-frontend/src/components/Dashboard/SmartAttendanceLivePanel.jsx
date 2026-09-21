@@ -5,7 +5,7 @@ import { request } from '../../services/api';
 const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => {
   const isTeacher = role === 'Teacher';
   const [sessionId, setSessionId] = useState('');
-  const [hallId, setHallId] = useState('');
+  // Hall is not chosen by hand any more - it follows the selected class schedule.
   const [liveData, setLiveData] = useState(null);
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
@@ -31,6 +31,10 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
   useEffect(() => { loadAccess(); }, [loadAccess]);
 
   const selectedSession = activeSessions.find(s => String(s.schedule_id) === String(sessionId));
+  const hallId = selectedSession?.hall_id ? String(selectedSession.hall_id) : '';
+  const hallName = selectedSession?.hall_name
+    || halls.find(h => String(h.hall_id) === hallId)?.hall_name
+    || '';
   const selectedCourseId = selectedSession?.course_id ?? null;
   const teacherApproved = !isTeacher || (selectedCourseId != null && approvedCourseIds.includes(selectedCourseId));
   const pendingReq = myRequests.find(r => r.course_id === selectedCourseId && r.status === 'Pending');
@@ -66,8 +70,12 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
   };
 
   const handleUploadFootage = async () => {
-    if (!sessionId || !hallId) {
-      alert('කරුණාකර Session සහ Hall තෝරන්න.');
+    if (!sessionId) {
+      alert('කරුණාකර පන්තිය තෝරන්න.');
+      return;
+    }
+    if (!hallId) {
+      alert('මෙම පන්තියේ කාලසටහනට ශාලාවක් නියම කර නැත. පන්ති කළමනාකරණය → කාලසටහන් වලින් ශාලාව සකසන්න.');
       return;
     }
     if (!selectedFile) {
@@ -103,7 +111,7 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
       });
       
     } catch (err) {
-      const msg = err.message || 'CCTV upload failed';
+      const msg = err.message || 'CCTV උඩුගත කිරීම අසාර්ථක විය';
       if (msg.includes('AI පද්ධතිය')) {
         setInfo('AI මුහුණු/හිසගණන සේවාව මේ මොහොතේ නොමැත (එය සක්‍රිය කළ සේවාදායකයක් අවශ්‍යයි). කරුණාකර පසුව උත්සාහ කරන්න.');
       } else if (msg.includes('අනුමැතිය අවශ්‍යයි')) {
@@ -140,11 +148,11 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
             </select>
           </div>
           <div>
-            <label htmlFor="live-hall-select" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: '#444' }}>ශාලාව (Hall) තෝරන්න</label>
-            <select id="live-hall-select" value={hallId} onChange={(e) => setHallId(e.target.value)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '15px' }}>
-              <option value="">-- ශාලාවක් තෝරන්න --</option>
-              {halls.map(h => <option key={h.hall_id} value={h.hall_id}>{h.hall_name}</option>)}
-            </select>
+            <label htmlFor="live-hall-display" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: '#444' }}>ශාලාව (Hall)</label>
+            {/* Auto-filled from the class schedule the admin picked - no manual choice */}
+            <div id="live-hall-display" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '15px', backgroundColor: '#f5f5f5', color: hallId ? '#1a237e' : '#888', fontWeight: hallId ? 'bold' : 'normal', boxSizing: 'border-box' }}>
+              {!sessionId ? 'පන්තිය තෝරාගත් පසු ශාලාව ඉබේම පෙන්වයි' : hallId ? `🏛️ ${hallName || 'Hall #' + hallId}` : '⚠️ මෙම කාලසටහනට ශාලාවක් නියම කර නැත'}
+            </div>
           </div>
         </div>
 
@@ -196,7 +204,7 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
                 disabled={uploading}
                 style={{ padding: '12px 30px', backgroundColor: '#2e7d32', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', boxShadow: '0 4px 6px rgba(46,125,50,0.2)' }}
               >
-                {uploading ? 'Processing AI...' : '🚀 AI පරීක්ෂාව අරඹන්න'}
+                {uploading ? 'AI විශ්ලේෂණය කරමින්...' : '🚀 AI පරීක්ෂාව අරඹන්න'}
               </button>
             )}
           </div>
@@ -220,21 +228,20 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
         <div style={{ ...cardStyle, borderLeft: `10px solid ${liveData.mismatch_detected ? '#d32f2f' : '#2e7d32'}`, transition: 'all 0.3s ease' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
             <h4 style={{ color: liveData.mismatch_detected ? '#c62828' : '#2e7d32', margin: 0, fontSize: '24px' }}>
-              {liveData.mismatch_detected ? '⚠️ Mismatch Detected!' : '✅ Synchronized (MATCH)'}
+              {liveData.mismatch_detected ? '⚠️ නොගැලපීමක් හඳුනාගෙන ඇත!' : '✅ ගැලපේ (QR සහ AI ගණන් සමානයි)'}
             </h4>
             <div style={{ fontSize: '12px', color: '#666', textAlign: 'right' }}>
-              <div>Threshold: ±{liveData.threshold || 5} students</div>
-              <div>Last updated: {new Date().toLocaleTimeString()}</div>
+
             </div>
           </div>
           
           <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '30px', textAlign: 'center' }}>
             <div style={{ padding: '25px', backgroundColor: '#e8eaf6', borderRadius: '12px', minWidth: '180px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' }}>
-              <div style={{ fontSize: '15px', color: '#3f51b5', fontWeight: 'bold', marginBottom: '10px' }}>DOOR SCANS (QR Count)</div>
+              <div style={{ fontSize: '15px', color: '#3f51b5', fontWeight: 'bold', marginBottom: '10px' }}>QR ස්කෑන් ගණන (දොරටුවෙන්)</div>
               <div style={{ fontSize: '54px', fontWeight: 'bold', color: '#1a237e', lineHeight: '1' }}>{liveData.qr_count}</div>
             </div>
             <div style={{ padding: '25px', backgroundColor: '#e8eaf6', borderRadius: '12px', minWidth: '180px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' }}>
-              <div style={{ fontSize: '15px', color: '#3f51b5', fontWeight: 'bold', marginBottom: '10px' }}>AI HEADCOUNT</div>
+              <div style={{ fontSize: '15px', color: '#3f51b5', fontWeight: 'bold', marginBottom: '10px' }}>AI මගින් ගණන් කළ සිසුන්</div>
               <div style={{ fontSize: '54px', fontWeight: 'bold', color: '#1a237e', lineHeight: '1' }}>{liveData.ai_headcount}</div>
             </div>
           </div>
@@ -255,7 +262,7 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
                     }}
                     style={{ padding: '15px 30px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', boxShadow: '0 4px 6px rgba(26, 35, 126, 0.3)' }}
                   >
-                    📲 QR Scanner එක විවෘත කරන්න (Open QR Scanner)
+                    📲 QR Scanner එක විවෘත කරන්න
                   </button>
                 </>
               ) : (
@@ -286,7 +293,7 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
       {previewUrl && liveData && (
         <div style={{ ...cardStyle, marginTop: '25px', textAlign: 'center' }}>
           <h4 style={{ color: '#1a237e', marginBottom: '15px', fontSize: '18px' }}>
-            {previewType === 'video' ? '📹 Uploaded Video' : '📷 Uploaded Image'}
+            {previewType === 'video' ? '📹 උඩුගත කළ වීඩියෝව' : '📷 උඩුගත කළ ඡායාරූපය'}
           </h4>
           <div style={{ display: 'inline-block', border: '2px solid #ddd', borderRadius: '10px', overflow: 'hidden', backgroundColor: '#000' }}>
             {previewType === 'video' ? (

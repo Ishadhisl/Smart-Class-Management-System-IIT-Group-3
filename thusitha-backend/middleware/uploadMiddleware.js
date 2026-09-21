@@ -26,7 +26,13 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const allowedExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.png', '.jpg', '.jpeg', '.mp4', '.avi', '.mov', '.mkv', '.webp', '.heic', '.heif'];
     const ext = path.extname(file.originalname).toLowerCase();
-    if (allowedExtensions.includes(ext)) {
+    // Extension AND declared MIME must both look like a document/image/video - a renamed
+    // .html/.js/.exe fails one of the two.
+    const mime = String(file.mimetype || '');
+    const mimeOk = mime.startsWith('image/') || mime.startsWith('video/')
+      || mime === 'application/pdf' || mime === 'application/msword' || mime === 'application/vnd.ms-excel'
+      || mime.startsWith('application/vnd.openxmlformats-officedocument') || mime === 'application/octet-stream';
+    if (allowedExtensions.includes(ext) && mimeOk) {
       cb(null, true);
     } else {
       cb(new Error('අනුමත නොකරන ලද ගොනු වර්ගයකි. (Invalid file type)'), false);

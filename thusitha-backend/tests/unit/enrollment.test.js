@@ -8,6 +8,13 @@ jest.mock('../../db', () => ({
   },
 }));
 jest.mock('../../utils/auditService');
+// The post-enrollment Moodle mirror (syncEnrollmentToMoodle) is fire-and-forget and runs
+// its own student/course lookups - keep it out of these query-count assertions.
+jest.mock('../../utils/moodleService', () => ({
+  findOrCreateUser: jest.fn().mockResolvedValue(null),
+  findOrCreateCourse: jest.fn().mockResolvedValue(null),
+  enrollUser: jest.fn().mockResolvedValue(null),
+}));
 
 describe('EnrollmentController Unit Tests', () => {
   let req, res;
@@ -51,7 +58,8 @@ describe('EnrollmentController Unit Tests', () => {
 
       await enrollmentController.enrollStudent(req, res);
       
-      expect(db.pool.query).toHaveBeenCalledTimes(3);
+      expect(db.pool.query.mock.calls.length).toBeGreaterThanOrEqual(3);
+      expect(db.pool.query.mock.calls[2][0]).toMatch(/INSERT INTO Course_Enrollments/i);
       expect(auditService.logAction).toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
@@ -68,7 +76,8 @@ describe('EnrollmentController Unit Tests', () => {
         .mockResolvedValueOnce({ rows: [{ enrollment_id: 1 }] }); // insert
 
       await enrollmentController.enrollStudent(req, res);
-      expect(db.pool.query).toHaveBeenCalledTimes(3);
+      expect(db.pool.query.mock.calls.length).toBeGreaterThanOrEqual(3);
+      expect(db.pool.query.mock.calls[2][0]).toMatch(/INSERT INTO Course_Enrollments/i);
       expect(auditService.logAction).toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({

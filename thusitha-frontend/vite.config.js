@@ -15,7 +15,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // `vite build`, which loads this file too even though it never starts the dev server.
 const devKeyPath = path.resolve(__dirname, '..', 'certs', 'dev-key.pem');
 const devCertPath = path.resolve(__dirname, '..', 'certs', 'dev-cert.pem');
-const httpsConfig = (fs.existsSync(devKeyPath) && fs.existsSync(devCertPath))
+// VITE_DEV_HTTP=1 forces plain http (no webcam, but no certificate prompts) - handy for tools
+// that can't trust the mkcert CA. Pair it with VITE_SAME_ORIGIN_API=true so API calls go
+// through the /api proxy below instead of straight to the https backend.
+const httpsConfig = (fs.existsSync(devKeyPath) && fs.existsSync(devCertPath) && process.env.VITE_DEV_HTTP !== '1')
   ? { key: fs.readFileSync(devKeyPath), cert: fs.readFileSync(devCertPath) }
   : undefined;
 
@@ -36,6 +39,9 @@ export default defineConfig({
     port: 5173,
     https: httpsConfig,
     proxy: {
+      // Same-origin API/uploads (only used when VITE_SAME_ORIGIN_API=true, see services/api.js)
+      '/api': { target: 'https://localhost:5000', changeOrigin: true, secure: false },
+      '/uploads': { target: 'https://localhost:5000', changeOrigin: true, secure: false },
       // Serve Moodle same-origin so its session cookie isn't dropped as a
       // cross-origin iframe cookie by the browser (SSO login was silently
       // failing back to Moodle's login form otherwise).
@@ -52,9 +58,17 @@ export default defineConfig({
         // actually using to reach Vite.
         selfHandleResponse: true,
         configure: (proxy) => {
-          proxy.on('proxyReq', (proxyReq) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
             // Ask Apache not to compress, so the body we get back is plain text we can rewrite.
             proxyReq.setHeader('Accept-Encoding', 'identity');
+            // The auth_userkey SSO login must start from a clean session: if the browser still
+            // carries a MoodleSession cookie from another SCMS account (student -> teacher, or
+            // anyone -> admin/counter which share Moodle's admin), Moodle 4.x logs the old user
+            // out and then fails to log the new one in ("Your session has timed out"). Dropping
+            // the cookie on this one request makes every SSO hop a fresh login.
+            if ((req.url || '').startsWith('/moodle/auth/userkey/login.php')) {
+              proxyReq.removeHeader('cookie');
+            }
           });
           proxy.on('proxyRes', (proxyRes, req, res) => {
             // Chrome negotiates HTTP/2 with this dev server now that it's HTTPS. HTTP/2 has no

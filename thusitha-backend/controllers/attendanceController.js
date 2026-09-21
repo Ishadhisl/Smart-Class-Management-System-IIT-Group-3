@@ -774,7 +774,8 @@ const ATTENDANCE_STATUSES = ['Present', 'Late'];
 
 exports.manualCorrection = async (req, res) => {
   const { logId } = req.params;
-  const { attendance_status, reason } = req.body;
+  const { attendance_status } = req.body;
+  const reason = req.body.reason ? sanitizeText(String(req.body.reason), 500) : null;
 
   // Student_Attendance_Logs.attendance_status also has a DB-level CHECK constraint
   // for this - this is just a friendlier 400 instead of a raw DB error.
@@ -1097,7 +1098,7 @@ exports.uploadCCTVFootage = async (req, res) => {
            FROM Students s
            JOIN Course_Enrollments ce ON s.student_id = ce.student_id
            WHERE ce.course_id = $1
-             AND ce.enrollment_status = 'Enrolled'
+             AND ce.enrollment_status IN ('Enrolled', 'Active')
              AND s.student_id NOT IN (
                SELECT DISTINCT sal2.student_id
                FROM Student_Attendance_Logs sal2

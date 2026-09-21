@@ -3,6 +3,9 @@ import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
 import { useNotification } from '../../context/NotificationContext';
 import { API_URL } from '../../services/api';
+import FormError from '../common/FormError';
+import { filterTextInput, TEXT_INVALID_MSG, validateText } from '../../utils/formValidation';
+import { useFieldValidation } from '../../utils/useFieldValidation';
 
 const PromotionTab = ({ promos, onCreate, onUpdate, onDelete }) => {
   const { showNotification } = useNotification();
@@ -50,8 +53,19 @@ const PromotionTab = ({ promos, onCreate, onUpdate, onDelete }) => {
     setFile(null);
   };
 
+  const rules = (d) => ({
+    title: () => validateText(d.title, { required: true, label: 'මාතෘකාව', min: 3, max: 150 }),
+    description: () => validateText(d.description, { label: 'විස්තරය', max: 500 }),
+  });
+  const v = useFieldValidation(formData, setFormData, rules, { title: 'promo-title', description: 'promo-desc' });
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!v.validateAll()) return;
+    if (!editingPromoId && !file) {
+      showNotification('කරුණාකර රූප ගොනුවක් (PNG/JPG) තෝරන්න.', 'error');
+      return;
+    }
     const data = new FormData();
     Object.keys(formData).forEach(key => data.append(key, formData[key]));
     if (file) data.append('file', file);
@@ -64,10 +78,12 @@ const PromotionTab = ({ promos, onCreate, onUpdate, onDelete }) => {
     }
     
     setFormData({ title: '', content_type: 'Flyer', description: '' });
+    v.clear();
     setFile(null);
   };
 
   const inputStyle = { width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', marginBottom: '15px' };
+  const errStyle = (msg, extra = {}) => ({ ...inputStyle, ...extra, ...(msg ? { border: '1px solid #d32f2f', marginBottom: '4px' } : {}) });
 
   return (
     <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
@@ -75,14 +91,16 @@ const PromotionTab = ({ promos, onCreate, onUpdate, onDelete }) => {
         <h3 style={{ color: '#1a237e', marginBottom: '20px' }}>
           {editingPromoId ? 'ප්‍රවර්ධනය සංස්කරණය කරන්න' : '➕ නව ප්‍රවර්ධනයක් ඇතුළත් කරන්න'}
         </h3>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <select style={inputStyle} value={formData.content_type} onChange={e => setFormData({...formData, content_type: e.target.value})}>
             <option value="Flyer">Flyer (ප්‍රවර්ධන පත්‍රිකාව)</option>
             <option value="Teacher_Profile">Teacher Profile (ගුරු පැතිකඩ)</option>
             <option value="Achievement">Achievement (ජයග්‍රහණ)</option>
           </select>
-          <input type="text" placeholder="මාතෘකාව (Title)" style={inputStyle} value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required />
-          <textarea placeholder="විස්තරය (Description)" style={{...inputStyle, height: '80px'}} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+          <input id="promo-title" type="text" placeholder="උදා: 2026 A/L Physics Revision - මාතෘකාව *" maxLength={150} style={errStyle(v.errors.title)} value={formData.title} onChange={e => v.set('title', e.target.value, filterTextInput, TEXT_INVALID_MSG)} onBlur={() => v.blur('title')} />
+          {v.errors.title && <FormError className="mb-3">{v.errors.title}</FormError>}
+          <textarea id="promo-desc" placeholder="උදා: සෑම සෙනසුරාදාවකම පෙ.ව. 8 සිට - විස්තරය" maxLength={500} style={errStyle(v.errors.description, { height: '80px' })} value={formData.description} onChange={e => v.set('description', e.target.value, filterTextInput, TEXT_INVALID_MSG)} onBlur={() => v.blur('description')} />
+          {v.errors.description && <FormError className="mb-3">{v.errors.description}</FormError>}
           
           <div style={{ marginBottom: '20px', padding: '15px', border: '1px dashed #1a237e', borderRadius: '5px', backgroundColor: '#f8f9fa' }}>
             <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold', fontSize: '14px', color: '#333' }}>අන්තර්ගතය (Upload Content)</label>

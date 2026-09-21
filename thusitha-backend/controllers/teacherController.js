@@ -5,7 +5,7 @@ const auditService = require('../utils/auditService');
 const moodleService = require('../utils/moodleService');
 const { publicUrl } = require('../middleware/imageUpload');
 const { defaultPasswordFor } = require('../utils/authDefaults');
-const { isValidEmail, isValidPhone, sanitizeText } = require('../utils/validators');
+const { isValidEmail, isValidPhone, isValidName, NAME_ERROR, sanitizeText, passwordPolicyError } = require('../utils/validators');
 
 // 💡 Moodle Integration for Teachers
 const createMoodleAccount = async (teacherData) => {
@@ -40,6 +40,9 @@ exports.registerTeacher = async (req, res) => {
   if (!username || !teacher_name) {
     return res.status(400).json({ message: "පරිශීලක නාමය සහ ගුරුවරයාගේ නම අනිවාර්ය වේ." });
   }
+  if (!isValidName(teacher_name)) {
+    return res.status(400).json({ message: `ගුරුවරයාගේ ${NAME_ERROR}` });
+  }
   if (email && !isValidEmail(email)) {
     return res.status(400).json({ message: "වලංගු විද්‍යුත් තැපැල් ලිපිනයක් ඇතුළත් කරන්න." });
   }
@@ -60,6 +63,10 @@ exports.registerTeacher = async (req, res) => {
     await client.query('BEGIN');
 
     // 1. Create the User record (blank password => Teacher@123, flagged for change at login)
+    if (password) {
+      const policyError = passwordPolicyError(password, { role: 'Teacher' });
+      if (policyError) { await client.query('ROLLBACK'); return res.status(400).json({ message: policyError }); }
+    }
     const passwordHash = await bcrypt.hash(password || defaultPasswordFor('Teacher'), 10);
 
     const userResult = await client.query(
@@ -118,6 +125,9 @@ exports.updateTeacher = async (req, res) => {
 
   if (!teacher_name) {
     return res.status(400).json({ message: 'ගුරුවරයාගේ නම අනිවාර්ය වේ.' });
+  }
+  if (!isValidName(teacher_name)) {
+    return res.status(400).json({ message: `ගුරුවරයාගේ ${NAME_ERROR}` });
   }
   if (email && !isValidEmail(email)) {
     return res.status(400).json({ message: 'වලංගු විද්‍යුත් තැපැල් ලිපිනයක් ඇතුළත් කරන්න.' });

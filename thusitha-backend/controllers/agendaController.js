@@ -30,7 +30,7 @@ exports.getTodayAgenda = async (req, res) => {
         moodleUserId = student.moodle_user_id || null;
         moodleUsername = student.username;
         const enrRes = await db.pool.query(
-          `SELECT course_id FROM Course_Enrollments WHERE student_id = $1 AND enrollment_status = 'Enrolled'`,
+          `SELECT course_id FROM Course_Enrollments WHERE student_id = $1 AND enrollment_status IN ('Enrolled', 'Active')`,
           [student.student_id]
         );
         courseIds = enrRes.rows.map((r) => r.course_id);

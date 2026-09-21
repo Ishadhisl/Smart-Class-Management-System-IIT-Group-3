@@ -17,26 +17,17 @@ except Exception as e:
     model = None
     logging.error(f"Failed to load YOLO model: {e}")
 
+# dlib 128-d encodings are the ONE embedding space used everywhere: /encode (student
+# photo -> Students.face_encoding), /verify (CCTV crops vs. those stored encodings via
+# face_distance, 0.45 threshold) and the backend's webcam verifyFace (0.55 threshold).
+# Don't swap /encode to a different model (FaceNet/SFace 512-d etc.) without also
+# changing /verify and the backend comparison, or nothing will ever match.
 try:
     import face_recognition
     HAS_FACE_REC = True
 except ImportError:
     HAS_FACE_REC = False
-    logging.warning("face_recognition (dlib) not installed, checking facenet-pytorch...")
-
-# High-accuracy Deep Learning Face Recognition via FaceNet (PyTorch VGGFace2)
-try:
-    import torch
-    from facenet_pytorch import InceptionResnetV1
-    _device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    _facenet_model = InceptionResnetV1(pretrained='vggface2').eval().to(_device)
-    HAS_FACENET = True
-    HAS_FACE_REC = True
-    logging.info(f"✅ Loaded InceptionResnetV1 (VGGFace2) on {_device}")
-except Exception as e:
-    _facenet_model = None
-    HAS_FACENET = False
-    logging.warning(f"facenet_pytorch not loaded: {e}")
+    logging.warning("face_recognition (dlib) not installed - /encode and /verify will report fallback_active")
 
 # Try to load MediaPipe for advanced face detection
 try:
@@ -628,58 +619,54 @@ def run_verify(req: VerifyRequest):
 @app.post("/encode")
 def run_encode(req: EncodeRequest):
     if not HAS_FACE_REC:
-        return {"error": "Face recognition engine not installed", "fallback_active": True}
-        
+        return {"error": "face_recognition not installed", "fallback_active": True}
+
     try:
+        # Paths come from the backend relative to its own folder; also accept an absolute path.
         abs_path = os.path.join("..", "thusitha-backend", req.image_path)
         if not os.path.exists(abs_path) and os.path.exists(req.image_path):
             abs_path = req.image_path
-            
-        img = cv2.imread(abs_path)
-        if img is None:
-            return {"error": f"Image file not found: {req.image_path}"}
-            
-        h, w, _ = img.shape
-        face_crop = None
-        
-        # 1. Detect face using YuNet
-        if HAS_YUNET and _yunet_detector is not None:
-            try:
-                _yunet_detector.setInputSize((w, h))
-                _, faces = _yunet_detector.detect(img)
-                if faces is not None and len(faces) > 0:
-                    box = faces[0][:4].astype(int)
-                    x, y, bw, bh = box
-                    # Add 15% margin
-                    margin_x = int(bw * 0.15)
-                    margin_y = int(bh * 0.15)
-                    x1, y1 = max(0, x - margin_x), max(0, y - margin_y)
-                    x2, y2 = min(w, x + bw + margin_x), min(h, y + bh + margin_y)
-                    face_crop = img[y1:y2, x1:x2]
-            except Exception as e:
-                logging.warning(f"YuNet detection during encode failed: {e}")
-                
-        if face_crop is None or face_crop.size == 0:
-            face_crop = img
 
-        # 2. Extract deep embedding via FaceNet
-        if HAS_FACENET and _facenet_model is not None:
-            face_rgb = cv2.cvtColor(face_crop, cv2.COLOR_BGR2RGB)
-            face_resized = cv2.resize(face_rgb, (160, 160))
-            tensor = torch.tensor(face_resized, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0)
-            tensor = (tensor - 127.5) / 128.0
-            with torch.no_grad():
-                emb = _facenet_model(tensor.to(_device)).cpu().numpy()[0]
-            emb = emb / (np.linalg.norm(emb) + 1e-6)
-            return {"encoding": emb.tolist()}
-        elif HAS_FACE_REC:
-            rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = cv2.imread(abs_path, cv2.IMREAD_COLOR)
+        if img is None:
+            return {"error": f"Image file not found or unreadable: {req.image_path}"}
+        img = np.ascontiguousarray(img, dtype=np.uint8)
+
+        # CLAHE local contrast enhancement improves detection/encoding on diverse skin
+        # tones and unevenly lit profile photos.
+        try:
+            lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+            l, a, b = cv2.split(lab)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            limg = cv2.merge((clahe.apply(l), a, b))
+            img = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+        except Exception as e:
+            logging.error(f"CLAHE contrast enhancement failed during encoding: {e}")
+
+        # Locate the face with the same detector stack /verify uses (YuNet first, then
+        # dlib/MediaPipe) so the crop dlib encodes here matches what it sees at attendance time.
+        face_locations = []
+        try:
+            face_locations = detect_faces(img)
+        except Exception as e:
+            logging.error(f"Face detection during encode failed: {e}")
+
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        rgb = np.ascontiguousarray(rgb, dtype=np.uint8)
+
+        if face_locations:
+            # Largest face = the student (profile photos may have people in the background)
+            face_locations = sorted(face_locations, key=lambda l: (l[2] - l[0]) * (l[1] - l[3]), reverse=True)[:1]
+            encs = face_recognition.face_encodings(rgb, face_locations)
+        else:
             encs = face_recognition.face_encodings(rgb)
-            if encs:
-                return {"encoding": encs[0].tolist()}
-                
+
+        logging.info(f"run_encode: {req.image_path} shape={img.shape} faces_found={len(face_locations)} encoded={len(encs)}")
+        if encs:
+            return {"encoding": encs[0].tolist()}
         return {"error": "No face found in image"}
     except Exception as e:
+        logging.error(f"run_encode failed: {e}")
         return {"error": str(e)}
 
 if __name__ == "__main__":

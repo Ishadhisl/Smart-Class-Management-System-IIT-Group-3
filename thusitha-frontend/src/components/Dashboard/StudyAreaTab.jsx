@@ -2,34 +2,52 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { request } from '../../services/api'; // Assuming request helper is available
 import StudyAreaCountdown from './StudyAreaCountdown';
+import FormError from '../common/FormError';
+import { validateRequired } from '../../utils/formValidation';
+import { useFieldValidation } from '../../utils/useFieldValidation';
 
 const StudyAreaTab = ({ students, seats, onBook, onCheckIn, onCheckOut, currentUser }) => {
   const isStudent = !!currentUser;
   // For students, pre-fill student_id from their profile
-  const [formData, setFormData] = useState({ 
-    student_id: isStudent ? (currentUser._id || currentUser.student_id || '') : '', 
-    seat_id: '', 
-    expected_arrival_time: '' 
+  const [formData, setFormData] = useState({
+    student_id: isStudent ? (currentUser._id || currentUser.student_id || '') : '',
+    seat_id: '',
+    expected_arrival_time: ''
   });
 
-  const getLocalISOString = () => {
-    const tzoffset = (new Date()).getTimezoneOffset() * 60000;
-    return (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
-  };
+  // Bookings are same-day only: the admin picks just a clock time ("HH:MM"), and it is
+  // combined with today's date on submit. Local time, not UTC, so it matches the wall clock.
+  const pad = (n) => String(n).padStart(2, '0');
+  const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const nowHHMM = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const todayAt = (hhmm) => (hhmm ? new Date(`${todayISO()}T${hhmm}:00`) : null);
+  const todayLabel = new Date().toLocaleDateString('si-LK', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+
+  const rules = (d) => ({
+    student_id: () => validateRequired(d.student_id, 'ශිෂ්‍යයා'),
+    seat_id: () => (d.seat_id ? '' : 'කරුණාකර සිතියමෙන් අසුනක් තෝරන්න.'),
+    expected_arrival_time: () => {
+      const msg = validateRequired(d.expected_arrival_time, 'පැමිණෙන වේලාව');
+      if (msg) return msg;
+      const t = todayAt(d.expected_arrival_time);
+      if (!t || Number.isNaN(t.getTime())) return 'වලංගු වේලාවක් තෝරන්න.';
+      if (t < new Date()) return 'අද දවසේ දැනට ගෙවී ගිය වේලාවක් තෝරා ගත නොහැක.';
+      return '';
+    },
+  });
+  const v = useFieldValidation(formData, setFormData, rules, { student_id: 'studyStudent', seat_id: 'studySeat', expected_arrival_time: 'arrivalTime' });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const selectedTime = new Date(formData.expected_arrival_time);
-    const currentTime = new Date();
-    if (selectedTime < currentTime) {
-      alert("පැමිණෙන වේලාව ලෙස පසුගිය වේලාවක් තෝරා ගත නොහැක. (Expected Arrival time cannot be in the past.)");
-      return;
-    }
-    onBook(formData);
+    if (!v.validateAll()) return;
+    v.clear();
+    // Send a full local timestamp for TODAY; the backend also rejects any other date.
+    onBook({ ...formData, expected_arrival_time: `${todayISO()}T${formData.expected_arrival_time}:00` });
   };
 
   const inputStyle = { width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ccc', marginBottom: '15px', boxSizing: 'border-box' };
-  
+  const errStyle = (msg) => (msg ? { ...inputStyle, border: '1px solid #d32f2f', marginBottom: '4px' } : inputStyle);
+
   const getSeatColor = (status) => {
     switch(status) {
       case 'Occupied': return '#f44336';
@@ -45,7 +63,7 @@ const StudyAreaTab = ({ students, seats, onBook, onCheckIn, onCheckOut, currentU
       {/* LEFT: Booking Form */}
       <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', maxWidth: '400px', flex: 1 }}>
         <h3 style={{ color: '#1a237e', marginBottom: '20px' }}>📖 අසුනක් වෙන් කිරීම</h3>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         {/* Student selector: only show to staff, not to student users */}
         {isStudent ? (
           <div style={{ padding: '10px 12px', backgroundColor: '#e8eaf6', borderRadius: '6px', marginBottom: '15px', fontSize: '14px', color: '#1a237e', fontWeight: 'bold' }}>
@@ -53,34 +71,40 @@ const StudyAreaTab = ({ students, seats, onBook, onCheckIn, onCheckOut, currentU
           </div>
         ) : (
           <>
-            <label htmlFor="studyStudent" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>ශිෂ්‍යයා තෝරන්න</label>
-            <select id="studyStudent" style={inputStyle} value={formData.student_id} onChange={(e) => setFormData({...formData, student_id: e.target.value})} required>
+            <label htmlFor="studyStudent" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>ශිෂ්‍යයා තෝරන්න *</label>
+            <select id="studyStudent" style={errStyle(v.errors.student_id)} value={formData.student_id} onChange={(e) => v.set('student_id', e.target.value)} onBlur={() => v.blur('student_id')}>
               <option value="">-- ශිෂ්‍යයා තෝරන්න --</option>
               {students.map(s => <option key={s._id} value={s._id}>{s.name} ({s.studentId})</option>)}
             </select>
+            {v.errors.student_id && <FormError className="mb-3">{v.errors.student_id}</FormError>}
           </>
         )}
 
-        <label htmlFor="studySeat" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>අසුන අංකය</label>
-        <input 
+        <label htmlFor="studySeat" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>අසුන අංකය *</label>
+        <input
           id="studySeat"
-          type="text" 
-          placeholder="Select from map..." 
-          style={inputStyle} 
-          value={formData.seat_id ? `අසුන ${seats.find(s=>s.seat_id == formData.seat_id)?.seat_number}` : ''} 
-          readOnly 
+          type="text"
+          placeholder="දකුණු පස සිතියමෙන් අසුනක් click කරන්න..."
+          style={errStyle(v.errors.seat_id)}
+          value={formData.seat_id ? `අසුන ${seats.find(s=>s.seat_id == formData.seat_id)?.seat_number}` : ''}
+          readOnly
         />
+        {v.errors.seat_id && <FormError className="mb-3">{v.errors.seat_id}</FormError>}
 
-        <label htmlFor="arrivalTime" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>පැමිණෙන වේලාව (Expected Arrival)</label>
-        <input 
+        <label htmlFor="arrivalTime" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>පැමිණෙන වේලාව (අද දවසට පමණයි) *</label>
+        <div style={{ fontSize: '12px', color: '#1a237e', backgroundColor: '#e8eaf6', borderRadius: '6px', padding: '6px 10px', marginBottom: '8px' }}>
+          📅 දිනය: <strong>{todayLabel}</strong> — වෙන් කිරීම් අද දවසට පමණක් කළ හැක.
+        </div>
+        <input
           id="arrivalTime"
-          type="datetime-local" 
-          style={inputStyle} 
-          value={formData.expected_arrival_time} 
-          onChange={(e) => setFormData({...formData, expected_arrival_time: e.target.value})} 
-          required 
-          min={getLocalISOString()}
+          type="time"
+          style={errStyle(v.errors.expected_arrival_time)}
+          value={formData.expected_arrival_time}
+          onChange={(e) => v.set('expected_arrival_time', e.target.value)}
+          onBlur={() => v.blur('expected_arrival_time')}
+          min={nowHHMM()}
         />
+        {v.errors.expected_arrival_time && <FormError className="mb-3">{v.errors.expected_arrival_time}</FormError>}
 
         <p style={{ fontSize: '13px', color: '#666', marginBottom: '15px' }}>💡 වෙන් කිරීම් පැය 4කට පමණක් සීමා වේ. විනාඩි 15කට වඩා ප්‍රමාද වුවහොත් වෙන් කිරීම අවලංගු වේ.</p>
 
@@ -98,7 +122,7 @@ const StudyAreaTab = ({ students, seats, onBook, onCheckIn, onCheckOut, currentU
           {seats.map(seat => {
             const isSelected = String(formData.seat_id) === String(seat.seat_id);
             const handleActivate = () => {
-              if (seat.status === 'Available') setFormData({ ...formData, seat_id: seat.seat_id });
+              if (seat.status === 'Available') v.set('seat_id', seat.seat_id);
             };
 
             const getBorderStyle = () => {
@@ -155,8 +179,8 @@ const StudyAreaTab = ({ students, seats, onBook, onCheckIn, onCheckOut, currentU
                   <span>{seat.seat_number}</span>
                   <small style={labelStyle}>Reserved</small>
                   {seat.expected_arrival_time && (
-                    <StudyAreaCountdown 
-                      expectedArrivalTime={seat.expected_arrival_time} 
+                    <StudyAreaCountdown
+                      expectedArrivalTime={seat.expected_arrival_time}
                       bookingId={seat.current_booking_id}
                       onExpire={(id) => {
                         console.log('Booking Expired:', id);

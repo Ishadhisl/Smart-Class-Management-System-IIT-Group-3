@@ -9,6 +9,8 @@ const fs = require('fs');
 const path = require('path');
 const { initSchema } = require('./utils/initSchema');
 const { seedDemoUsers } = require('./utils/seedUsers');
+const rateLimit = require('express-rate-limit');
+const sanitizeBody = require('./middleware/sanitizeBody');
 
 // Same locally-trusted dev certificate the frontend (Vite) uses - see vite.config.js for why:
 // navigator.mediaDevices (webcam access) needs a secure context, and an https frontend page
@@ -83,6 +85,8 @@ const corsOptions = {
     if (process.env.FRONTEND_URL === '*') return callback(null, true);
     const allowed = [
       process.env.FRONTEND_URL,
+      process.env.PROD_FRONTEND_URL,
+      'https://scms-frontend-lac.vercel.app',
       'http://localhost:5173',
       'http://localhost:5174',
       'http://127.0.0.1:5173',
@@ -106,10 +110,35 @@ const corsOptions = {
 // as HTML by this server.
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
 app.use(cors(corsOptions));
-app.use(express.json());
+// Body size caps - a 100MB JSON body is never legitimate here (file uploads go through
+// multer as multipart, not JSON); webcam face frames are the largest JSON payload (~2MB).
+app.use(express.json({ limit: '5mb' }));
+// PayHere notify callback sends application/x-www-form-urlencoded
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+// Strip HTML tags / angle brackets / control chars from every string field (see middleware/sanitizeBody.js)
+app.use(sanitizeBody);
 
-// static middleware to serve uploaded files (PDFs, Images)
-app.use('/uploads', express.static('uploads'));
+// Brute-force / spam protection on the unauthenticated entry points. Counts per client IP.
+// Render sits behind a proxy, so trust the X-Forwarded-For hop to see the real IP.
+app.set('trust proxy', 1);
+const limiterMessage = { message: 'උත්සාහයන් වැඩියි. කරුණාකර විනාඩි කිහිපයකට පසු නැවත උත්සාහ කරන්න.' };
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false, message: limiterMessage });
+const otpLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false, message: limiterMessage });
+const publicFormLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false, message: limiterMessage });
+app.use('/api/auth/login', authLimiter);
+app.use(['/api/auth/forgot-password', '/api/auth/verify-otp', '/api/auth/reset-with-otp'], otpLimiter);
+app.use(['/api/students/register-public', '/api/contact/submit'], publicFormLimiter);
+
+// static middleware to serve uploaded files (PDFs, Images). Uploads are user-supplied
+// bytes: never let the browser sniff/execute them as HTML or scripts.
+app.use('/uploads', express.static('uploads', {
+  index: false,
+  dotfiles: 'deny',
+  setHeaders: (res) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; sandbox");
+  },
+}));
 
 app.get('/', (req, res) => {
   res.send('Welcome to the Thusitha Institute Smart Class Management System API');

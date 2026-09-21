@@ -22,6 +22,16 @@ exports.createBooking = async (req, res) => {
     // Backend validation: prevent past date/time booking (with 1 minute safety buffer for network latency/server clock offset)
     const selectedTime = new Date(expected_arrival_time);
     const currentTime = new Date();
+    if (Number.isNaN(selectedTime.getTime())) {
+      return res.status(400).json({ message: "වලංගු පැමිණෙන වේලාවක් ඇතුළත් කරන්න." });
+    }
+    // Same-day bookings only: the study area is reserved for today, never in advance.
+    const sameDay = selectedTime.getFullYear() === currentTime.getFullYear()
+      && selectedTime.getMonth() === currentTime.getMonth()
+      && selectedTime.getDate() === currentTime.getDate();
+    if (!sameDay) {
+      return res.status(400).json({ message: "අසුන් වෙන් කිරීම් අද දවසට පමණක් කළ හැක. (Bookings are for today only.)" });
+    }
     if (selectedTime < new Date(currentTime.getTime() - 60000)) {
       return res.status(400).json({ message: "පසුගිය වේලාවන් සඳහා අසුන් වෙන් කළ නොහැක. (Cannot book seats for past date and time.)" });
     }
@@ -202,7 +212,7 @@ exports.getStudentHistory = async (req, res) => {
       }
       studentId = studentLookup.rows[0].student_id;
     }
-    const result = await db.pool.query('SELECT * FROM Study_Area_Bookings WHERE student_id = $1 ORDER BY created_at DESC', [studentId]);
+    const result = await db.pool.query('SELECT * FROM Study_Area_Bookings WHERE student_id = $1 ORDER BY booking_id DESC', [studentId]);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });

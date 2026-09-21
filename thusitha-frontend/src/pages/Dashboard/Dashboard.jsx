@@ -45,7 +45,7 @@ import Modal from '../../components/common/Modal';
 import Input from '../../components/common/Input';
 import Label from '../../components/common/Label';
 import FormError from '../../components/common/FormError';
-import { filterNameInput, filterPhoneInput, filterWithFeedback, NAME_INVALID_MSG, PHONE_INVALID_MSG, validateName, validatePhone, validateRequired } from '../../utils/formValidation';
+import { filterNameInput, filterPhoneInput, filterTextInput, filterWithFeedback, NAME_INVALID_MSG, PHONE_INVALID_MSG, TEXT_INVALID_MSG, validateName, validatePhone, validateRequired, validateText } from '../../utils/formValidation';
 import Button from '../../components/common/Button';
 import TodayAgendaModal from '../../components/Dashboard/TodayAgendaModal';
 
@@ -119,6 +119,8 @@ const Dashboard = () => {
   // Role-based permission helpers
   const isAdmin = user?.role === 'Admin';
   const isTeacher = user?.role === 'Teacher';
+  // The logged-in teacher's Teachers row (null for other roles / until lecturers load).
+  const myTeacher = isTeacher ? lecturers.find(t => t.user_id === user.id) || null : null;
   const isCounterPerson = user?.role === 'Counter Person';
   const isStudent = user?.role === 'Student';
   const isParent = user?.role === 'Parent';
@@ -361,6 +363,46 @@ const Dashboard = () => {
     }
   }, []); // Run once on mount only - tab changes don't need full re-fetch
 
+  // 💳 PayHere Return / Cancel Redirect Handling
+  // PayHere sends the browser back to /dashboard?payment=success|cancel&order_id=...
+  // "success" only means the customer finished the checkout page - the payment is
+  // actually confirmed by PayHere's server-to-server notify_url callback, which flips
+  // the row to 'Completed'. So look the order up instead of assuming, otherwise the
+  // user sees "ගෙවීම සාර්ථකයි" while the Payments tab still shows Pending.
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+    if (!paymentStatus) return;
+    const orderId = urlParams.get('order_id');
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    const timer = setTimeout(async () => {
+      setActiveTab('payments');
+      if (paymentStatus === 'cancel') {
+        showNotification('PayHere ගෙවීම අවලංගු කරන ලදී.', 'error');
+        return;
+      }
+      if (!orderId) {
+        showNotification('PayHere ගෙවීම ලැබුණි. තත්ත්වය ගෙවීම් පිටුවෙන් බලන්න.', 'info');
+        return;
+      }
+      try {
+        const p = await request(`/payments/payhere/status/${encodeURIComponent(orderId)}`);
+        if (p?.payment_status === 'Completed') {
+          showNotification('ගෙවීම සාර්ථකයි! PayHere ගෙවීම තහවුරු විය.', 'success');
+        } else if (p?.payment_status === 'Rejected') {
+          showNotification('PayHere ගෙවීම අසාර්ථක විය / ප්‍රතික්ෂේප විය.', 'error');
+        } else {
+          showNotification('PayHere ගෙවීම ලැබුණි - තහවුරු වන තෙක් "Pending" ලෙස පෙන්වයි.', 'info');
+        }
+      } catch {
+        showNotification('PayHere ගෙවීම ලැබුණි. තත්ත්වය ගෙවීම් පිටුවෙන් බලන්න.', 'info');
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // 📱 WhatsApp Status Polling (every 10 seconds for Admin/Counter)
   useEffect(() => {
     if (!isAdminOrCounterPerson) return;
@@ -446,6 +488,9 @@ const Dashboard = () => {
       name: validateName(name, { label: 'ශිෂ්‍යයාගේ නම' }),
       parentName: parentName ? validateName(parentName, { required: false, label: 'මව්පියන්ගේ නම' }) : '',
       parentPhone: validatePhone(parentPhone, { required: false }),
+      schoolName: validateText(schoolName, { label: 'පාසල', max: 150 }),
+      studentGrade: validateText(studentGrade, { label: 'ශ්‍රේණිය', max: 30 }),
+      address: validateText(address, { label: 'ලිපිනය', max: 300 }),
     };
     setStudentFormErrors(errors);
     return Object.values(errors).every((msg) => !msg);
@@ -782,7 +827,7 @@ const Dashboard = () => {
         method: 'POST',
         body: { pending_id: pendingId, qr_code_key: qrKey }
       });
-      showNotification('ශිෂ්‍යයා සාර්ථකව අනුමත කර ගිණුම සක්‍රිය කළා!');
+      showNotification(`ශිෂ්‍යයා සාර්ථකව අනුමත කර ගිණුම සක්‍රිය කළා! (ශිෂ්‍ය අංකය: ${qrKey})`);
       fetchDatabaseData(); // Refresh all lists
     } catch (err) {
       showNotification(err.message, 'error');
@@ -1538,7 +1583,15 @@ const Dashboard = () => {
 
               {/* MATERIALS TAB */}
               {!loading && activeTab === 'materials' && (
-                <MaterialTab courses={user.role === 'Student' ? enrolledCourses : realCourses} />
+                <MaterialTab
+                  courses={
+                    isStudent ? enrolledCourses
+                      // Teachers only see (and get auto-dropped into) their own classes.
+                      : (isTeacher && myTeacher) ? realCourses.filter(c => c.teacher_id === myTeacher.teacher_id)
+                        : realCourses
+                  }
+                  autoSelect={isStudent || isTeacher}
+                />
               )}
 
               {/* PAYMENTS TAB */}
@@ -1612,7 +1665,7 @@ const Dashboard = () => {
         <form onSubmit={handleAddStudent}>
           <div className="mb-4">
             <Label htmlFor="modal-student-id">ශිෂ්‍ය අංකය (Student ID / Username) *</Label>
-            <Input id="modal-student-id" type="text" placeholder="ST001" value={studentId}
+            <Input id="modal-student-id" type="text" placeholder="උදා: ST001" value={studentId}
               required maxLength={20} pattern="[A-Za-z0-9._-]+" title="අකුරු, ඉලක්කම්, . _ - විතරක් යොදන්න"
               invalid={!!studentFormErrors.studentId}
               onChange={(e) => {
@@ -1626,7 +1679,7 @@ const Dashboard = () => {
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-student-name">ශිෂ්‍යයාගේ නම *</Label>
-            <Input id="modal-student-name" type="text" placeholder="Dilini Kawshalya" value={name}
+            <Input id="modal-student-name" type="text" placeholder="උදා: Dilini Kawshalya / දිලිනි කෞශල්‍යා" value={name}
               required maxLength={150}
               invalid={!!studentFormErrors.name}
               onChange={(e) => {
@@ -1640,15 +1693,29 @@ const Dashboard = () => {
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-student-school">පාසල</Label>
-            <Input id="modal-student-school" type="text" placeholder="Ananda College, Colombo" value={schoolName} onChange={(e) => setSchoolName(e.target.value)} maxLength={150} />
+            <Input id="modal-student-school" type="text" placeholder="උදා: Ananda College, Colombo" value={schoolName} maxLength={150}
+              invalid={!!studentFormErrors.schoolName}
+              onChange={(e) => {
+                const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterTextInput);
+                setSchoolName(filtered);
+                setStudentFormErrors({ ...studentFormErrors, schoolName: invalidAttempt ? TEXT_INVALID_MSG : '' });
+              }} />
+            <FormError>{studentFormErrors.schoolName}</FormError>
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-student-grade">ශ්‍රේණිය</Label>
-            <Input id="modal-student-grade" type="text" placeholder="Grade 12" value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)} maxLength={30} />
+            <Input id="modal-student-grade" type="text" placeholder="උදා: Grade 12 / 12-AL" value={studentGrade} maxLength={30}
+              invalid={!!studentFormErrors.studentGrade}
+              onChange={(e) => {
+                const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterTextInput);
+                setStudentGrade(filtered);
+                setStudentFormErrors({ ...studentFormErrors, studentGrade: invalidAttempt ? TEXT_INVALID_MSG : '' });
+              }} />
+            <FormError>{studentFormErrors.studentGrade}</FormError>
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-parent-name">මව්පියන්ගේ නම</Label>
-            <Input id="modal-parent-name" type="text" placeholder="Parent Name" value={parentName}
+            <Input id="modal-parent-name" type="text" placeholder="උදා: Sunil Perera" value={parentName}
               maxLength={150}
               invalid={!!studentFormErrors.parentName}
               onChange={(e) => {
@@ -1662,7 +1729,7 @@ const Dashboard = () => {
           </div>
           <div className="mb-4">
             <Label htmlFor="modal-parent-phone">මව්පියන්ගේ දුරකථන අංකය</Label>
-            <Input id="modal-parent-phone" type="tel" placeholder="0712345678" value={parentPhone}
+            <Input id="modal-parent-phone" type="tel" inputMode="numeric" maxLength={12} placeholder="උදා: 0712345678 (ඉලක්කම් 10ක්)" value={parentPhone}
               pattern="(?:\+94|0)7[0-9]{8}" title="උදා: 0712345678 හෝ +94712345678"
               invalid={!!studentFormErrors.parentPhone}
               onChange={(e) => {
@@ -1676,7 +1743,14 @@ const Dashboard = () => {
           </div>
           <div className="mb-6">
             <Label htmlFor="modal-student-address">ලිපිනය</Label>
-            <Input id="modal-student-address" type="text" placeholder="129/14 Temple road, Colombo" value={address} onChange={(e) => setAddress(e.target.value)} maxLength={300} />
+            <Input id="modal-student-address" type="text" placeholder="උදා: 129/14, Temple Road, Colombo" value={address} maxLength={300}
+              invalid={!!studentFormErrors.address}
+              onChange={(e) => {
+                const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterTextInput);
+                setAddress(filtered);
+                setStudentFormErrors({ ...studentFormErrors, address: invalidAttempt ? TEXT_INVALID_MSG : '' });
+              }} />
+            <FormError>{studentFormErrors.address}</FormError>
           </div>
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => { setShowAddModal(false); setStudentFormErrors({}); }}>අවලංගු කරන්න</Button>

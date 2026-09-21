@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
 import { API_URL } from '../../services/api';
-import { filterNameInput, filterPhoneInput, filterWithFeedback, NAME_INVALID_MSG, PHONE_INVALID_MSG, validateName, validateEmail, validatePhone, validateRequired } from '../../utils/formValidation';
+import { filterNameInput, filterPhoneInput, filterTextInput, filterWithFeedback, NAME_INVALID_MSG, PHONE_INVALID_MSG, TEXT_INVALID_MSG, validateName, validateEmail, validatePhone, validateRequired, validateText } from '../../utils/formValidation';
+
+const thStyle = { padding: '14px 12px', position: 'sticky', top: 0, backgroundColor: '#f5f5f5', zIndex: 1 };
+// Long emails / degree names used to overflow into the next column - wrap them instead.
+const tdWrap = { padding: '14px 12px', wordBreak: 'break-word', overflowWrap: 'anywhere', verticalAlign: 'middle' };
 
 const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
   const canEdit = role === 'Admin';
@@ -67,6 +71,8 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
       teacher_name: validateName(formData.teacher_name, { label: 'ගුරුවරයාගේ නම' }),
       phone: validatePhone(formData.phone, { required: false }),
       email: formData.email ? validateEmail(formData.email, { required: false }) : '',
+      specialization: validateText(formData.specialization, { label: 'විෂය / විශේෂත්වය', max: 150 }),
+      qualifications: validateText(formData.qualifications, { label: 'සුදුසුකම්', max: 300 }),
     };
     setFormErrors(errors);
     return Object.values(errors).every((msg) => !msg);
@@ -149,7 +155,7 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
           <label htmlFor="teacher-username" style={labelStyle}>පරිශීලක නාමය (Login Username) *</label>
           <input id="teacher-username" type="text" value={formData.username}
             required maxLength={100} pattern="[A-Za-z0-9._\- ]+" title="අකුරු, ඉලක්කම්, . _ - space විතරක් යොදන්න"
-            style={formErrors.username ? invalidInputStyle : inputStyle} placeholder="teacher01"
+            style={formErrors.username ? invalidInputStyle : inputStyle} placeholder="උදා: teacher01"
             onChange={(e) => {
               setFormData({ ...formData, username: e.target.value });
               if (formErrors.username) setFormErrors({ ...formErrors, username: validateRequired(e.target.value, 'පරිශීලක නාමය') });
@@ -165,7 +171,7 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
       <div>
         <label htmlFor="teacher-name" style={labelStyle}>ගුරුවරයාගේ නම *</label>
         <input id="teacher-name" type="text" value={formData.teacher_name}
-          required maxLength={150} style={formErrors.teacher_name ? invalidInputStyle : inputStyle} placeholder="Mr. Perera"
+          required maxLength={150} style={formErrors.teacher_name ? invalidInputStyle : inputStyle} placeholder="උදා: Mr. Nimal Perera"
           onChange={(e) => {
             const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterNameInput);
             setFormData({ ...formData, teacher_name: filtered });
@@ -178,7 +184,7 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
       <div>
         <label htmlFor="teacher-phone" style={labelStyle}>දුරකථන අංකය</label>
         <input id="teacher-phone" type="tel" value={formData.phone}
-          pattern="(?:\+94|0)7[0-9]{8}" title="උදා: 0771234567 හෝ +94771234567" style={formErrors.phone ? invalidInputStyle : inputStyle} placeholder="0771234567"
+          pattern="(?:\+94|0)7[0-9]{8}" title="උදා: 0771234567 හෝ +94771234567" style={formErrors.phone ? invalidInputStyle : inputStyle} placeholder="උදා: 0771234567"
           onChange={(e) => {
             const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterPhoneInput);
             setFormData({ ...formData, phone: filtered });
@@ -191,10 +197,11 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
       <div>
         <label htmlFor="teacher-email" style={labelStyle}>ඊමේල්</label>
         <input id="teacher-email" type="email" value={formData.email}
-          maxLength={150} style={formErrors.email ? invalidInputStyle : inputStyle} placeholder="teacher@example.com"
+          maxLength={150} style={formErrors.email ? invalidInputStyle : inputStyle} placeholder="උදා: nimal@gmail.com"
           onChange={(e) => {
             setFormData({ ...formData, email: e.target.value });
-            if (formErrors.email) setFormErrors({ ...formErrors, email: validateEmail(e.target.value, { required: false }) });
+            // Live email check - shows the format hint as soon as something invalid is typed
+            setFormErrors({ ...formErrors, email: validateEmail(e.target.value, { required: false }) });
           }}
           onBlur={(e) => setFormErrors({ ...formErrors, email: validateEmail(e.target.value, { required: false }) })}
         />
@@ -202,11 +209,23 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
       </div>
       <div>
         <label htmlFor="teacher-spec" style={labelStyle}>විෂය / විශේෂත්වය</label>
-        <input id="teacher-spec" type="text" value={formData.specialization} onChange={(e) => setFormData({ ...formData, specialization: e.target.value })} maxLength={150} style={inputStyle} placeholder="Combined Mathematics" />
+        <input id="teacher-spec" type="text" value={formData.specialization} maxLength={150} style={formErrors.specialization ? invalidInputStyle : inputStyle} placeholder="උදා: Combined Mathematics"
+          onChange={(e) => {
+            const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterTextInput);
+            setFormData({ ...formData, specialization: filtered });
+            setFormErrors({ ...formErrors, specialization: invalidAttempt ? TEXT_INVALID_MSG : '' });
+          }} />
+        {formErrors.specialization && <div style={errorTextStyle}>{formErrors.specialization}</div>}
       </div>
       <div>
         <label htmlFor="teacher-qual" style={labelStyle}>සුදුසුකම්</label>
-        <input id="teacher-qual" type="text" value={formData.qualifications} onChange={(e) => setFormData({ ...formData, qualifications: e.target.value })} maxLength={300} style={inputStyle} placeholder="B.Sc, M.Sc" />
+        <input id="teacher-qual" type="text" value={formData.qualifications} maxLength={300} style={formErrors.qualifications ? invalidInputStyle : inputStyle} placeholder="උදා: B.Sc (Hons), M.Sc"
+          onChange={(e) => {
+            const { filtered, invalidAttempt } = filterWithFeedback(e.target.value, filterTextInput);
+            setFormData({ ...formData, qualifications: filtered });
+            setFormErrors({ ...formErrors, qualifications: invalidAttempt ? TEXT_INVALID_MSG : '' });
+          }} />
+        {formErrors.qualifications && <div style={errorTextStyle}>{formErrors.qualifications}</div>}
       </div>
       <div>
         <label htmlFor="teacher-photo" style={labelStyle}>ඡායාරූපය (Photo)</label>
@@ -239,17 +258,30 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
         <input type="text" placeholder="නමින්, ඊමේල්, හෝ විෂයෙන් සොයන්න..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }} />
       </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px' }}>
+      {/* ~10 rows visible; the rest scroll. Fixed layout + wrapping so long emails /
+          qualifications stay inside their column instead of pushing the table off-screen. */}
+      <div style={{ maxHeight: 'max(300px, calc(100vh - 300px))', overflowY: 'auto', overflowX: 'auto', marginTop: '15px', border: '1px solid #e3e6f0', borderRadius: '10px' }}>
+      <table style={{ width: '100%', minWidth: '900px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+        <colgroup>
+          <col style={{ width: '60px' }} />
+          <col style={{ width: '70px' }} />
+          <col style={{ width: '18%' }} />
+          <col style={{ width: '120px' }} />
+          <col style={{ width: '22%' }} />
+          <col style={{ width: '14%' }} />
+          <col style={{ width: '18%' }} />
+          {canEdit && <col style={{ width: '190px' }} />}
+        </colgroup>
         <thead>
           <tr style={{ backgroundColor: '#f5f5f5', textAlign: 'left' }}>
-            <th style={{ padding: '16px' }}>ID</th>
-            <th style={{ padding: '16px' }}>ඡායාරූපය</th>
-            <th style={{ padding: '16px' }}>නම</th>
-            <th style={{ padding: '16px' }}>දුරකථන</th>
-            <th style={{ padding: '16px' }}>ඊමේල්</th>
-            <th style={{ padding: '16px' }}>විෂය</th>
-            <th style={{ padding: '16px' }}>සුදුසුකම්</th>
-            {canEdit && <th style={{ padding: '16px' }}>ක්‍රියාමාර්ග</th>}
+            <th style={thStyle}>ID</th>
+            <th style={thStyle}>ඡායාරූපය</th>
+            <th style={thStyle}>නම</th>
+            <th style={thStyle}>දුරකථන</th>
+            <th style={thStyle}>ඊමේල්</th>
+            <th style={thStyle}>විෂය</th>
+            <th style={thStyle}>සුදුසුකම්</th>
+            {canEdit && <th style={thStyle}>ක්‍රියාමාර්ග</th>}
           </tr>
         </thead>
         <tbody>
@@ -265,14 +297,14 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
                 ) : null}
                 <div style={{ display: resolveTeacherPhoto(teacher) ? 'none' : 'flex', width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#e0e0e0', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>👨‍🏫</div>
               </td>
-              <td style={{ padding: '16px' }}>{teacher.teacher_name}</td>
-              <td style={{ padding: '16px' }}>{teacher.phone || 'N/A'}</td>
-              <td style={{ padding: '16px' }}>{teacher.email || 'N/A'}</td>
-              <td style={{ padding: '16px' }}>{teacher.specialization || 'N/A'}</td>
-              <td style={{ padding: '16px' }}>{teacher.qualifications || 'N/A'}</td>
+              <td style={tdWrap}>{teacher.teacher_name}</td>
+              <td style={tdWrap}>{teacher.phone || 'N/A'}</td>
+              <td style={tdWrap} title={teacher.email || ''}>{teacher.email || 'N/A'}</td>
+              <td style={tdWrap}>{teacher.specialization || 'N/A'}</td>
+              <td style={tdWrap}>{teacher.qualifications || 'N/A'}</td>
               {canEdit && (
                 <td style={{ padding: '16px' }}>
-                  <div style={{ display: 'flex', gap: '5px' }}>
+                  <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
                     <button onClick={() => openEditModal(teacher)} style={{ padding: '5px 10px', backgroundColor: '#ffd600', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>සංස්කරණය</button>
                     <button onClick={() => setConfirmDeleteId(teacher.teacher_id)} style={{ padding: '5px 10px', backgroundColor: '#ff1744', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>ඉවත් කරන්න</button>
                   </div>
@@ -282,6 +314,7 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
           ))}
         </tbody>
       </table>
+      </div>
 
       {/* Add Teacher Modal */}
       {showAddModal && ReactDOM.createPortal(

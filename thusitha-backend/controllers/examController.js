@@ -38,7 +38,7 @@ exports.getUpcomingExams = async (req, res) => {
       const sres = await db.pool.query('SELECT student_id FROM Students WHERE user_id = $1', [userId]);
       if (sres.rows.length) {
         const enrRes = await db.pool.query(
-          `SELECT course_id FROM Course_Enrollments WHERE student_id = $1 AND enrollment_status = 'Enrolled'`,
+          `SELECT course_id FROM Course_Enrollments WHERE student_id = $1 AND enrollment_status IN ('Enrolled', 'Active')`,
           [sres.rows[0].student_id]
         );
         courseIds = enrRes.rows.map((r) => r.course_id);

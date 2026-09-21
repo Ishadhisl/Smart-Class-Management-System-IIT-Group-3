@@ -1,5 +1,6 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
+const { sanitizeText } = require('../utils/validators');
 
 // Conflict = the SAME hall is already booked for an overlapping time slot on the same
 // day. (Deliberately hall-only — a teacher taking two overlapping classes in different
@@ -31,7 +32,8 @@ const checkConflict = async (client, { hall_id, day_of_week, start_time, end_tim
 
 // Create a new class schedule
 exports.createClassSchedule = async (req, res) => {
-  const { course_id, subject_id, lecturer_id, hall_id, day_of_week, start_time, end_time, class_name, capacity } = req.body;
+  const { course_id, subject_id, lecturer_id, hall_id, day_of_week, start_time, end_time, capacity } = req.body;
+  const class_name = req.body.class_name ? sanitizeText(String(req.body.class_name), 150) : req.body.class_name;
 
   if (!course_id || !subject_id || !lecturer_id || !hall_id || !day_of_week || !start_time || !end_time || !class_name || !capacity) {
     return res.status(400).json({ error: 'සියලුම ක්ෂේත්‍ර සම්පූර්ණ කරන්න.' });
@@ -130,7 +132,8 @@ exports.getAllClassSchedules = async (req, res) => {
 // Update a class schedule
 exports.updateClassSchedule = async (req, res) => {
   const { id } = req.params;
-  const { course_id, subject_id, lecturer_id, hall_id, day_of_week, start_time, end_time, class_name, capacity } = req.body;
+  const { course_id, subject_id, lecturer_id, hall_id, day_of_week, start_time, end_time, capacity } = req.body;
+  const class_name = req.body.class_name ? sanitizeText(String(req.body.class_name), 150) : req.body.class_name;
 
   if (!course_id || !subject_id || !lecturer_id || !hall_id || !day_of_week || !start_time || !end_time || !class_name || !capacity) {
     return res.status(400).json({ error: 'සියලුම ක්ෂේත්‍ර සම්පූර්ණ කරන්න.' });
@@ -240,7 +243,7 @@ exports.getPersonalizedSchedule = async (req, res) => {
       JOIN Subjects s ON c.subject_id = s.subject_id
       JOIN Halls h ON cs.hall_id = h.hall_id
       JOIN Teachers l ON c.teacher_id = l.teacher_id
-      WHERE st.user_id = $1 AND ce.enrollment_status = 'Enrolled'
+      WHERE st.user_id = $1 AND ce.enrollment_status IN ('Enrolled', 'Active')
       ORDER BY cs.day_of_week, cs.start_time;
     `;
   } else {

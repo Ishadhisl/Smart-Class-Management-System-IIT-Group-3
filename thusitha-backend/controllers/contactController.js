@@ -1,6 +1,6 @@
 const db = require('../db');
 const auditService = require('../utils/auditService');
-const { isValidEmail, isValidPhone, sanitizeText } = require('../utils/validators');
+const { isValidEmail, isValidPhone, isValidName, NAME_ERROR, sanitizeText } = require('../utils/validators');
 
 // 🛡️ Keywords that trigger automatic spam filtering
 const SUSPICIOUS_KEYWORDS = ['crypto', 'bitcoin', 'investment', 'casino', 'marketing agency', 'free gift', 'win money', 'viagra'];
@@ -10,6 +10,9 @@ exports.submitInquiry = async (req, res) => {
 
   if (!sender_name || !sender_email || !message_text) {
     return res.status(400).json({ message: "නම, විද්‍යුත් තැපෑල සහ පණිවිඩය අනිවාර්ය වේ." });
+  }
+  if (!isValidName(sender_name)) {
+    return res.status(400).json({ message: NAME_ERROR });
   }
   if (!isValidEmail(sender_email)) {
     return res.status(400).json({ message: "වලංගු විද්‍යුත් තැපැල් ලිපිනයක් ඇතුළත් කරන්න." });

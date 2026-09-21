@@ -15,7 +15,10 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 const IMAGE_EXT = ['.png', '.jpg', '.jpeg', '.webp', '.heic', '.heif', '.gif'];
 const fileFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
-  if (IMAGE_EXT.includes(ext)) return cb(null, true);
+  const mime = String(file.mimetype || '');
+  // Extension AND declared MIME must both say "image" - a renamed .html/.js fails one of the two.
+  const mimeOk = mime.startsWith('image/') || mime === 'application/octet-stream';
+  if (IMAGE_EXT.includes(ext) && mimeOk) return cb(null, true);
   cb(new Error('අනුමත නොකරන ලද ගොනු වර්ගයකි. (Images only: PNG, JPG, WEBP)'), false);
 };
 

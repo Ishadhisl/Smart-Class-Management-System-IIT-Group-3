@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import FormError from '../common/FormError';
 import { validatePassword } from '../../utils/formValidation';
+import PasswordRules from '../common/PasswordRules';
+
+const thSticky = { padding: '12px', position: 'sticky', top: 0, backgroundColor: '#f5f5f5', zIndex: 1 };
+
+// Login usernames: letters, digits, dot, underscore, hyphen (3-50 chars) - no spaces or HTML.
+const USERNAME_RE = /^[A-Za-z0-9._-]{3,50}$/;
+const filterUsernameInput = (v) => v.replace(/[^A-Za-z0-9._-]/g, '');
 
 const UserTab = ({ users, onResetPassword, onCreateUser, onDeleteUser }) => {
   const [showModal, setShowModal] = useState(false);
@@ -18,10 +25,15 @@ const UserTab = ({ users, onResetPassword, onCreateUser, onDeleteUser }) => {
       setErrorMsg('කරුණාකර සියලු විස්තර ඇතුළත් කරන්න.');
       return;
     }
+    if (!USERNAME_RE.test(username)) {
+      setErrorMsg('පරිශීලක නාමය අකුරු 3-50 අතර විය යුතු අතර අකුරු, ඉලක්කම්, . _ - පමණක් යෙදිය හැක.');
+      return;
+    }
     if (password) {
-      const passVal = validatePassword(password);
-      if (!passVal.valid) {
-        setErrorMsg(passVal.message);
+      // validatePassword returns an error string ('' when valid), not an object
+      const passError = validatePassword(password);
+      if (passError) {
+        setErrorMsg(passError);
         return;
       }
     }
@@ -63,12 +75,14 @@ const UserTab = ({ users, onResetPassword, onCreateUser, onDeleteUser }) => {
         </button>
       </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px' }}>
+      {/* ~10 rows visible; the rest scroll inside the box (header stays pinned) */}
+      <div style={{ maxHeight: 'max(300px, calc(100vh - 270px))', overflowY: 'auto', overflowX: 'auto', marginTop: '15px', border: '1px solid #e3e6f0', borderRadius: '10px' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ backgroundColor: '#f5f5f5', textAlign: 'left' }}>
-            <th style={{ padding: '12px' }}>පරිශීලක නාමය (Username)</th>
-            <th style={{ padding: '12px' }}>තනතුර (Role)</th>
-            <th style={{ padding: '12px' }}>ක්‍රියාමාර්ග (Actions)</th>
+            <th style={thSticky}>පරිශීලක නාමය (Username)</th>
+            <th style={thSticky}>තනතුර (Role)</th>
+            <th style={thSticky}>ක්‍රියාමාර්ග (Actions)</th>
           </tr>
         </thead>
         <tbody>
@@ -106,6 +120,7 @@ const UserTab = ({ users, onResetPassword, onCreateUser, onDeleteUser }) => {
           ))}
         </tbody>
       </table>
+      </div>
 
       {/* ADD STAFF MODAL */}
       {showModal && (
@@ -139,21 +154,27 @@ const UserTab = ({ users, onResetPassword, onCreateUser, onDeleteUser }) => {
                   type="text"
                   placeholder="උදා: counter_lisa (e.g. counter_lisa)"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => {
+                    const filtered = filterUsernameInput(e.target.value);
+                    setUsername(filtered);
+                    setErrorMsg(filtered !== e.target.value ? 'වලංගු නොවන ආදානයකි: පරිශීලක නාමයට අකුරු, ඉලක්කම්, . _ - පමණක් යොදන්න.' : '');
+                  }}
+                  maxLength={50}
                   required
                   style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }}
                 />
               </div>
               <div style={{ marginBottom: '15px' }}>
-                <label htmlFor="staff-password" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px', color: '#333' }}>මුරපදය (Password) <span style={{ fontWeight: 'normal', color: '#888' }}>— අකුරු, ඉලක්කම් & සංකේත අවම 8ක්</span></label>
+                <label htmlFor="staff-password" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px', color: '#333' }}>මුරපදය (Password) <span style={{ fontWeight: 'normal', color: '#888' }}>— හිස්ව තැබුවොත් role default එක (Counter@123 / Admin@123)</span></label>
                 <input
                   id="staff-password"
                   type="password"
-                  placeholder="උදා: Counter@1234"
+                  placeholder="උදා: Nimal@2026"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', boxSizing: 'border-box' }}
                 />
+                {password && <PasswordRules value={password} />}
               </div>
               <div style={{ display: 'none' }}>
                 <label htmlFor="staff-role" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px', color: '#333' }}>තනතුර (Role)</label>
