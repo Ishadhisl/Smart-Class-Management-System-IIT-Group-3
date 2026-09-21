@@ -27,6 +27,7 @@ const SIZE_CLASSES = {
   sm: 'w-8 h-8 text-xs',
   md: 'w-12 h-12 text-sm',
   lg: 'w-20 h-20 text-xl',
+  '3xl': 'w-24 h-24 text-3xl',
 };
 
 /**
@@ -64,7 +65,7 @@ const Avatar = ({ src, name, size = 'md', className = '' }) => {
 Avatar.propTypes = {
   src: PropTypes.string,
   name: PropTypes.string,
-  size: PropTypes.oneOf(['sm', 'md', 'lg']),
+  size: PropTypes.oneOf(['sm', 'md', 'lg', '3xl']),
   className: PropTypes.string,
 };
 

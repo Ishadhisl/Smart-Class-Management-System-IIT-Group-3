@@ -142,14 +142,9 @@ const TeachersPage = () => {
               >
                 <Avatar
                   src={teacher.custom_photo}
-                  alt={teacher.lecturer_name}
+                  name={teacher.lecturer_name}
                   size="3xl"
                   className="mx-auto shadow-md mb-6 ring-4 ring-primary-light/20 bg-indigo-50/50"
-                  fallback={
-                    <div className="bg-primary/10 text-primary-dark w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold uppercase shadow-sm">
-                      {teacher.lecturer_name.substring(0, 2)}
-                    </div>
-                  }
                 />
                 <h3 className="text-xl font-bold text-slate-800 m-0 mb-1">{teacher.lecturer_name}</h3>
                 <div className="text-primary-light font-bold text-xs mb-4 uppercase tracking-wide">
