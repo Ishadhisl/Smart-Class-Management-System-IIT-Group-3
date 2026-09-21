@@ -64,7 +64,7 @@ const EnrollmentTab = ({ students, courses, onEnroll }) => {
 
       {/* 1. Enrollment Form (Left Side) */}
       <div style={cardStyle}>
-        <h3 style={{ color: '#1a237e', marginBottom: '20px', fontSize: '18px' }}>🔗 නව ලියාපදිංචිය (New Enrollment)</h3>
+        <h3 style={{ color: '#1a237e', marginBottom: '20px', fontSize: '18px' }}>නව ලියාපදිංචිය (New Enrollment)</h3>
         <form onSubmit={handleSubmit} noValidate>
           <label htmlFor="enrollStudentSearch" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>ශිෂ්‍යයා සොයන්න</label>
           <input
@@ -93,14 +93,14 @@ const EnrollmentTab = ({ students, courses, onEnroll }) => {
           {v.errors.course_id && <FormError className="mb-3">{v.errors.course_id}</FormError>}
 
           <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
-            💾 ලියාපදිංචි කරන්න
+            ලියාපදිංචි කරන්න
           </button>
         </form>
       </div>
 
       {/* 2. Enrolled Students List (Right Side) */}
       <div style={cardStyle}>
-        <h3 style={{ color: '#1a237e', marginBottom: '20px', fontSize: '18px' }}>📋 ලියාපදිංචි සිසුන්ගේ ලැයිස්තුව (Enrolled List)</h3>
+        <h3 style={{ color: '#1a237e', marginBottom: '20px', fontSize: '18px' }}>ලියාපදිංචි සිසුන්ගේ ලැයිස්තුව (Enrolled List)</h3>
 
         <div style={{ marginBottom: '20px' }}>
           <label htmlFor="viewCourse" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>ලැයිස්තුව බැලීමට පන්තිය තෝරන්න</label>
@@ -117,7 +117,7 @@ const EnrollmentTab = ({ students, courses, onEnroll }) => {
 
         {error && (
           <div style={{ padding: '10px', backgroundColor: '#ffebee', color: '#c62828', borderRadius: '5px', marginBottom: '15px' }}>
-            ⚠️ {error}
+            {error}
           </div>
         )}
 

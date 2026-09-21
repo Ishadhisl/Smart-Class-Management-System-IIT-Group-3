@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useCallback, useMemo } from 'react';
+import { CheckCircle, XCircle, Info } from 'lucide-react';
 import PropTypes from 'prop-types';
 
 const NotificationContext = createContext();
@@ -33,7 +34,7 @@ export const NotificationProvider = ({ children }) => {
           gap: '10px',
           fontFamily: 'Segoe UI'
         }}>
-          <span>{notification.type === 'success' ? '✅' : '❌'}</span>
+          <span style={{ display: 'inline-flex' }}>{notification.type === 'success' ? <CheckCircle size={18} /> : notification.type === 'error' ? <XCircle size={18} /> : <Info size={18} />}</span>
           <span style={{ fontWeight: '500' }}>{notification.message}</span>
         </div>
       )}

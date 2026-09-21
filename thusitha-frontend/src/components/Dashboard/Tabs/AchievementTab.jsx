@@ -165,7 +165,7 @@ const AchievementTab = ({ students }) => {
 
   return (
     <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-      <h2 style={{ color: '#1a237e', marginBottom: '20px' }}>🏆 ශිෂ්‍ය ජයග්‍රහණ කළමනාකරණය (Achievements)</h2>
+      <h2 style={{ color: '#1a237e', marginBottom: '20px' }}>ශිෂ්‍ය ජයග්‍රහණ කළමනාකරණය (Achievements)</h2>
       
       <form onSubmit={handleSubmit} noValidate style={{ marginBottom: '30px', padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
         <h4 style={{ marginTop: 0, marginBottom: '15px' }}>{editingId ? 'ජයග්‍රහණය සංස්කරණය කරන්න' : 'නව ජයග්‍රහණයක් ඇතුළත් කරන්න'}</h4>
@@ -246,7 +246,7 @@ const AchievementTab = ({ students }) => {
 
         <div style={{ display: 'flex', gap: '10px' }}>
           <button type="submit" style={{ padding: '12px 24px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
-            {editingId ? '💾 යාවත්කාලීන කරන්න' : '🏆 ජයග්‍රහණය ඇතුළත් කරන්න'}
+            {editingId ? 'යාවත්කාලීන කරන්න' : 'ජයග්‍රහණය ඇතුළත් කරන්න'}
           </button>
           {(editingId || selectedFile) && (
             <button 
@@ -300,8 +300,8 @@ const AchievementTab = ({ students }) => {
                   <span style={{ color: '#666' }}>({a.achieved_year})</span>
                 </td>
                 <td style={{ padding: '12px', textAlign: 'right' }}>
-                  <button onClick={() => handleEdit(a)} style={{ padding: '6px 12px', backgroundColor: '#2196f3', color: 'white', border: 'none', borderRadius: '4px', marginRight: '8px', cursor: 'pointer' }}>Edit</button>
-                  <button onClick={() => handleDelete(a.achievement_id)} style={{ padding: '6px 12px', backgroundColor: '#f44336', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
+                  <button onClick={() => handleEdit(a)} style={{ padding: '6px 12px', backgroundColor: '#2196f3', color: 'white', border: 'none', borderRadius: '4px', marginRight: '8px', cursor: 'pointer' }}>සංස්කරණය</button>
+                  <button onClick={() => handleDelete(a.achievement_id)} style={{ padding: '6px 12px', backgroundColor: '#f44336', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>ඉවත් කරන්න</button>
                 </td>
               </tr>
             ))}

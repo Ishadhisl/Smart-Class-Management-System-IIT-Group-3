@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { request, BASE_URL } from '../../services/api';
-import { CreditCard, UploadCloud, CheckCircle, Download } from 'lucide-react';
+import { CreditCard, UploadCloud, CheckCircle, Download, AlertTriangle } from 'lucide-react';
 import { useNotification } from '../../context/NotificationContext';
 import { generateReceiptPDF } from '../../utils/generateReceiptPDF';
 
@@ -174,7 +174,7 @@ const StudentPaymentTab = ({ courses }) => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {!loading && unpaidCourses.length > 0 && (
         <div style={{ backgroundColor: '#fff3e0', padding: '15px 20px', borderRadius: '10px', borderLeft: '5px solid #ff9800', display: 'flex', alignItems: 'center', gap: '15px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-          <div style={{ fontSize: '24px' }}>⚠️</div>
+          <AlertTriangle size={24} />
           <div>
             <h4 style={{ margin: '0 0 5px 0', color: '#e65100' }}>ඔබ මෙම මාසයේ ({currentMonthName}) ගාස්තු ගෙවා නොමැති පන්ති:</h4>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -313,12 +313,12 @@ const StudentPaymentTab = ({ courses }) => {
                               gap: '5px'
                             }}
                           >
-                            <Download size={14} /> Receipt PDF
+                            <Download size={14} /> රිසිට්පත (PDF)
                           </button>
                         )}
                         {p.confirmation_url && (
                           <a href={`${BASE_URL}${p.confirmation_url}`} target="_blank" rel="noreferrer" style={{ color: '#0056b3', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px' }}>
-                            <CheckCircle size={16} /> View Slip
+                            <CheckCircle size={16} /> බැංකු රිසිට් බලන්න
                           </a>
                         )}
                         {!p.confirmation_url && p.payment_status !== 'Completed' && (

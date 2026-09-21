@@ -49,6 +49,32 @@ import { filterNameInput, filterPhoneInput, filterTextInput, filterWithFeedback,
 import Button from '../../components/common/Button';
 import TodayAgendaModal from '../../components/Dashboard/TodayAgendaModal';
 
+// Sinhala page title for every sidebar tab (shown in the top bar)
+const TAB_TITLES = {
+  home: 'මුල් පිටුව',
+  students: 'ශිෂ්‍ය ලේඛනය',
+  teachers: 'ගුරු ලේඛනය',
+  approvals: 'ශිෂ්‍ය අනුමැතිය',
+  class_management: 'පන්ති කළමනාකරණය',
+  classes: 'පරිශීලකයින්',
+  announcements: 'නිවේදන',
+  achievements: 'ජයග්‍රහණ',
+  promos: 'ප්‍රවර්ධන',
+  admin_hub: 'සන්නිවේදන මධ්‍යස්ථානය',
+  my_timetable: 'මගේ කාලසටහන',
+  enrollment: 'ලියාපදිංචිය',
+  qr_attendance: 'QR පැමිණීම',
+  study_area: 'අධ්‍යයන අංශය',
+  payments: 'ගෙවීම්',
+  exams: 'විභාග සහ ලකුණු',
+  materials: 'ඉගෙනුම් ද්‍රව්‍ය',
+  attendance: 'පැමිණීම',
+  ai_panel: 'AI නිරීක්ෂණය',
+  face_verification: 'මුහුණු සත්‍යාපනය',
+  audit_logs: 'පද්ධති විගණනය',
+  parent_portal: 'මගේ දරුවන්',
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { showNotification } = useNotification();
@@ -79,6 +105,10 @@ const Dashboard = () => {
   const [classSchedules, setClassSchedules] = useState([]);
   const [myTimetable, setMyTimetable] = useState([]);
   const [myProfilePhoto, setMyProfilePhoto] = useState(null);
+  const [myProfileName, setMyProfileName] = useState('');
+  // A class chosen from the home page ("ඔබ ලියාපදිංචි වී ඇති පන්ති" cards) is opened in
+  // the Materials / Exams tabs instead of their default first course.
+  const [preferredCourseId, setPreferredCourseId] = useState('');
   const [pendingStudents, setPendingStudents] = useState([]);
   const [systemSettings, setSystemSettings] = useState([]);
   const [promotions, setPromotions] = useState([]);
@@ -162,6 +192,7 @@ const Dashboard = () => {
         setStudySeats(seatData || []);
         setPromotions(promoData || []);
         setMyProfilePhoto(myProfileData?.profile_photo_path || null);
+        setMyProfileName(myProfileData?.student_name || '');
         // Clear all admin-only state
         setAuditLogs([]);
         setAiHealthStats({});
@@ -187,7 +218,7 @@ const Dashboard = () => {
         return;
       }
 
-      // ⏱️ Helper: reject a promise if it takes too long
+      // Helper: reject a promise if it takes too long
       const withTimeout = (promise, ms, fallback) => {
         const timeout = new Promise(resolve => setTimeout(() => resolve(fallback), ms));
         return Promise.race([promise, timeout]);
@@ -363,7 +394,13 @@ const Dashboard = () => {
     }
   }, []); // Run once on mount only - tab changes don't need full re-fetch
 
-  // 💳 PayHere Return / Cancel Redirect Handling
+  useEffect(() => {
+    const onSelectCourse = (e) => { if (e?.detail) setPreferredCourseId(String(e.detail)); };
+    window.addEventListener('selectCourse', onSelectCourse);
+    return () => window.removeEventListener('selectCourse', onSelectCourse);
+  }, []);
+
+  // PayHere Return / Cancel Redirect Handling
   // PayHere sends the browser back to /dashboard?payment=success|cancel&order_id=...
   // "success" only means the customer finished the checkout page - the payment is
   // actually confirmed by PayHere's server-to-server notify_url callback, which flips
@@ -403,7 +440,7 @@ const Dashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 📱 WhatsApp Status Polling (every 10 seconds for Admin/Counter)
+  // WhatsApp Status Polling (every 10 seconds for Admin/Counter)
   useEffect(() => {
     if (!isAdminOrCounterPerson) return;
     const pollWhatsAppStatus = async () => {
@@ -417,7 +454,7 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, [isAdminOrCounterPerson]);
 
-  // 🕒 Attendance Sync: Fetches current attendance status & enrolled students for the selected course in parallel
+  // Attendance Sync: Fetches current attendance status & enrolled students for the selected course in parallel
   useEffect(() => {
     if (selectedAttendanceCourse) {
       Promise.all([
@@ -608,7 +645,7 @@ const Dashboard = () => {
     }
   };
 
-  // 🆔 Student ID Card Generator Logic
+  // Student ID Card Generator Logic
   const handleDownloadIDCard = async (student) => {
     try {
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85, 55] }); // Standard CR80 size
@@ -969,7 +1006,7 @@ const Dashboard = () => {
     }
   };
 
-  // 🛡️ Upload student profile photo
+  // Upload student profile photo
   const handleUploadPhoto = async (studentId, file) => {
     const formData = new FormData();
     formData.append('photo', file);
@@ -1007,6 +1044,7 @@ const Dashboard = () => {
       fetchDatabaseData(); // Refresh schedules
     } catch (err) {
       showNotification(err.message, 'error');
+      throw err; // ClassTab shows the hall-conflict reason inline and keeps the form
     }
   };
 
@@ -1021,6 +1059,7 @@ const Dashboard = () => {
       fetchDatabaseData();
     } catch (err) {
       showNotification(err.message, 'error');
+      throw err;
     }
   };
 
@@ -1288,7 +1327,7 @@ const Dashboard = () => {
 
   const handleLogout = () => {
     sessionStorage.clear();
-    navigate('/');
+    navigate('/login');
   };
 
   return (
@@ -1326,15 +1365,7 @@ const Dashboard = () => {
               <Menu size={20} />
             </button>
             <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary-dark to-secondary-dark flex items-center gap-2 md:gap-3 text-base md:text-2xl tracking-tight truncate">
-              {activeTab === 'home' && '📊 Dashboard Overview'}
-              {activeTab === 'students' && '🧑‍🎓 Student Management'}
-              {activeTab === 'classes' && '📚 Class & User Management'}
-              {activeTab === 'attendance' && '📝 Attendance Management'}
-              {activeTab === 'study_area' && '📖 Study Area Booking'}
-              {activeTab === 'exams' && '📝 Exams & Results'}
-              {activeTab === 'payments' && '💰 Payment Management'}
-              {activeTab === 'approvals' && '⏳ Student Approvals'}
-              {activeTab === 'ai_panel' && '🎥 AI නිරීක්ෂණය සහ පරීක්ෂාව'}
+              {TAB_TITLES[activeTab] || ''}
             </span>
           </div>
           <div className="flex items-center gap-6 shrink-0">
@@ -1350,7 +1381,7 @@ const Dashboard = () => {
         <div className="p-4 sm:p-6 md:p-10 flex-1 w-full max-w-7xl mx-auto relative z-0">
           {error && (
             <motion.div initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="text-rose-700 bg-rose-50/80 backdrop-blur-md p-5 rounded-2xl mb-8 shadow-glass border border-rose-200 flex items-center gap-3 font-bold text-lg">
-              ⚠️ {error}
+              {error}
             </motion.div>
           )}
           {loading && (
@@ -1359,13 +1390,15 @@ const Dashboard = () => {
             </motion.div>
           )}
 
-          <AnimatePresence mode="wait">
+          {/* Quick fade only. The previous spring + blur + exit animation (AnimatePresence
+              mode="wait") kept the pane EMPTY for 2-4 s on every tab switch, which read as
+              "the page crashed". Now the new tab is on screen within ~150 ms. */}
+          <AnimatePresence initial={false}>
             <motion.div
               key={activeTab}
-              initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -30, filter: 'blur(10px)' }}
-              transition={{ type: 'spring', stiffness: 250, damping: 25 }}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               className="w-full"
             >
 
@@ -1413,6 +1446,7 @@ const Dashboard = () => {
                     {isAdmin && <CctvAccessRequestsAdmin />}
                     <HomeTab
                       username={user.username}
+                      displayName={isStudent ? myProfileName : (isTeacher ? myTeacher?.teacher_name : '')}
                       role={user.role}
                       studentCount={students.length}
                       userCount={displayUserCount}
@@ -1432,7 +1466,7 @@ const Dashboard = () => {
                   {isAdminOrCounterPerson && (
                     <div className="flex justify-end mb-5">
                       <Button variant="outline" size="sm" icon={<Settings2 size={16} />} onClick={handleBulkEncode}>
-                        සියලුම සිසුන් Encode කරන්න (Bulk Encode)
+                        සියලුම සිසුන් Encode කරන්න
                       </Button>
                     </div>
                   )}
@@ -1453,7 +1487,7 @@ const Dashboard = () => {
 
               {/* APPROVALS TAB */}
               {!loading && activeTab === 'approvals' && (
-                <ApprovalTab pendingStudents={pendingStudents} onApprove={handleApproveStudent} />
+                <ApprovalTab pendingStudents={pendingStudents} onApprove={handleApproveStudent} courses={realCourses} />
               )}
 
               {/* CLASS MANAGEMENT TAB */}
@@ -1545,8 +1579,10 @@ const Dashboard = () => {
               {activeTab === 'exams' && (
                 <div style={{ display: loading ? 'none' : 'block' }}>
                   <ExamTab
-                    courses={isStudent ? enrolledCourses : realCourses}
+                    courses={isStudent ? enrolledCourses : (isTeacher && myTeacher) ? realCourses.filter(c => c.teacher_id === myTeacher.teacher_id) : realCourses}
                     role={user.role}
+                    autoSelect={isStudent || isTeacher}
+                    preferredCourseId={preferredCourseId}
                     onCreateExam={handleCreateExam}
                     onUpdateExam={handleUpdateExam}
                     onDeleteExam={handleDeleteExam}
@@ -1591,6 +1627,7 @@ const Dashboard = () => {
                         : realCourses
                   }
                   autoSelect={isStudent || isTeacher}
+                  preferredCourseId={preferredCourseId}
                 />
               )}
 
@@ -1602,7 +1639,7 @@ const Dashboard = () => {
                   ) : (
                     <PaymentTab
                       students={students}
-                      courses={realCourses}
+                      courses={(isTeacher && myTeacher) ? realCourses.filter(c => c.teacher_id === myTeacher.teacher_id) : realCourses}
                       onRecordPayment={handleRecordPayment}
                       onSendReminders={handleSendReminders}
                       role={user.role}
@@ -1616,7 +1653,7 @@ const Dashboard = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <SmartAttendanceLivePanel
                     halls={halls}
-                    activeSessions={classSchedules}
+                    activeSessions={(isTeacher && myTeacher) ? classSchedules.filter(s => String(s.lecturer_id) === String(myTeacher.teacher_id)) : classSchedules}
                     role={user.role}
                   />
                 </div>

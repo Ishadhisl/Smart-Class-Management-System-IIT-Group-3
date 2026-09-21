@@ -19,6 +19,8 @@ exports.createSubject = async (req, res) => {
   description = description ? sanitizeText(description, 500) : null;
 
   try {
+    const dup = await db.pool.query('SELECT subject_id FROM Subjects WHERE LOWER(TRIM(subject_name)) = LOWER(TRIM($1)) LIMIT 1', [subject_name]);
+    if (dup.rows.length) return res.status(409).json({ message: `"${subject_name}" නමින් විෂයයක් දැනටමත් ඇත.` });
     const result = await db.pool.query(
       'INSERT INTO Subjects (subject_name, description) VALUES ($1, $2) RETURNING *',
       [subject_name, description]
@@ -52,6 +54,8 @@ exports.updateSubject = async (req, res) => {
   description = description ? sanitizeText(description, 500) : null;
 
   try {
+    const dup = await db.pool.query('SELECT subject_id FROM Subjects WHERE LOWER(TRIM(subject_name)) = LOWER(TRIM($1)) AND subject_id <> $2 LIMIT 1', [subject_name, id]);
+    if (dup.rows.length) return res.status(409).json({ message: `"${subject_name}" නමින් වෙනත් විෂයයක් දැනටමත් ඇත.` });
     const result = await db.pool.query(
       'UPDATE Subjects SET subject_name = $1, description = $2 WHERE subject_id = $3 RETURNING *',
       [subject_name, description, id]

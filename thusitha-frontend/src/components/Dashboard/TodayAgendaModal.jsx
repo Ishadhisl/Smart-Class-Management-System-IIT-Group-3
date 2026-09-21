@@ -13,7 +13,11 @@ const TodayAgendaModal = () => {
   useEffect(() => {
     // Once per browser tab session - reopening the dashboard tab shows it again tomorrow,
     // but not every time the SPA re-renders today.
-    if (sessionStorage.getItem('todayAgendaShown') === 'true') return;
+    // Once per day per browser - a new login later the same day shouldn't nag again.
+    const todayKey = `todayAgendaShown:${new Date().toISOString().slice(0, 10)}`;
+    let shownToday = false;
+    try { shownToday = localStorage.getItem(todayKey) === 'true'; } catch { /* private mode */ }
+    if (shownToday) return;
 
     let ignore = false;
     (async () => {
@@ -27,7 +31,7 @@ const TodayAgendaModal = () => {
       } catch (err) {
         console.warn('Today agenda fetch skipped:', err.message);
       } finally {
-        if (!ignore) sessionStorage.setItem('todayAgendaShown', 'true');
+        if (!ignore) { try { localStorage.setItem(todayKey, 'true'); } catch { /* ignore */ } }
       }
     })();
 
@@ -39,7 +43,7 @@ const TodayAgendaModal = () => {
   const formatTime = (t) => (t ? t.slice(0, 5) : '');
 
   return (
-    <Modal open={open} onClose={() => setOpen(false)} title="📋 අද දිනයේ කාලසටහන" maxWidth="max-w-lg">
+    <Modal open={open} onClose={() => setOpen(false)} title="අද දිනයේ කාලසටහන" maxWidth="max-w-lg">
       <div className="space-y-5">
         {agenda.classes.length > 0 && (
           <div>

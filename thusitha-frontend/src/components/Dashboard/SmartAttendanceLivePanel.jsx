@@ -131,7 +131,7 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
     <div style={{ maxWidth: '900px', margin: '0 auto' }}>
       <div style={cardStyle}>
         <h3 style={{ color: '#1a237e', marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '22px' }}>
-          📷 AI පැමිණීම් නිරීක්ෂණය (AI Attendance Observation)
+          AI පැමිණීම් නිරීක්ෂණය (AI Attendance Observation)
         </h3>
         
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px' }}>
@@ -151,18 +151,18 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
             <label htmlFor="live-hall-display" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: '#444' }}>ශාලාව (Hall)</label>
             {/* Auto-filled from the class schedule the admin picked - no manual choice */}
             <div id="live-hall-display" style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '15px', backgroundColor: '#f5f5f5', color: hallId ? '#1a237e' : '#888', fontWeight: hallId ? 'bold' : 'normal', boxSizing: 'border-box' }}>
-              {!sessionId ? 'පන්තිය තෝරාගත් පසු ශාලාව ඉබේම පෙන්වයි' : hallId ? `🏛️ ${hallName || 'Hall #' + hallId}` : '⚠️ මෙම කාලසටහනට ශාලාවක් නියම කර නැත'}
+              {!sessionId ? 'පන්තිය තෝරාගත් පසු ශාලාව ඉබේම පෙන්වයි' : hallId ? `${hallName || 'Hall #' + hallId}` : 'මෙම කාලසටහනට ශාලාවක් නියම කර නැත'}
             </div>
           </div>
         </div>
 
         {isTeacher && !teacherApproved ? (
           <div style={{ backgroundColor: '#fff8e1', padding: '25px', borderRadius: '10px', border: '2px dashed #f57c00', textAlign: 'center' }}>
-            <h4 style={{ color: '#e65100', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold' }}>🔒 CCTV දර්ශන බැලීමට පරිපාලක අනුමැතිය අවශ්‍යයි</h4>
+            <h4 style={{ color: '#e65100', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold' }}>CCTV දර්ශන බැලීමට පරිපාලක අනුමැතිය අවශ්‍යයි</h4>
             {!selectedCourseId ? (
               <p style={{ fontSize: '14px', color: '#666' }}>කරුණාකර පළමුව ඉහතින් පන්තියක් තෝරන්න.</p>
             ) : pendingReq ? (
-              <p style={{ fontSize: '14px', color: '#e65100', fontWeight: 'bold' }}>⏳ ඔබගේ ඉල්ලීම පරිපාලක අනුමැතිය සඳහා පොරොත්තුවෙන් ඇත.</p>
+              <p style={{ fontSize: '14px', color: '#e65100', fontWeight: 'bold' }}>ඔබගේ ඉල්ලීම පරිපාලක අනුමැතිය සඳහා පොරොත්තුවෙන් ඇත.</p>
             ) : (
               <>
                 <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
@@ -170,14 +170,14 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
                 </p>
                 <button onClick={handleRequestAccess} disabled={requesting}
                   style={{ padding: '12px 30px', backgroundColor: '#e65100', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}>
-                  {requesting ? '...' : '📩 අවසර ඉල්ලන්න (Request Access)'}
+                  {requesting ? '...' : 'අවසර ඉල්ලන්න (Request Access)'}
                 </button>
               </>
             )}
           </div>
         ) : (
         <div style={{ backgroundColor: '#f8f9fa', padding: '25px', borderRadius: '10px', border: '2px dashed #1a237e', textAlign: 'center' }}>
-          <h4 style={{ color: '#1a237e', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold' }}>📤 CCTV ඡායාරූපය/වීඩියෝව උඩුගත කරන්න (Upload CCTV)</h4>
+          <h4 style={{ color: '#1a237e', fontSize: '16px', marginBottom: '10px', fontWeight: 'bold' }}>CCTV ඡායාරූපය/වීඩියෝව උඩුගත කරන්න (Upload CCTV)</h4>
           <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>
             පන්තියේ ලබාගත් ඡායාරූපය හෝ වීඩියෝව මෙහි උඩුගත කරන්න. AI මගින් පන්තියේ සිටින සිසුන් සංඛ්‍යාව ස්වයංක්‍රීයව ගණනය කරනු ඇත.
           </p>
@@ -193,7 +193,7 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
               htmlFor="cctv-upload-input"
               style={{ padding: '12px 25px', backgroundColor: 'white', border: '1px solid #1a237e', borderRadius: '8px', color: '#1a237e', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}
             >
-              📂 ගොනුවක් තෝරන්න (Select File)
+              ගොනුවක් තෝරන්න (Select File)
             </label>
             <span style={{ fontSize: '14px', color: '#555', fontWeight: '500' }}>
               {selectedFile ? selectedFile.name : 'ගොනුවක් තෝරා නොමැත'}
@@ -204,7 +204,7 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
                 disabled={uploading}
                 style={{ padding: '12px 30px', backgroundColor: '#2e7d32', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', boxShadow: '0 4px 6px rgba(46,125,50,0.2)' }}
               >
-                {uploading ? 'AI විශ්ලේෂණය කරමින්...' : '🚀 AI පරීක්ෂාව අරඹන්න'}
+                {uploading ? 'AI විශ්ලේෂණය කරමින්...' : 'AI පරීක්ෂාව අරඹන්න'}
               </button>
             )}
           </div>
@@ -214,13 +214,13 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
 
       {error && (
         <div style={{ padding: '15px', backgroundColor: '#ffebee', color: '#c62828', borderRadius: '8px', marginBottom: '20px', borderLeft: '5px solid #d32f2f' }}>
-          ⚠️ දෝෂයකි: {error}
+          දෝෂයකි: {error}
         </div>
       )}
 
       {info && (
         <div style={{ padding: '15px', backgroundColor: '#e3f2fd', color: '#0277bd', borderRadius: '8px', marginBottom: '20px', borderLeft: '5px solid #0288d1' }}>
-          ℹ️ {info}
+          {info}
         </div>
       )}
 
@@ -228,7 +228,7 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
         <div style={{ ...cardStyle, borderLeft: `10px solid ${liveData.mismatch_detected ? '#d32f2f' : '#2e7d32'}`, transition: 'all 0.3s ease' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
             <h4 style={{ color: liveData.mismatch_detected ? '#c62828' : '#2e7d32', margin: 0, fontSize: '24px' }}>
-              {liveData.mismatch_detected ? '⚠️ නොගැලපීමක් හඳුනාගෙන ඇත!' : '✅ ගැලපේ (QR සහ AI ගණන් සමානයි)'}
+              {liveData.mismatch_detected ? 'නොගැලපීමක් හඳුනාගෙන ඇත!' : 'ගැලපේ (QR සහ AI ගණන් සමානයි)'}
             </h4>
             <div style={{ fontSize: '12px', color: '#666', textAlign: 'right' }}>
 
@@ -251,7 +251,7 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
               {liveData.ai_headcount > liveData.qr_count ? (
                 <>
                   <h4 style={{ color: '#c62828', marginTop: 0, marginBottom: '15px', fontSize: '18px' }}>
-                    ⚠️ සිසුන් QR කේතය ස්කෑන් නොකර පන්තියට ඇතුළු වී ඇත!
+                    සිසුන් QR කේතය ස්කෑන් නොකර පන්තියට ඇතුළු වී ඇත!
                   </h4>
                   <p style={{ margin: '0 0 20px 0', fontSize: '15px', color: '#b71c1c', lineHeight: '1.5' }}>
                     AI මඟින් ගණනය කළ සිසුන් සංඛ්‍යාව QR පැමිණීම් වලට වඩා වැඩිය. කරුණාකර පන්තියේ සිටින සියලුම සිසුන්ට ඔවුන්ගේ QR කේතය ස්කෑන් කරන ලෙස දැනුම් දෙන්න.
@@ -262,13 +262,13 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
                     }}
                     style={{ padding: '15px 30px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', boxShadow: '0 4px 6px rgba(26, 35, 126, 0.3)' }}
                   >
-                    📲 QR Scanner එක විවෘත කරන්න
+                    QR Scanner එක විවෘත කරන්න
                   </button>
                 </>
               ) : (
                 <>
                   <h4 style={{ color: '#c62828', marginTop: 0, marginBottom: '15px', fontSize: '18px' }}>
-                    ⚠️ සැක සහිත පැමිණීමක් හඳුනාගෙන ඇත!
+                    සැක සහිත පැමිණීමක් හඳුනාගෙන ඇත!
                   </h4>
                   <p style={{ margin: '0 0 20px 0', fontSize: '15px', color: '#b71c1c', lineHeight: '1.5' }}>
                     QR මඟින් සටහන් වූ ගණනට වඩා පන්තියේ සිටින සිසුන් ගණන අඩුය. එනම් පන්තියට නොපැමිණි සිසුවෙකු (හෝ කිහිපදෙනෙකු) නිවසේ සිට හොරෙන් පැමිණීම (Fraud) සටහන් කර ඇත. කරුණාකර මුහුණු සත්‍යාපනය මගින් පරීක්ෂා කරන්න.
@@ -280,7 +280,7 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
                     }}
                     style={{ padding: '15px 30px', backgroundColor: '#d32f2f', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', boxShadow: '0 4px 6px rgba(211, 47, 47, 0.3)' }}
                   >
-                    🔍 මුහුණු සත්‍යාපනයට යන්න (Investigate Fraud)
+                    මුහුණු සත්‍යාපනයට යන්න (Investigate Fraud)
                   </button>
                 </>
               )}
@@ -293,7 +293,7 @@ const SmartAttendanceLivePanel = ({ halls, activeSessions, role = 'Admin' }) => 
       {previewUrl && liveData && (
         <div style={{ ...cardStyle, marginTop: '25px', textAlign: 'center' }}>
           <h4 style={{ color: '#1a237e', marginBottom: '15px', fontSize: '18px' }}>
-            {previewType === 'video' ? '📹 උඩුගත කළ වීඩියෝව' : '📷 උඩුගත කළ ඡායාරූපය'}
+            {previewType === 'video' ? 'උඩුගත කළ වීඩියෝව' : 'උඩුගත කළ ඡායාරූපය'}
           </h4>
           <div style={{ display: 'inline-block', border: '2px solid #ddd', borderRadius: '10px', overflow: 'hidden', backgroundColor: '#000' }}>
             {previewType === 'video' ? (

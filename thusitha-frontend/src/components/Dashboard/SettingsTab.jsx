@@ -41,7 +41,7 @@ const SettingsTab = ({ settings, onUpdate, onCreate, onDelete, onTriggerDrill })
 
   return (
     <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', maxWidth: '600px' }}>
-      <h3 style={{ color: '#1a237e', marginBottom: '25px' }}>⚙️ පද්ධති සැකසුම් (System Settings)</h3>
+      <h3 style={{ color: '#1a237e', marginBottom: '25px' }}>පද්ධති සැකසුම් (System Settings)</h3>
 
       {systemConfigs.map(setting => (
         <div key={setting.setting_key} style={{ marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #eee' }}>
@@ -61,7 +61,7 @@ const SettingsTab = ({ settings, onUpdate, onCreate, onDelete, onTriggerDrill })
               onClick={() => onUpdate(setting.setting_key, setting.setting_value)}
               style={{ alignSelf: 'flex-end', padding: '10px 15px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
             >
-              Save
+              සුරකින්න
             </button>
           </div>
           {fieldNotice[setting.setting_key] && <FormError>{fieldNotice[setting.setting_key]}</FormError>}
@@ -69,11 +69,11 @@ const SettingsTab = ({ settings, onUpdate, onCreate, onDelete, onTriggerDrill })
       ))}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '40px', marginBottom: '20px' }}>
-        <h3 style={{ color: '#d32f2f', margin: 0 }}>🚨 ආරක්ෂක සැකසුම් (Safety & Congestion)</h3>
+        <h3 style={{ color: '#d32f2f', margin: 0 }}>ආරක්ෂක සැකසුම් (Safety & Congestion)</h3>
         <button
           onClick={onTriggerDrill}
           style={{ padding: '8px 15px', backgroundColor: '#d32f2f', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
-        >🧪 Safety Drill</button>
+        >Safety Drill</button>
       </div>
       <div style={{ padding: '20px', backgroundColor: '#fff5f5', borderRadius: '12px', border: '1px solid #ffcdd2' }}>
         {safetyConfigs.map(setting => (
@@ -94,7 +94,7 @@ const SettingsTab = ({ settings, onUpdate, onCreate, onDelete, onTriggerDrill })
                 onClick={() => onUpdate(setting.setting_key, setting.setting_value)}
                 style={{ alignSelf: 'flex-end', padding: '10px 15px', backgroundColor: '#c53030', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
               >
-                Update
+                යාවත්කාලීන කරන්න
               </button>
             </div>
             {fieldNotice[setting.setting_key] && <FormError>{fieldNotice[setting.setting_key]}</FormError>}
@@ -102,7 +102,7 @@ const SettingsTab = ({ settings, onUpdate, onCreate, onDelete, onTriggerDrill })
         ))}
       </div>
 
-      <h3 style={{ color: '#1a237e', marginTop: '40px', marginBottom: '20px' }}>📱 WhatsApp සැකිලි කළමනාකරණය (WhatsApp Templates)</h3>
+      <h3 style={{ color: '#1a237e', marginTop: '40px', marginBottom: '20px' }}>WhatsApp සැකිලි කළමනාකරණය (WhatsApp Templates)</h3>
 
       <div style={{ padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '8px', marginBottom: '25px', border: '1px solid #eee' }}>
         <h5 style={{ margin: '0 0 10px 0' }}>නව සැකිල්ලක් එක් කරන්න (Add New)</h5>
@@ -112,7 +112,7 @@ const SettingsTab = ({ settings, onUpdate, onCreate, onDelete, onTriggerDrill })
         <textarea placeholder="උදා: ආයුබෝවන් {student_name}, ... (පණිවිඩය) *" maxLength={1000} style={{ ...inputStyle, height: '80px', marginTop: '10px', ...(templateErrors.content ? { border: '1px solid #d32f2f' } : {}) }} value={newTemplate.content}
           onChange={e => { const v = filterTextInput(e.target.value); setNewTemplate({ ...newTemplate, content: v }); setTemplateErrors(prev => ({ ...prev, content: v !== e.target.value ? TEXT_INVALID_MSG : '' })); }} />
         {templateErrors.content && <FormError>{templateErrors.content}</FormError>}
-        <button onClick={handleAddTemplate} style={{ marginTop: '10px', width: '100%', padding: '10px', backgroundColor: '#2e7d32', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>➕ එකතු කරන්න</button>
+        <button onClick={handleAddTemplate} style={{ marginTop: '10px', width: '100%', padding: '10px', backgroundColor: '#2e7d32', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>එකතු කරන්න</button>
       </div>
 
       {smsTemplates.map(tpl => (
@@ -131,12 +131,12 @@ const SettingsTab = ({ settings, onUpdate, onCreate, onDelete, onTriggerDrill })
           <button
             onClick={() => onUpdate(tpl.setting_key, tpl.setting_value)}
             style={{ marginTop: '8px', padding: '5px 15px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
-          >Save Changes</button>
+          >වෙනස්කම් සුරකින්න</button>
         </div>
       ))}
 
       <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#e8eaf6', borderRadius: '8px', fontSize: '13px', color: '#1a237e' }}>
-        💡 <strong>AI Mismatch Threshold:</strong> මෙය වැඩි කිරීමෙන් සුළු ගණනය කිරීමේ වැරදි මඟ හැරිය හැක.
+        <strong>AI Mismatch Threshold:</strong> මෙය වැඩි කිරීමෙන් සුළු ගණනය කිරීමේ වැරදි මඟ හැරිය හැක.
       </div>
     </div>
   );

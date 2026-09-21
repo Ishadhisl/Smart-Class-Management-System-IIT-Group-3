@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { User, AlertTriangle } from 'lucide-react';
 import PropTypes from 'prop-types';
 import ReactDOM from 'react-dom';
 import { API_URL } from '../../services/api';
@@ -238,7 +239,7 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
         <button type="button" disabled={isSubmitting} onClick={() => { isEdit ? setEditingTeacher(null) : setShowAddModal(false); resetForm(); }} style={{ padding: '10px 20px', border: '1px solid #ccc', background: 'none', borderRadius: '6px', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.6 : 1 }}>අවලංගු කරන්න</button>
-        <button type="submit" disabled={isSubmitting} style={{ padding: '10px 20px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '6px', cursor: isSubmitting ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: isSubmitting ? 0.6 : 1 }}>{isSubmitting ? '⏳ සුරකිමින්...' : '💾 සුරකින්න'}</button>
+        <button type="submit" disabled={isSubmitting} style={{ padding: '10px 20px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '6px', cursor: isSubmitting ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: isSubmitting ? 0.6 : 1 }}>{isSubmitting ? 'සුරකිමින්...' : 'සුරකින්න'}</button>
       </div>
     </form>
   );
@@ -246,10 +247,10 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
   return (
     <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', minHeight: '500px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h3 style={{ color: '#1a237e', margin: 0 }}>👨‍🏫 ගුරු ලේඛනය</h3>
+        <h3 style={{ color: '#1a237e', margin: 0 }}>ගුරු ලේඛනය</h3>
         {canEdit && (
           <button type="button" onClick={() => setShowAddModal(true)} style={{ padding: '10px 15px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
-            ➕ අලුත් ගුරුවරයෙක් එකතු කරන්න
+            අලුත් ගුරුවරයෙක් එකතු කරන්න
           </button>
         )}
       </div>
@@ -295,7 +296,7 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
                 {resolveTeacherPhoto(teacher) ? (
                   <img src={resolveTeacherPhoto(teacher)} alt="Teacher" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
                 ) : null}
-                <div style={{ display: resolveTeacherPhoto(teacher) ? 'none' : 'flex', width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#e0e0e0', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>👨‍🏫</div>
+                <div style={{ display: resolveTeacherPhoto(teacher) ? 'none' : 'flex', width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#e0e0e0', alignItems: 'center', justifyContent: 'center', color: '#757575' }}><User size={20} /></div>
               </td>
               <td style={tdWrap}>{teacher.teacher_name}</td>
               <td style={tdWrap}>{teacher.phone || 'N/A'}</td>
@@ -320,7 +321,7 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
       {showAddModal && ReactDOM.createPortal(
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '60px', paddingBottom: '60px', overflowY: 'auto', zIndex: 9999 }}>
           <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', width: '450px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', marginBottom: '30px' }}>
-            <h3 style={{ margin: '0 0 20px 0', color: '#1a237e', textAlign: 'center' }}>➕ අලුත් ගුරුවරයෙක් එකතු කිරීම</h3>
+            <h3 style={{ margin: '0 0 20px 0', color: '#1a237e', textAlign: 'center' }}>අලුත් ගුරුවරයෙක් එකතු කිරීම</h3>
             {renderForm(false)}
           </div>
         </div>,
@@ -331,7 +332,7 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
       {editingTeacher && ReactDOM.createPortal(
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '60px', paddingBottom: '60px', overflowY: 'auto', zIndex: 9999 }}>
           <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', width: '450px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', marginBottom: '30px' }}>
-            <h3 style={{ margin: '0 0 20px 0', color: '#1a237e', textAlign: 'center' }}>✏️ ගුරු දත්ත සංස්කරණය</h3>
+            <h3 style={{ margin: '0 0 20px 0', color: '#1a237e', textAlign: 'center' }}>ගුරු දත්ත සංස්කරණය</h3>
             {renderForm(true)}
           </div>
         </div>,
@@ -342,7 +343,7 @@ const TeacherTab = ({ teachers, role, onAdd, onEdit, onDelete }) => {
       {confirmDeleteId && ReactDOM.createPortal(
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
           <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', width: '400px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
-            <div style={{ fontSize: '40px', color: '#d32f2f', marginBottom: '15px' }}>⚠️</div>
+            <div style={{ color: '#d32f2f', marginBottom: '15px', display: 'flex', justifyContent: 'center' }}><AlertTriangle size={40} /></div>
             <h3 style={{ margin: '0 0 10px 0', color: '#1a237e' }}>ගුරුවරයා ඉවත් කිරීම ස්ථිරද?</h3>
             <p style={{ color: '#666', fontSize: '14px', lineHeight: '1.5' }}>මෙම ක්‍රියාව ආපසු හැරවිය නොහැක.</p>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '25px' }}>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { CheckCircle, Bell, Clock, XCircle, Ban, WifiOff, Lock } from 'lucide-react';
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { request } from '../../services/api';
 
@@ -18,7 +19,7 @@ const STATES = {
 // ── Result UI configurations ──────────────────────────────────────────────────
 const RESULT_CONFIG = {
   SUCCESS: {
-    icon: '✅',
+    icon: CheckCircle,
     title: 'පැමිණීම සාර්ථකව සටහන් විය!',
     titleEn: 'Attendance Marked Successfully',
     bgFrom: 'from-green-50', bgTo: 'to-emerald-100',
@@ -26,7 +27,7 @@ const RESULT_CONFIG = {
     titleColor: 'text-green-800',
   },
   ALREADY_MARKED: {
-    icon: '🔔',
+    icon: Bell,
     title: 'පැමිණීම දැනටමත් සටහන් කර ඇත.',
     titleEn: 'Attendance Already Marked',
     bgFrom: 'from-blue-50', bgTo: 'to-indigo-100',
@@ -34,7 +35,7 @@ const RESULT_CONFIG = {
     titleColor: 'text-blue-800',
   },
   QR_EXPIRED: {
-    icon: '⏰',
+    icon: Clock,
     title: 'QR Code කාලය ඉකුත් වී ඇත.',
     titleEn: 'QR Code Expired',
     bgFrom: 'from-amber-50', bgTo: 'to-orange-100',
@@ -42,7 +43,7 @@ const RESULT_CONFIG = {
     titleColor: 'text-amber-800',
   },
   QR_INVALID: {
-    icon: '❌',
+    icon: XCircle,
     title: 'QR Code වලංගු නොවේ.',
     titleEn: 'Invalid QR Code',
     bgFrom: 'from-red-50', bgTo: 'to-rose-100',
@@ -50,7 +51,7 @@ const RESULT_CONFIG = {
     titleColor: 'text-red-800',
   },
   SESSION_INACTIVE: {
-    icon: '🛑',
+    icon: '',
     title: 'QR Attendance සැසිය වසා ඇත.',
     titleEn: 'Attendance Session Closed',
     bgFrom: 'from-gray-50', bgTo: 'to-slate-100',
@@ -58,7 +59,7 @@ const RESULT_CONFIG = {
     titleColor: 'text-gray-700',
   },
   NOT_ENROLLED: {
-    icon: '📋',
+    icon: Ban,
     title: 'ඔබ මෙම පන්තියට ලියාපදිංචි නොවේ.',
     titleEn: 'Not Enrolled in This Class',
     bgFrom: 'from-yellow-50', bgTo: 'to-amber-100',
@@ -66,7 +67,7 @@ const RESULT_CONFIG = {
     titleColor: 'text-yellow-800',
   },
   NETWORK_ERROR: {
-    icon: '📡',
+    icon: WifiOff,
     title: 'සම්බන්ධතාව ව්‍යර්ථ විය.',
     titleEn: 'Connection Error',
     bgFrom: 'from-gray-50', bgTo: 'to-slate-100',
@@ -74,7 +75,7 @@ const RESULT_CONFIG = {
     titleColor: 'text-gray-700',
   },
   FORBIDDEN: {
-    icon: '🔒',
+    icon: Lock,
     title: 'ශිෂ්‍ය ගිණුමකින් login කරන්න.',
     titleEn: 'Student Login Required',
     bgFrom: 'from-purple-50', bgTo: 'to-indigo-100',
@@ -209,7 +210,7 @@ const QRVerifyPage = () => {
           {uiState !== STATES.LOADING && (
             <>
               {/* Big Icon */}
-              <div className="text-6xl">{config.icon}</div>
+              <div className="flex justify-center"><config.icon className="w-16 h-16" /></div>
 
               {/* Titles */}
               <div>
@@ -228,7 +229,7 @@ const QRVerifyPage = () => {
                   )}
                   <DetailRow
                     label="පැමිණීම"
-                    value={<span className="font-bold text-green-700">✅ PRESENT</span>}
+                    value={<span className="font-bold text-green-700">PRESENT</span>}
                   />
                   {attendance.method && (
                     <DetailRow label="ක්‍රමය" value={attendance.method} />
@@ -258,7 +259,7 @@ const QRVerifyPage = () => {
                   onClick={() => { setUiState(STATES.LOADING); hasAttempted.current = false; verifyAttendance(); }}
                   className="px-6 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl font-bold text-sm transition-all"
                 >
-                  🔄 නැවත උත්සාහ කරන්න
+                  නැවත උත්සාහ කරන්න
                 </button>
               )}
 
@@ -268,7 +269,7 @@ const QRVerifyPage = () => {
                   onClick={redirectToLogin}
                   className="px-6 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl font-bold text-sm transition-all"
                 >
-                  🔐 Student ලෙස Login වන්න
+                  Student ලෙස Login වන්න
                 </button>
               )}
             </>

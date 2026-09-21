@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { X } from 'lucide-react';
 import { request } from '../../services/api';
 import { useNotification } from '../../context/NotificationContext';
 
@@ -45,9 +46,9 @@ const CctvAccessRequestsAdmin = () => {
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
         <strong style={{ color: '#e65100', fontSize: '15px' }}>
-          🎥 CCTV දර්ශන බැලීමට ගුරුවරුන්ගේ ඉල්ලීම් ({pending.length})
+          CCTV දර්ශන බැලීමට ගුරුවරුන්ගේ ඉල්ලීම් ({pending.length})
         </strong>
-        <button onClick={() => setDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999', fontSize: '18px' }}>✕</button>
+        <button onClick={() => setDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999', fontSize: '18px', display: 'inline-flex' }}><X size={18} /></button>
       </div>
       {pending.map((r) => (
         <div key={r.request_id} style={{
@@ -61,11 +62,11 @@ const CctvAccessRequestsAdmin = () => {
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={() => decide(r.request_id, 'Approved')} disabled={busyId === r.request_id}
               style={{ padding: '7px 16px', backgroundColor: '#2e7d32', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-              ✓ අනුමත කරන්න
+              අනුමත කරන්න
             </button>
             <button onClick={() => decide(r.request_id, 'Denied')} disabled={busyId === r.request_id}
               style={{ padding: '7px 16px', backgroundColor: '#c62828', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-              ✕ ප්‍රතික්ෂේප
+              ප්‍රතික්ෂේප
             </button>
           </div>
         </div>

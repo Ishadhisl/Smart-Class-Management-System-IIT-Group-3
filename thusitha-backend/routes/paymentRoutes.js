@@ -15,7 +15,7 @@ router.post('/remind', verifyToken, checkRole(['Admin', 'Counter Person']), paym
 router.post('/:id/upload-confirmation', verifyToken, checkRole(['Admin', 'Counter Person', 'Student', 'Parent']), upload.single('receipt'), paymentController.uploadConfirmation);
 router.put('/:id/verify', verifyToken, checkRole(['Admin', 'Counter Person']), paymentController.verifyPayment);
 router.get('/:id/receipt', verifyToken, checkRole(['Admin', 'Counter Person', 'Student', 'Parent']), paymentController.getReceipt);
-router.get('/reports/overdue', verifyToken, checkRole(['Admin', 'Counter Person']), paymentController.getOverduePayments);
+router.get('/reports/overdue', verifyToken, checkRole(['Admin', 'Counter Person', 'Teacher']), paymentController.getOverduePayments);
 
 // PayHere Integration
 router.post('/payhere/initiate', verifyToken, checkRole(['Student']), paymentController.initiatePayHereCheckout);

@@ -30,6 +30,8 @@ exports.createCourse = async (req, res) => {
   }
 
   try {
+    const dup = await db.pool.query('SELECT course_id FROM Courses WHERE LOWER(TRIM(course_name)) = LOWER(TRIM($1)) AND COALESCE(is_active, true) LIMIT 1', [course_name.trim()]);
+    if (dup.rows.length) return res.status(409).json({ message: `"${course_name.trim()}" නමින් පන්තියක් දැනටමත් ඇත.` });
     const query = 'INSERT INTO Courses (course_name, monthly_fee, teacher_id, subject_id) VALUES ($1, $2, $3, $4) RETURNING *';
     const result = await db.pool.query(query, [sanitizeText(course_name.trim(), 150), Number(monthly_fee), teacher_id || null, subject_id || null]);
     
@@ -94,6 +96,8 @@ exports.updateCourse = async (req, res) => {
   }
 
   try {
+    const dup = await db.pool.query('SELECT course_id FROM Courses WHERE LOWER(TRIM(course_name)) = LOWER(TRIM($1)) AND course_id <> $2 AND COALESCE(is_active, true) LIMIT 1', [course_name.trim(), id]);
+    if (dup.rows.length) return res.status(409).json({ message: `"${course_name.trim()}" නමින් වෙනත් පන්තියක් දැනටමත් ඇත.` });
     const result = await db.pool.query(
       'UPDATE Courses SET course_name = $1, monthly_fee = $2, teacher_id = $3, subject_id = $4 WHERE course_id = $5 RETURNING *',
       [sanitizeText(course_name.trim(), 150), Number(monthly_fee), teacher_id || null, subject_id || null, id]

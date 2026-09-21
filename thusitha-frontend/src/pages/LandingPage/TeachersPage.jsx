@@ -82,7 +82,7 @@ const TeachersPage = () => {
       });
   }, []);
 
-  // 🔍 Filter Logic based on Specialization or Name
+  // Filter Logic based on Specialization or Name
   const filteredTeachers = teachers.filter(t =>
     t.lecturer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.specialization?.toLowerCase().includes(searchTerm.toLowerCase())

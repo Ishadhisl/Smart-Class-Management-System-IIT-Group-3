@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { paymentMethodLabelEn } from './paymentMethod';
 
 /**
  * Generates and downloads a PDF receipt for a payment.
@@ -80,7 +81,7 @@ export const generateReceiptPDF = (payment) => {
   doc.setFont('helvetica', 'bold');
   doc.text('Payment Details:', 90, 62);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Method: ${payment.payment_method || 'Cash'}`, 90, 67);
+  doc.text(`Method: ${paymentMethodLabelEn(payment.payment_method)}`, 90, 67);
   doc.text(`Status: Completed`, 90, 71);
   if (payment.issued_by_name) {
     doc.text(`Issued By: ${payment.issued_by_name}`, 90, 75);

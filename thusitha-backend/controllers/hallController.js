@@ -23,6 +23,9 @@ exports.createHall = async (req, res) => {
   hall_name = sanitizeText(hall_name, 100);
 
   try {
+    // Same hall twice breaks the timetable conflict check (each copy is checked alone).
+    const dup = await db.pool.query('SELECT hall_id FROM Halls WHERE LOWER(TRIM(hall_name)) = LOWER(TRIM($1)) LIMIT 1', [hall_name]);
+    if (dup.rows.length) return res.status(409).json({ message: `"${hall_name}" නමින් ශාලාවක් දැනටමත් ඇත.` });
     const result = await db.pool.query(
       'INSERT INTO Halls (hall_name, capacity) VALUES ($1, $2) RETURNING *',
       [hall_name, capacity]
@@ -54,6 +57,8 @@ exports.updateHall = async (req, res) => {
   hall_name = sanitizeText(hall_name, 100);
 
   try {
+    const dup = await db.pool.query('SELECT hall_id FROM Halls WHERE LOWER(TRIM(hall_name)) = LOWER(TRIM($1)) AND hall_id <> $2 LIMIT 1', [hall_name, id]);
+    if (dup.rows.length) return res.status(409).json({ message: `"${hall_name}" නමින් වෙනත් ශාලාවක් දැනටමත් ඇත.` });
     const result = await db.pool.query(
       'UPDATE Halls SET hall_name = $1, capacity = $2 WHERE hall_id = $3 RETURNING *',
       [hall_name, capacity, id]

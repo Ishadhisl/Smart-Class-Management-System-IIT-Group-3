@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { request } from '../../services/api';
 import { useNotification } from '../../context/NotificationContext';
-import { Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Loader2, AlertTriangle, ExternalLink, BookOpen, Monitor, GraduationCap } from 'lucide-react';
 
-const MaterialTab = ({ courses, autoSelect = false }) => {
-  // Students/teachers land straight in their (first) class instead of an empty picker.
-  const [selectedCourse, setSelectedCourse] = useState(() => (autoSelect && courses[0] ? String(courses[0].course_id) : ''));
+const MaterialTab = ({ courses, autoSelect = false, preferredCourseId = '' }) => {
+  // Students/teachers land straight in their (first) class - or the class they clicked on
+  // the home page - instead of an empty picker.
+  const [selectedCourse, setSelectedCourse] = useState(() => preferredCourseId || (autoSelect && courses[0] ? String(courses[0].course_id) : ''));
   const [embedUrl, setEmbedUrl] = useState('');       // local (iframe) mode
   const [openUrl, setOpenUrl] = useState('');          // hosted (new-tab) mode
   const [ssoActive, setSsoActive] = useState(true);
@@ -75,7 +76,7 @@ const MaterialTab = ({ courses, autoSelect = false }) => {
     <div className="bg-white p-6 rounded-2xl shadow-glass flex flex-col h-[calc(100vh-120px)]">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
-          <h3 className="text-2xl font-bold text-primary mb-2">📁 {isStudent ? 'මගේ ඉගෙනුම් ද්‍රව්‍ය' : 'ඉගෙනුම් ද්‍රව්‍ය කළමනාකරණය'}</h3>
+          <h3 className="text-2xl font-bold text-primary mb-2">{isStudent ? 'මගේ ඉගෙනුම් ද්‍රව්‍ය' : 'ඉගෙනුම් ද්‍රව්‍ය කළමනාකරණය'}</h3>
           <p className="text-gray-500">Moodle හරහා ක්‍රියාත්මක වේ (Powered by Moodle)</p>
         </div>
 
@@ -96,7 +97,7 @@ const MaterialTab = ({ courses, autoSelect = false }) => {
       <div className="flex-1 bg-gray-50 rounded-xl overflow-hidden border border-gray-200 relative flex items-center justify-center">
         {!selectedCourse && !moodleDisabled && (
           <div className="text-gray-400 flex flex-col items-center">
-            <div className="text-6xl mb-4">📚</div>
+            <BookOpen className="w-14 h-14 mb-4 text-gray-300" />
             <p className="text-lg font-medium">
               {autoSelect && courses.length === 0
                 ? (isTeacher ? 'ඔබට තවම පන්ති නියම කර නැත. කරුණාකර Admin අමතන්න.' : 'ඔබ තවම කිසිදු පන්තියකට ලියාපදිංචි වී නැත.')
@@ -121,7 +122,7 @@ const MaterialTab = ({ courses, autoSelect = false }) => {
 
         {moodleDisabled && (
           <div className="text-center px-6 max-w-md">
-            <div className="text-6xl mb-4">🖥️</div>
+            <Monitor className="w-14 h-14 mb-4 text-gray-300" />
             <p className="text-lg font-semibold text-gray-700 mb-2">Moodle මොඩියුලය මෙම deployment එකේ සකසා නැත</p>
             <p className="text-sm text-gray-500">
               පරිපාලක <code>MOODLE_URL</code> සහ <code>MOODLE_TOKEN</code> environment variables සැකසූ පසු
@@ -133,7 +134,7 @@ const MaterialTab = ({ courses, autoSelect = false }) => {
         {/* Hosted Moodle — open in a new tab */}
         {selectedCourse && !loading && openUrl && (
           <div className="text-center px-6 max-w-md">
-            <div className="text-6xl mb-4">🎓</div>
+            <GraduationCap className="w-14 h-14 mb-4 text-gray-300" />
             <p className="text-lg font-semibold text-gray-700 mb-3">
               {courses.find(c => String(c.course_id) === String(selectedCourse))?.course_name}
             </p>
@@ -171,6 +172,7 @@ const MaterialTab = ({ courses, autoSelect = false }) => {
 MaterialTab.propTypes = {
   courses: PropTypes.arrayOf(PropTypes.object).isRequired,
   autoSelect: PropTypes.bool,
+  preferredCourseId: PropTypes.string,
 };
 
 export default MaterialTab;

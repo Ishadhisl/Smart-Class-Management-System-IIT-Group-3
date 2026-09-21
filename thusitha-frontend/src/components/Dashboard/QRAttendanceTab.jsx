@@ -216,13 +216,13 @@ const QRAttendanceTab = ({ courses }) => {
     <div className="space-y-6">
       {/* Page Header */}
       <div className="bg-gradient-to-r from-indigo-900 to-indigo-700 rounded-2xl p-6 text-white shadow-lg">
-        <h2 className="text-2xl font-extrabold tracking-tight mb-1">📲 QR Attendance කළමනාකරණය</h2>
+        <h2 className="text-2xl font-extrabold tracking-tight mb-1">QR Attendance කළමනාකරණය</h2>
         <p className="text-indigo-200 text-sm">QR Code ස්කෑන් කිරීමෙන් ශිෂ්‍ය පැමිණීම ස්වයංක්‍රීයව සටහන් කරන්න.</p>
       </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm font-medium">
-          ⚠️ {error}
+          {error}
         </div>
       )}
 
@@ -258,7 +258,7 @@ const QRAttendanceTab = ({ courses }) => {
               disabled={sessionLoading}
               className="px-6 py-3 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl shadow-md transition-all disabled:opacity-60 flex items-center gap-2"
             >
-              {sessionLoading ? '⏳ සකස් වෙමින්...' : '▶️ QR Attendance ආරම්භ කරන්න'}
+              {sessionLoading ? 'සකස් වෙමින්...' : 'QR Attendance ආරම්භ කරන්න'}
             </button>
           ) : (
             <button
@@ -266,7 +266,7 @@ const QRAttendanceTab = ({ courses }) => {
               disabled={sessionLoading}
               className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition-all disabled:opacity-60 flex items-center gap-2"
             >
-              {sessionLoading ? '⏳...' : '⏹️ QR Attendance නවත්වන්න'}
+              {sessionLoading ? '...' : 'QR Attendance නවත්වන්න'}
             </button>
           )}
         </div>
@@ -307,7 +307,7 @@ const QRAttendanceTab = ({ courses }) => {
       {session && !isActive && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-center">
           <p className="text-amber-800 font-bold text-lg">
-            {session.status === 'EXPIRED' ? '⏰ QR Attendance කාලය ඉකුත් වී ඇත.' : '🛑 QR Attendance සැසිය නවත්වා ඇත.'}
+            {session.status === 'EXPIRED' ? 'QR Attendance කාලය ඉකුත් වී ඇත.' : 'QR Attendance සැසිය නවත්වා ඇත.'}
           </p>
           <p className="text-amber-600 text-sm mt-1">නව සැසියක් ආරම්භ කිරීමට ඉහත බොත්තම ක්ලික් කරන්න.</p>
         </div>
@@ -326,7 +326,7 @@ const QRAttendanceTab = ({ courses }) => {
       {students.length > 0 && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-            <h3 className="font-bold text-indigo-900">📋 ශිෂ්‍ය පැමිණීම් ලැයිස්තුව</h3>
+            <h3 className="font-bold text-indigo-900">ශිෂ්‍ය පැමිණීම් ලැයිස්තුව</h3>
             {listLoading && <span className="text-xs text-gray-400 animate-pulse">යාවත්කාලීන වෙමින්...</span>}
           </div>
           <div className="overflow-x-auto overflow-y-auto max-h-[max(300px,calc(100vh_-_560px))]">
@@ -348,11 +348,11 @@ const QRAttendanceTab = ({ courses }) => {
                     <td className="px-6 py-4 text-center">
                       {s.attendance_status === 'PRESENT' ? (
                         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800">
-                          ✅ PRESENT
+                          PRESENT
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600">
-                          ❌ NOT PRESENT
+                          NOT PRESENT
                         </span>
                       )}
                     </td>

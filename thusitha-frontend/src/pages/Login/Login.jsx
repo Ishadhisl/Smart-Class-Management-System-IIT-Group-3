@@ -7,7 +7,7 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [showSuccessModal, setShowSuccessModal] = useState(false); // 💡 සාර්ථක පණිවිඩය පාලනය කරන State එක
+  const [showSuccessModal, setShowSuccessModal] = useState(false); // සාර්ථක පණිවිඩය පාලනය කරන State එක
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -17,10 +17,10 @@ const Login = () => {
     try {
       await authService.login(username, password);
       
-      // 💡 බ්‍රවුසර් Alert එක වෙනුවට අපේම සිස්ටම් එකේ Modal එක ඔන් කරනවා
+      // බ්‍රවුසර් Alert එක වෙනුවට අපේම සිස්ටම් එකේ Modal එක ඔන් කරනවා
       setShowSuccessModal(true);
       
-      // 💡 තත්පර 2.5 කින් පසු ඉබේම Dashboard එකට රැගෙන යාම
+      // තත්පර 2.5 කින් පසු ඉබේම Dashboard එකට රැගෙන යාම
       setTimeout(() => {
         setShowSuccessModal(false);
         const returnPath = sessionStorage.getItem('qr_return_path');
@@ -34,11 +34,11 @@ const Login = () => {
       
     } catch (err) {
       if (err.message.includes('අගුලු දමා ඇත')) {
-        setError(`🚫 ${err.message}`);
+        setError(`${err.message}`);
       } else if (err.message.includes('Invalid')) {
-        setError('❌ ඇතුළත් කළ Username හෝ Password වැරදියි!');
+        setError('ඇතුළත් කළ Username හෝ Password වැරදියි!');
       } else if (err.message.includes('Network Error')) {
-        setError('⚠️ පද්ධතිය සම්බන්ධ කිරීමේ දෝෂයකි. කරුණාකර පසුව නැවත උත්සාහ කරන්න.');
+        setError('පද්ධතිය සම්බන්ධ කිරීමේ දෝෂයකි. කරුණාකර පසුව නැවත උත්සාහ කරන්න.');
       } else {
         setError(err.message);
       }
@@ -96,7 +96,7 @@ const Login = () => {
         </form>
       </div>
 
-      {/* 💡 මෙන්න ලෙක්චරර් කියපු විදිහට සිස්ටම් එක ඇතුළෙන්ම පෙනෙන ලස්සන පිළිගැනීමේ පණිවිඩය (Custom Modal) */}
+      {/* මෙන්න ලෙක්චරර් කියපු විදිහට සිස්ටම් එක ඇතුළෙන්ම පෙනෙන ලස්සන පිළිගැනීමේ පණිවිඩය (Custom Modal) */}
       {showSuccessModal && (
         <div style={{
           position: 'fixed',
@@ -115,7 +115,7 @@ const Login = () => {
             boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
             animation: 'fadeIn 0.3s ease-in-out'
           }}>
-            <div style={{ fontSize: '50px', marginBottom: '10px' }}>🌟</div>
+            
             <h2 style={{ color: '#2e7d32', margin: '0 0 10px 0' }}>ආයුබෝවන්!</h2>
             <p style={{ fontSize: '16px', color: '#333', margin: 0, fontWeight: '500' }}>
               තුසිත ආයතන වෙබ් අඩවියට සාදරයෙන් පිළිගනිමු.

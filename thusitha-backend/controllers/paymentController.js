@@ -92,7 +92,7 @@ exports.createStripeSession = async (req, res) => {
       const tempReceipt = `DUMMY-${Date.now().toString().slice(-6)}`;
       const query = `
         INSERT INTO Payments (student_id, course_id, issued_by, amount_paid, payment_method, for_month, receipt_number, payment_status)
-        VALUES ($1, $2, NULL, $3, 'Card (Dummy)', $4, $5, 'Completed')
+        VALUES ($1, $2, NULL, $3, 'Online (Card)', $4, $5, 'Completed')
       `;
       await db.pool.query(query, [resolvedStudentId, course_id, courseFee, for_month, tempReceipt]);
 
@@ -356,6 +356,15 @@ exports.getOverduePayments = async (req, res) => {
   const { month, course_id } = req.query;
   if (!month) {
     return res.status(400).json({ error: 'month අනිවාර්ය වේ.' });
+  }
+  // Teachers: only their own classes, and always one class at a time.
+  if (req.user.role === 'Teacher') {
+    if (!course_id) return res.status(400).json({ error: 'course_id අනිවාර්ය වේ.' });
+    const own = await db.pool.query(
+      'SELECT 1 FROM Courses c JOIN Teachers t ON c.teacher_id = t.teacher_id WHERE c.course_id = $1 AND t.user_id = $2',
+      [course_id, req.user.userId]
+    );
+    if (!own.rows.length) return res.status(403).json({ error: 'මෙය ඔබගේ පන්තියක් නොවේ.' });
   }
 
   try {

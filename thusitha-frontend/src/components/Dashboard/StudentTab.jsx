@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ShieldCheck, Circle, AlertTriangle, User } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
 import { getImageUrl } from '../../services/api';
@@ -82,14 +83,14 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
   return (
     <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h3 style={{ color: '#1a237e', margin: 0 }}>🧑‍🎓 සැබෑ ශිෂ්‍ය ලේඛනය</h3>
+        <h3 style={{ color: '#1a237e', margin: 0 }}>සැබෑ ශිෂ්‍ය ලේඛනය</h3>
         {canEdit && (
           <button
             type="button"
             onClick={onAddClick}
             style={{ padding: '10px 15px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
           >
-            ➕ අලුත් ශිෂ්‍යයෙක් එකතු කරන්න
+            අලුත් ශිෂ්‍යයෙක් එකතු කරන්න
           </button>
         )}
       </div>
@@ -147,8 +148,8 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
                     style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #ddd', display: 'block', margin: '0 auto' }}
                   />
                 ) : (
-                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', fontSize: '16px', color: '#888' }}>
-                    👤
+                  <div title="ඡායාරූපයක් නැත" style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', color: '#757575' }}>
+                    <User size={18} />
                   </div>
                 )}
               </td>
@@ -156,14 +157,14 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
               <td style={{ padding: '12px' }}>{student.email}</td>
               <td style={{ padding: '12px', textAlign: 'center' }}>
                 <span title={student.hasEncoding ? "Face Encoded" : "No Biometric Data"} style={{ fontSize: '18px' }}>
-                  {student.hasEncoding ? '🛡️' : '🔘'}
+                  {student.hasEncoding ? <ShieldCheck size={18} color="#1976d2" /> : <Circle size={18} color="#9e9e9e" />}
                 </span>
               </td>
               <td style={{ padding: '12px' }}>
                 {student.parentName}
                 {student.parentPhone && student.parentPhone !== 'N/A' && (
                   <span style={{ display: 'block', fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                    📞 {student.parentPhone}
+                    {student.parentPhone}
                   </span>
                 )}
               </td>
@@ -179,7 +180,7 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
                   )}
                   {canEdit && (
                     <label style={{ padding: '5px 10px', backgroundColor: '#00b0ff', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'inline-block' }}>
-                      📷 Photo
+                      Photo
                       <input
                         type="file"
                         accept="image/*"
@@ -197,7 +198,7 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
                       onClick={() => onEncode(student._id)}
                       style={{ padding: '5px 10px', backgroundColor: student.hasEncoding ? '#2e7d32' : '#455a64', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
                     >
-                      {student.hasEncoding ? '🔄 Re-encode' : '⚙️ AI Encode'}
+                      {student.hasEncoding ? 'නැවත Encode' : 'AI Encode'}
                     </button>
                   )}
                   {canIssueIdCard(student) && (
@@ -205,7 +206,7 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
                       onClick={() => onDownloadIDCard(student)}
                       title={`ශ්‍රේණිය: ${student.grade || 'නොදනී'}`}
                       style={{ padding: '5px 10px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
-                    >🆔 ID Card</button>
+                    >හැඳුනුම්පත</button>
                   )}
                   {canDelete && (
                     <button
@@ -227,7 +228,7 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
       {confirmDeleteId && createPortal(
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
           <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', width: '400px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
-            <div style={{ fontSize: '40px', color: '#d32f2f', marginBottom: '15px' }}>⚠️</div>
+            <div style={{ color: '#d32f2f', marginBottom: '15px', display: 'flex', justifyContent: 'center' }}><AlertTriangle size={40} /></div>
             <h3 style={{ margin: '0 0 10px 0', color: '#1a237e' }}>ශිෂ්‍යයා ඉවත් කිරීම ස්ථිරද?</h3>
             <p style={{ color: '#666', fontSize: '14px', lineHeight: '1.5' }}>
               මෙම ක්‍රියාව ආපසු හැරවිය නොහැක. මෙම ශිෂ්‍යයාට අදාළ පැමිණීමේ වාර්තා සහ ගෙවීම් දත්ත ද මෙහිදී මැකී යනු ඇත.
@@ -245,7 +246,7 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
       {editingStudent && createPortal(
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
           <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', width: '450px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ margin: '0 0 20px 0', color: '#1a237e', textAlign: 'center' }}>✏️ ශිෂ්‍ය දත්ත සංස්කරණය</h3>
+            <h3 style={{ margin: '0 0 20px 0', color: '#1a237e', textAlign: 'center' }}>ශිෂ්‍ය දත්ත සංස්කරණය</h3>
             <form onSubmit={handleEditSubmit} noValidate>
               <div style={{ marginBottom: '15px' }}>
                 <label htmlFor="edit-name" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>ශිෂ්‍යයාගේ නම</label>
@@ -264,14 +265,14 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
               </div>
               {/* Parent Information */}
               <div style={{ padding: '12px', backgroundColor: '#e8eaf6', borderRadius: '8px', marginBottom: '15px' }}>
-                <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#1a237e', marginBottom: '10px' }}>👨‍👩‍👦 දෙමාපිය / භාරකාර තොරතුරු</div>
+                <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#1a237e', marginBottom: '10px' }}>දෙමාපිය / භාරකාර තොරතුරු</div>
                 <div style={{ marginBottom: '10px' }}>
                   <label htmlFor="edit-parent-name" style={{ display: 'block', marginBottom: '5px', fontWeight: '500', fontSize: '13px' }}>දෙමාපිය නම</label>
                   <input id="edit-parent-name" type="text" maxLength={150} value={editFormData.parent_name} onChange={(e) => ev.set('parent_name', e.target.value, filterNameInput, NAME_INVALID_MSG)} onBlur={() => ev.blur('parent_name')} style={{ ...{ width: '100%', padding: '9px', borderRadius: '5px', border: '1px solid #c5cae9', boxSizing: 'border-box', fontSize: '14px' }, ...(ev.errors.parent_name ? { border: '1px solid #d32f2f' } : {}) }} placeholder="උදා: සුනිල් පෙරේරා (e.g. Sunil Perera)" />
                   <FormError>{ev.errors.parent_name}</FormError>
                 </div>
                 <div style={{ marginBottom: '0' }}>
-                  <label htmlFor="edit-parent-phone" style={{ display: 'block', marginBottom: '5px', fontWeight: '500', fontSize: '13px' }}>📞 WhatsApp දුරකථන අංකය</label>
+                  <label htmlFor="edit-parent-phone" style={{ display: 'block', marginBottom: '5px', fontWeight: '500', fontSize: '13px' }}>WhatsApp දුරකථන අංකය</label>
                   <input id="edit-parent-phone" type="tel" inputMode="numeric" maxLength={12} value={editFormData.parent_phone} onChange={(e) => ev.set('parent_phone', e.target.value, filterPhoneInput, PHONE_INVALID_MSG)} onBlur={() => ev.blur('parent_phone')} style={{ ...{ width: '100%', padding: '9px', borderRadius: '5px', border: '1px solid #c5cae9', boxSizing: 'border-box', fontSize: '14px' }, ...(ev.errors.parent_phone ? { border: '1px solid #d32f2f' } : {}) }} placeholder="උදා: 0771234567 හෝ +94771234567" />
                   <FormError>{ev.errors.parent_phone}</FormError>
                 </div>
@@ -283,7 +284,7 @@ const StudentTab = ({ students, courses = [], onAddClick, onEditClick, onDeleteC
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button type="button" onClick={closeEdit} style={{ padding: '10px 20px', border: '1px solid #ccc', background: 'none', borderRadius: '6px', cursor: 'pointer' }}>අවලංගු කරන්න</button>
-                <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>💾 සුරකින්න</button>
+                <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>සුරකින්න</button>
               </div>
             </form>
           </div>

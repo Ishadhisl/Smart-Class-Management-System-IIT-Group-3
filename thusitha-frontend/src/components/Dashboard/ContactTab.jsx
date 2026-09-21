@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Star } from 'lucide-react';
 import PropTypes from 'prop-types';
 import { filterTextInput, TEXT_INVALID_MSG } from '../../utils/formValidation';
 
@@ -27,25 +28,25 @@ const ContactTab = ({ messages, onMarkRead, onMarkSpam, onRecoverFromSpam, onBul
 
   return (
     <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-      <h3 style={{ color: '#1a237e', margin: '0 0 20px 0' }}>✉️ වෙබ් අඩවිය හරහා ලැබුණු විමසීම්</h3>
+      <h3 style={{ color: '#1a237e', margin: '0 0 20px 0' }}>වෙබ් අඩවිය හරහා ලැබුණු විමසීම්</h3>
       <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
-        <button onClick={() => setFilter('Inbox')} style={{ padding: '8px 15px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'Inbox' ? '#1a237e' : '#eee', color: filter === 'Inbox' ? 'white' : '#333' }}>Inbox ({messages.filter(m => m.status !== 'Spam').length})</button>
-        <button onClick={() => setFilter('Important')} style={{ padding: '8px 15px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'Important' ? '#ffd600' : '#eee', color: filter === 'Important' ? '#1a237e' : '#333', fontWeight: filter === 'Important' ? 'bold' : 'normal' }}>⭐ Important ({messages.filter(m => m.is_important && m.status !== 'Spam').length})</button>
+        <button onClick={() => setFilter('Inbox')} style={{ padding: '8px 15px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'Inbox' ? '#1a237e' : '#eee', color: filter === 'Inbox' ? 'white' : '#333' }}>එන ලිපි ({messages.filter(m => m.status !== 'Spam').length})</button>
+        <button onClick={() => setFilter('Important')} style={{ padding: '8px 15px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'Important' ? '#ffd600' : '#eee', color: filter === 'Important' ? '#1a237e' : '#333', fontWeight: filter === 'Important' ? 'bold' : 'normal' }}>වැදගත් ({messages.filter(m => m.is_important && m.status !== 'Spam').length})</button>
         <button onClick={() => setFilter('Spam')} style={{ padding: '8px 15px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'Spam' ? '#1a237e' : '#eee', color: filter === 'Spam' ? 'white' : '#333' }}>Spam ({messages.filter(m => m.status === 'Spam').length})</button>
-        <button onClick={() => setFilter('All')} style={{ padding: '8px 15px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'All' ? '#1a237e' : '#eee', color: filter === 'All' ? 'white' : '#333' }}>All ({messages.length})</button>
+        <button onClick={() => setFilter('All')} style={{ padding: '8px 15px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: filter === 'All' ? '#1a237e' : '#eee', color: filter === 'All' ? 'white' : '#333' }}>සියල්ල ({messages.length})</button>
 
         {filter === 'Inbox' && messages.some(m => m.status !== 'Spam' && !m.is_read) && (
           <button
             onClick={onMarkAllRead}
             style={{ marginLeft: 'auto', padding: '8px 15px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: '#3f51b5', color: 'white', fontWeight: 'bold' }}
-          >✔️ Mark All as Read</button>
+          >Mark All as Read</button>
         )}
 
         {filter === 'Spam' && messages.some(m => m.status === 'Spam') && (
           <button
             onClick={onBulkDeleteSpam}
             style={{ marginLeft: 'auto', padding: '8px 15px', borderRadius: '5px', border: 'none', cursor: 'pointer', backgroundColor: '#d32f2f', color: 'white', fontWeight: 'bold' }}
-          >🗑️ Bulk Delete Spam</button>
+          >Bulk Delete Spam</button>
         )}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -64,7 +65,7 @@ const ContactTab = ({ messages, onMarkRead, onMarkSpam, onRecoverFromSpam, onBul
                   onClick={() => onToggleImportant(msg.message_id)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', padding: 0, color: msg.is_important ? '#ffd600' : '#ccc' }}
                   title={msg.is_important ? "වැදගත් ලෙස සලකුණු කර ඇත" : "වැදගත් ලෙස සලකුණු කරන්න"}
-                >{msg.is_important ? '⭐' : '☆'}</button>
+                >{msg.is_important ? <Star size={16} fill="currentColor" /> : <Star size={16} />}</button>
                 <strong style={{ fontSize: '16px' }}>{msg.sender_name} ({msg.sender_email})</strong>
               </div>
               <span style={{ fontSize: '12px', color: '#888' }}>{new Date(msg.submitted_at).toLocaleString()}</span>
@@ -84,17 +85,17 @@ const ContactTab = ({ messages, onMarkRead, onMarkSpam, onRecoverFromSpam, onBul
                 <button onClick={() => openReply(msg)}
                   style={{ padding: '5px 12px', fontSize: '12px', cursor: 'pointer', background: '#25d366', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
                 >
-                  💬 WhatsApp Reply
+                  WhatsApp පිළිතුර
                 </button>
               )}
               {msg.is_important && msg.status !== 'Spam' && (
                 <button onClick={() => { setSelectedMsg(msg); setShowReplyModal(true); }}
                   style={{ padding: '5px 12px', fontSize: '12px', cursor: 'pointer', background: '#ffd600', color: '#1a237e', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}
-                >⚡ Quick Reply</button>
+                >ඉක්මන් පිළිතුර</button>
               )}
               <button onClick={() => msg.status === 'Spam' ? onRecoverFromSpam(msg.message_id) : onMarkSpam(msg.message_id)}
                 style={{ padding: '5px 12px', fontSize: '12px', cursor: 'pointer', background: msg.status === 'Spam' ? '#2e7d32' : '#d32f2f', color: 'white', border: 'none', borderRadius: '4px' }}
-              >{msg.status === 'Spam' ? 'Recover from Spam' : 'Mark as Spam'}</button>
+              >{msg.status === 'Spam' ? 'Spam වලින් ඉවත් කරන්න' : 'Spam ලෙස සලකුණු කරන්න'}</button>
             </div>
           </div>
         ))}
@@ -105,7 +106,7 @@ const ContactTab = ({ messages, onMarkRead, onMarkSpam, onRecoverFromSpam, onBul
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1400 }}>
           <div style={{ backgroundColor: 'white', padding: '28px', borderRadius: '15px', width: '460px', boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
-              <h3 style={{ margin: 0, color: '#25d366', display: 'flex', alignItems: 'center', gap: '8px' }}>💬 WhatsApp Reply</h3>
+              <h3 style={{ margin: 0, color: '#25d366', display: 'flex', alignItems: 'center', gap: '8px' }}>WhatsApp පිළිතුර</h3>
               <button onClick={() => setShowCustomReply(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666' }}>×</button>
             </div>
             <p style={{ fontSize: '13px', color: '#555', marginBottom: '16px' }}>
@@ -114,7 +115,7 @@ const ContactTab = ({ messages, onMarkRead, onMarkSpam, onRecoverFromSpam, onBul
             {/* Template Buttons */}
             {templates.length > 0 && (
               <div style={{ marginBottom: '12px' }}>
-                <div style={{ fontSize: '12px', color: '#888', fontWeight: 'bold', marginBottom: '6px' }}>📋 Templates:</div>
+                <div style={{ fontSize: '12px', color: '#888', fontWeight: 'bold', marginBottom: '6px' }}>Templates:</div>
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {templates.map((t) => (
                     <button key={t} onClick={() => setCustomReplyMsg(t)} style={{ padding: '5px 10px', fontSize: '12px', border: '1px solid #c5cae9', borderRadius: '6px', cursor: 'pointer', backgroundColor: '#f0f4ff', color: '#1a237e' }}>
@@ -130,13 +131,13 @@ const ContactTab = ({ messages, onMarkRead, onMarkSpam, onRecoverFromSpam, onBul
             />
             {replyNotice && <p style={{ color: '#d32f2f', fontSize: '12px', margin: '4px 0 0' }}>{replyNotice}</p>}
             <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-              <button onClick={() => setShowCustomReply(false)} style={{ flex: 1, padding: '11px', border: '1px solid #ddd', background: 'none', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => setShowCustomReply(false)} style={{ flex: 1, padding: '11px', border: '1px solid #ddd', background: 'none', borderRadius: '8px', cursor: 'pointer' }}>අවලංගු කරන්න</button>
               <button onClick={() => { sendWhatsAppReply(selectedMsg, customReplyMsg); setShowCustomReply(false); }}
                 disabled={!customReplyMsg.trim() || !selectedMsg.sender_phone}
                 style={{ flex: 2, padding: '11px', backgroundColor: selectedMsg.sender_phone && customReplyMsg.trim() ? '#25d366' : '#ccc', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}
-              >💬 WhatsApp Send</button>
+              >WhatsApp Send</button>
             </div>
-            {!selectedMsg.sender_phone && <p style={{ color: '#d32f2f', fontSize: '12px', marginTop: '8px', textAlign: 'center' }}>⚠️ දුරකථන අංකය නොමැතිව WhatsApp reply කළ නොහැකිය.</p>}
+            {!selectedMsg.sender_phone && <p style={{ color: '#d32f2f', fontSize: '12px', marginTop: '8px', textAlign: 'center' }}>දුරකථන අංකය නොමැතිව WhatsApp reply කළ නොහැකිය.</p>}
           </div>
         </div>
       )}
@@ -145,7 +146,7 @@ const ContactTab = ({ messages, onMarkRead, onMarkSpam, onRecoverFromSpam, onBul
       {showReplyModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1300 }}>
           <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '12px', width: '450px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ margin: '0 0 15px 0', color: '#1a237e' }}>⚡ Quick WhatsApp Reply</h3>
+            <h3 style={{ margin: '0 0 15px 0', color: '#1a237e' }}>ඉක්මන් WhatsApp පිළිතුර</h3>
             <p style={{ fontSize: '13px', color: '#666', marginBottom: '15px' }}>To: <strong>{selectedMsg?.sender_name}</strong> ({selectedMsg?.sender_phone || 'No Phone'})</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {templates.map((template) => (
@@ -155,7 +156,7 @@ const ContactTab = ({ messages, onMarkRead, onMarkSpam, onRecoverFromSpam, onBul
                 >{template}</button>
               ))}
             </div>
-            <button onClick={() => setShowReplyModal(false)} style={{ marginTop: '20px', width: '100%', padding: '10px', background: 'none', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={() => setShowReplyModal(false)} style={{ marginTop: '20px', width: '100%', padding: '10px', background: 'none', border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer' }}>අවලංගු කරන්න</button>
           </div>
         </div>
       )}

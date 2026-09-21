@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Users, CheckCircle, AlertTriangle, PenLine, Check } from 'lucide-react';
 import PropTypes from 'prop-types';
 import { request } from '../../services/api';
 import { filterTextInput, TEXT_INVALID_MSG } from '../../utils/formValidation';
@@ -20,10 +21,10 @@ const NAVY = '#1a237e';
 // student can be in a different class with a different upcoming exam date), so this preview
 // only stands in placeholder text for them - see the substitution below.
 const MESSAGE_TEMPLATES = {
-  payment: `💰 *Thusitha Institute — ගෙවීම් සිහිකැඳවීම*\n\n👤 {student_name} ({class_name}) ගේ {month} මාසයේ ගෙවීම් ශේෂය ඇත.\nකරුණාකර ඉක්මනින් ගෙවීම සිදු කරන්න.\n\n📞 _Thusitha Institute_`,
-  exam: `📝 *Thusitha Institute — විභාග දැනුම්දීම*\n\n👤 {student_name} ({class_name}) සඳහා {date} දින ඉදිරි විභාගය පවතී.\nකරුණාකර හොඳින් සූදානම් වන්න! 📚\n\n📞 _Thusitha Institute_`,
-  attendance: `📋 *Thusitha Institute — පැමිණීම් දැනුම්දීම*\n\n👤 {student_name} ({class_name}) ගේ {date} දිනයේ පැමිණීම සම්බන්ධව දැනුම්දීමක් ඇත.\nකරුණාකර ආයතනය හා සම්බන්ධ වන්න.\n\n📞 _Thusitha Institute_`,
-  general: `📢 *Thusitha Institute — දැනුම්දීම*\n\n👤 {student_name} ගේ මව්පිය,\n\n{custom_message}\n\n📞 _Thusitha Institute_`,
+  payment: `*Thusitha Institute — ගෙවීම් සිහිකැඳවීම*\n\n{student_name} ({class_name}) ගේ {month} මාසයේ ගෙවීම් ශේෂය ඇත.\nකරුණාකර ඉක්මනින් ගෙවීම සිදු කරන්න.\n\n_Thusitha Institute_`,
+  exam: `*Thusitha Institute — විභාග දැනුම්දීම*\n\n{student_name} ({class_name}) සඳහා {date} දින ඉදිරි විභාගය පවතී.\nකරුණාකර හොඳින් සූදානම් වන්න! \n\n_Thusitha Institute_`,
+  attendance: `*Thusitha Institute — පැමිණීම් දැනුම්දීම*\n\n{student_name} ({class_name}) ගේ {date} දිනයේ පැමිණීම සම්බන්ධව දැනුම්දීමක් ඇත.\nකරුණාකර ආයතනය හා සම්බන්ධ වන්න.\n\n_Thusitha Institute_`,
+  general: `*Thusitha Institute — දැනුම්දීම*\n\n{student_name} ගේ මව්පිය,\n\n{custom_message}\n\n_Thusitha Institute_`,
 };
 
 const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
@@ -123,7 +124,7 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
       return;
     }
     if (!whatsappStatus?.isReady) {
-      alert('⚠️ WhatsApp සම්බන්ධ නොවේ. Dashboard → WhatsApp Connect QR scan කරන්න.');
+      alert('WhatsApp සම්බන්ධ නොවේ. Dashboard → WhatsApp Connect QR scan කරන්න.');
       return;
     }
 
@@ -161,7 +162,7 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
       {/* LEFT: Student Selection */}
       <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
         <h3 style={{ color: NAVY, margin: '0 0 20px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>👥</span> ශිෂ්‍යයන් තෝරන්න
+          <Users size={18} /> ශිෂ්‍යයන් තෝරන්න
           {selectedStudents.length > 0 && (
             <span style={{ marginLeft: 'auto', fontSize: '13px', backgroundColor: WHATSAPP_GREEN, color: 'white', padding: '4px 12px', borderRadius: '20px' }}>
               තෝරාගත් {selectedStudents.length}
@@ -176,7 +177,7 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
           border: `1px solid ${whatsappStatus?.isReady ? '#c8e6c9' : '#ffe0b2'}`,
           display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px'
         }}>
-          <span style={{ fontSize: '20px' }}>{whatsappStatus?.isReady ? '💚' : '⚠️'}</span>
+          <span style={{ display: 'inline-flex' }}>{whatsappStatus?.isReady ? <CheckCircle size={18} color="#2e7d32" /> : <AlertTriangle size={18} color="#e65100" />}</span>
           <span style={{ color: whatsappStatus?.isReady ? '#2e7d32' : '#e65100', fontWeight: '600' }}>
             WhatsApp: {whatsappStatus?.isReady ? 'සම්බන්ධයි' : (whatsappStatus?.status || 'සම්බන්ධ නැත')}
           </span>
@@ -185,13 +186,13 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
         {/* Search + Course Filter */}
         <input
           type="text"
-          placeholder="🔍 නමෙන් හෝ ශිෂ්‍ය අංකයෙන් සොයන්න..."
+          placeholder="නමෙන් හෝ ශිෂ්‍ය අංකයෙන් සොයන්න..."
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
           style={{ ...inputStyle, marginBottom: '10px' }}
         />
         <select value={selectedCourse} onChange={e => changeCourse(e.target.value)} style={{ ...inputStyle, marginBottom: '12px', border: isPaymentMode && !selectedCourse ? '1px solid #e65100' : inputStyle.border }}>
-          <option value="">{isPaymentMode ? '📚 පන්තිය තෝරන්න (අනිවාර්යයි)' : '📚 සියලුම පන්ති'}</option>
+          <option value="">{isPaymentMode ? 'පන්තිය තෝරන්න (අනිවාර්යයි)' : 'සියලුම පන්ති'}</option>
           {courses.map(c => (
             <option key={c.course_id} value={c.course_id}>{c.course_name}</option>
           ))}
@@ -202,7 +203,7 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
           <>
             <select value={selectedMonth} onChange={e => changeMonth(e.target.value)} style={{ ...inputStyle, marginBottom: '12px' }}>
               {MONTHS.map(([en, si]) => (
-                <option key={en} value={en}>📅 {si} ({en})</option>
+                <option key={en} value={en}>{si} ({en})</option>
               ))}
             </select>
             <div style={{ fontSize: '12px', color: '#555', backgroundColor: '#fff8e1', border: '1px solid #ffe082', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px' }}>
@@ -221,7 +222,7 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
             onClick={selectAll}
             style={{ padding: '6px 14px', backgroundColor: '#e8eaf6', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: NAVY }}
           >
-            {selectedStudents.length === filteredStudents.length && filteredStudents.length > 0 ? '✓ සියල්ල ඉවත් කරන්න' : '☑ සියල්ල තෝරන්න'}
+            {selectedStudents.length === filteredStudents.length && filteredStudents.length > 0 ? 'සියල්ල ඉවත් කරන්න' : 'සියල්ල තෝරන්න'}
           </button>
           <span style={{ fontSize: '12px', color: '#888' }}>ශිෂ්‍යයන් {filteredStudents.length}</span>
         </div>
@@ -229,7 +230,7 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
         {/* Student List */}
         <div style={{ maxHeight: '380px', overflowY: 'auto', borderRadius: '10px', border: '1px solid #f0f0f0' }}>
           {filteredStudents.length === 0 ? (
-            <div style={{ padding: '30px', textAlign: 'center', color: '#aaa' }}>{paymentReady ? 'මෙම මාසයට සියලු දෙනා ගෙවා ඇත 🎉' : 'ශිෂ්‍යයන් හමුවුනේ නැත'}</div>
+            <div style={{ padding: '30px', textAlign: 'center', color: '#aaa' }}>{paymentReady ? 'මෙම මාසයට සියලු දෙනා ගෙවා ඇත ' : 'ශිෂ්‍යයන් හමුවුනේ නැත'}</div>
           ) : filteredStudents.map(student => (
             <div
               key={student._id}
@@ -247,12 +248,12 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
                 backgroundColor: selectedStudents.includes(student._id) ? WHATSAPP_GREEN : 'white',
                 color: 'white', fontSize: '13px', flexShrink: 0
               }}>
-                {selectedStudents.includes(student._id) ? '✓' : ''}
+                {selectedStudents.includes(student._id) ? <Check size={14} /> : null}
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: '600', fontSize: '14px' }}>{student.name}</div>
                 <div style={{ fontSize: '12px', color: '#888' }}>
-                  {student.studentId} · {student.parentPhone && student.parentPhone !== 'N/A' ? `📞 ${student.parentPhone}` : '⚠️ දුරකථන අංකයක් නැත'}
+                  {student.studentId} · {student.parentPhone && student.parentPhone !== 'N/A' ? `${student.parentPhone}` : 'දුරකථන අංකයක් නැත'}
                 </div>
               </div>
             </div>
@@ -266,19 +267,19 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
         {/* Message Composer */}
         <div style={{ backgroundColor: 'white', borderRadius: '15px', padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
           <h3 style={{ color: NAVY, margin: '0 0 20px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>✍️</span> පණිවිඩය සකසන්න
+            <PenLine size={18} /> පණිවිඩය සකසන්න
           </h3>
 
           {/* Message Type */}
           <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', fontSize: '13px', color: '#555' }}>
-            📋 පණිවිඩ වර්ගය
+            පණිවිඩ වර්ගය
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
             {[
-              { key: 'payment', label: '💰 ගෙවීම් මතක් කිරීම', color: '#e65100' },
-              { key: 'exam', label: '📝 විභාග දැනුම්දීම', color: '#6a1b9a' },
-              { key: 'attendance', label: '📋 පැමිණීම් දැනුම්දීම', color: '#1565c0' },
-              { key: 'general', label: '📢 සාමාන්‍ය පණිවිඩය', color: '#2e7d32' },
+              { key: 'payment', label: 'ගෙවීම් මතක් කිරීම', color: '#e65100' },
+              { key: 'exam', label: 'විභාග දැනුම්දීම', color: '#6a1b9a' },
+              { key: 'attendance', label: 'පැමිණීම් දැනුම්දීම', color: '#1565c0' },
+              { key: 'general', label: 'සාමාන්‍ය පණිවිඩය', color: '#2e7d32' },
             ].map(t => (
               <button
                 key={t.key}
@@ -299,7 +300,7 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
           {(messageType === 'general' || messageType === 'custom') && (
             <>
               <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', fontSize: '13px', color: '#555' }}>
-                ✏️ ඔබේ පණිවිඩය
+                ඔබේ පණිවිඩය
               </label>
               <textarea
                 rows={4}
@@ -316,7 +317,7 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
 
         {/* WhatsApp Message Preview */}
         <div style={{ backgroundColor: '#e5ddd5', borderRadius: '15px', padding: '20px', backgroundImage: 'url("https://web.whatsapp.com/img/bg-chat-tile-light_686b98c9fdffef3f63127759e3d85da6.png")' }}>
-          <div style={{ fontSize: '12px', color: '#888', marginBottom: '10px', fontWeight: '600' }}>💬 පණිවිඩය පෙනෙන ආකාරය</div>
+          <div style={{ fontSize: '12px', color: '#888', marginBottom: '10px', fontWeight: '600' }}>පණිවිඩය පෙනෙන ආකාරය</div>
           <div style={{
             backgroundColor: '#dcf8c6', borderRadius: '0 12px 12px 12px', padding: '12px 16px',
             maxWidth: '90%', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', lineHeight: '1.6',
@@ -325,7 +326,7 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
             {previewMessage || '(පණිවිඩය මෙහි පෙන්වයි)'}
           </div>
           <div style={{ fontSize: '11px', color: '#aaa', marginTop: '6px', textAlign: 'right' }}>
-            ✓✓ යවන ලදී
+            යවන ලදී
           </div>
         </div>
 
@@ -344,7 +345,7 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
           {sending ? (
             <><span style={{ animation: 'spin 1s linear infinite' }}>⟳</span> යවමින්...</>
           ) : (
-            <>💬 WhatsApp පණිවිඩ {selectedStudents.length > 0 ? `(${selectedStudents.length}) ` : ''}යවන්න</>
+            <>WhatsApp පණිවිඩ {selectedStudents.length > 0 ? `(${selectedStudents.length}) ` : ''}යවන්න</>
           )}
         </button>
 
@@ -356,15 +357,15 @@ const ReminderTab = ({ students, courses, onSendReminder, whatsappStatus }) => {
             border: `1px solid ${result.error ? '#ffcdd2' : '#c8e6c9'}`
           }}>
             {result.error ? (
-              <span style={{ color: '#c62828', fontWeight: '600' }}>❌ දෝෂයකි: {result.error}</span>
+              <span style={{ color: '#c62828', fontWeight: '600' }}>දෝෂයකි: {result.error}</span>
             ) : (
               <div>
                 <div style={{ color: '#2e7d32', fontWeight: '700', fontSize: '15px', marginBottom: '6px' }}>
-                  ✅ WhatsApp පණිවිඩ යැවීම අවසන්!
+                  WhatsApp පණිවිඩ යැවීම අවසන්!
                 </div>
                 <div style={{ fontSize: '13px', color: '#555' }}>
-                  💬 යැවූ: <strong>{result.sent}</strong> &nbsp;|&nbsp; ❌ අසාර්ථක: <strong>{result.failed}</strong>
-                  {result.skipped > 0 && <> &nbsp;|&nbsp; ⏭️ දැනටමත් ගෙවා ඇත: <strong>{result.skipped}</strong></>}
+                  යැවූ: <strong>{result.sent}</strong> &nbsp;|&nbsp; අසාර්ථක: <strong>{result.failed}</strong>
+                  {result.skipped > 0 && <> &nbsp;|&nbsp; දැනටමත් ගෙවා ඇත: <strong>{result.skipped}</strong></>}
                 </div>
               </div>
             )}

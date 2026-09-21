@@ -62,12 +62,12 @@ const StudyAreaTab = ({ students, seats, onBook, onCheckIn, onCheckOut, currentU
     <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
       {/* LEFT: Booking Form */}
       <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', maxWidth: '400px', flex: 1 }}>
-        <h3 style={{ color: '#1a237e', marginBottom: '20px' }}>📖 අසුනක් වෙන් කිරීම</h3>
+        <h3 style={{ color: '#1a237e', marginBottom: '20px' }}>අසුනක් වෙන් කිරීම</h3>
       <form onSubmit={handleSubmit} noValidate>
         {/* Student selector: only show to staff, not to student users */}
         {isStudent ? (
           <div style={{ padding: '10px 12px', backgroundColor: '#e8eaf6', borderRadius: '6px', marginBottom: '15px', fontSize: '14px', color: '#1a237e', fontWeight: 'bold' }}>
-            👤 {currentUser.username} — ඔබ වෙනුවෙන් වෙන් කෙරේ
+            {currentUser.username} — ඔබ වෙනුවෙන් වෙන් කෙරේ
           </div>
         ) : (
           <>
@@ -93,7 +93,7 @@ const StudyAreaTab = ({ students, seats, onBook, onCheckIn, onCheckOut, currentU
 
         <label htmlFor="arrivalTime" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>පැමිණෙන වේලාව (අද දවසට පමණයි) *</label>
         <div style={{ fontSize: '12px', color: '#1a237e', backgroundColor: '#e8eaf6', borderRadius: '6px', padding: '6px 10px', marginBottom: '8px' }}>
-          📅 දිනය: <strong>{todayLabel}</strong> — වෙන් කිරීම් අද දවසට පමණක් කළ හැක.
+          දිනය: <strong>{todayLabel}</strong> — වෙන් කිරීම් අද දවසට පමණක් කළ හැක.
         </div>
         <input
           id="arrivalTime"
@@ -106,19 +106,19 @@ const StudyAreaTab = ({ students, seats, onBook, onCheckIn, onCheckOut, currentU
         />
         {v.errors.expected_arrival_time && <FormError className="mb-3">{v.errors.expected_arrival_time}</FormError>}
 
-        <p style={{ fontSize: '13px', color: '#666', marginBottom: '15px' }}>💡 වෙන් කිරීම් පැය 4කට පමණක් සීමා වේ. විනාඩි 15කට වඩා ප්‍රමාද වුවහොත් වෙන් කිරීම අවලංගු වේ.</p>
+        <p style={{ fontSize: '13px', color: '#666', marginBottom: '15px' }}>වෙන් කිරීම් පැය 4කට පමණක් සීමා වේ. විනාඩි 15කට වඩා ප්‍රමාද වුවහොත් වෙන් කිරීම අවලංගු වේ.</p>
 
         <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
-          💾 අසුන වෙන් කරන්න
+          අසුන වෙන් කරන්න
         </button>
       </form>
       </div>
 
       {/* RIGHT: Visual Seat Map */}
       <div style={{ flex: 2, minWidth: '400px', backgroundColor: 'white', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-        <h3 style={{ color: '#1a237e', marginBottom: '20px' }}>🪑 අසුන් සැලැස්ම (Live Seat Map)</h3>
+        <h3 style={{ color: '#1a237e', marginBottom: '20px' }}>අසුන් සැලැස්ම (Live Seat Map)</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '15px' }}>
-          {/* 💡 Seat status should come from the backend, including current booking_id if occupied/reserved */}
+          {/* Seat status should come from the backend, including current booking_id if occupied/reserved */}
           {seats.map(seat => {
             const isSelected = String(formData.seat_id) === String(seat.seat_id);
             const handleActivate = () => {

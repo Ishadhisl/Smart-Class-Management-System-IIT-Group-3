@@ -89,7 +89,7 @@ const PromotionTab = ({ promos, onCreate, onUpdate, onDelete }) => {
     <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
       <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', maxWidth: '400px', flex: 1 }}>
         <h3 style={{ color: '#1a237e', marginBottom: '20px' }}>
-          {editingPromoId ? 'ප්‍රවර්ධනය සංස්කරණය කරන්න' : '➕ නව ප්‍රවර්ධනයක් ඇතුළත් කරන්න'}
+          {editingPromoId ? 'ප්‍රවර්ධනය සංස්කරණය කරන්න' : 'නව ප්‍රවර්ධනයක් ඇතුළත් කරන්න'}
         </h3>
         <form onSubmit={handleSubmit} noValidate>
           <select style={inputStyle} value={formData.content_type} onChange={e => setFormData({...formData, content_type: e.target.value})}>
@@ -112,7 +112,7 @@ const PromotionTab = ({ promos, onCreate, onUpdate, onDelete }) => {
               style={{ width: '100%' }}
               required={!editingPromoId}
             />
-            {file && <div style={{ fontSize: '12px', color: '#2e7d32', marginTop: '6px' }}>✓ {file.name}</div>}
+            {file && <div style={{ fontSize: '12px', color: '#2e7d32', marginTop: '6px' }}>{file.name}</div>}
           </div>
 
           <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}>
@@ -142,7 +142,7 @@ const PromotionTab = ({ promos, onCreate, onUpdate, onDelete }) => {
                     onMouseLeave={e => e.target.style.transform = 'scale(1)'}
                   />
                   <div style={{ position: 'absolute', bottom: '8px', right: '8px', backgroundColor: 'rgba(0,0,0,0.6)', color: 'white', padding: '3px 8px', borderRadius: '20px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 'bold' }}>
-                    🔍 Click to Preview
+                    Click to Preview
                   </div>
                 </div>
               )}
@@ -205,7 +205,7 @@ const PromotionTab = ({ promos, onCreate, onUpdate, onDelete }) => {
               onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.4)'}
               onMouseLeave={e => e.target.style.background = 'rgba(255,255,255,0.2)'}
             >
-              ✕
+              
             </button>
             <img 
               src={previewImage} 

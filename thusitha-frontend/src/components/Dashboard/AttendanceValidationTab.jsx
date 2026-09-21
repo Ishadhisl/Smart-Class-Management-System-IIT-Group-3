@@ -27,9 +27,9 @@ const AttendanceValidationTab = ({ halls, activeSessions, onSendAlert, onBulkNot
     };
 
     try {
-      await addStep("🎥 Step 1: Connecting to hall CCTV camera streams...", 500);
-      await addStep("📸 Step 2: Grabbing active frame snapshot...", 800);
-      await addStep("🔍 Step 3: Running YOLOv8 human headcount detection...", 800);
+      await addStep("Step 1: Connecting to hall CCTV camera streams...", 500);
+      await addStep("Step 2: Grabbing active frame snapshot...", 800);
+      await addStep("Step 3: Running YOLOv8 human headcount detection...", 800);
 
       const response = await request('/attendance/validate-hall', {
         method: 'POST',
@@ -37,17 +37,17 @@ const AttendanceValidationTab = ({ halls, activeSessions, onSendAlert, onBulkNot
       });
 
       const resData = response.data;
-      await addStep(`📊 Step 4: Comparing AI headcount (${resData.ai_headcount}) with door scans (${resData.qr_count})...`, 600);
+      await addStep(`Step 4: Comparing AI headcount (${resData.ai_headcount}) with door scans (${resData.qr_count})...`, 600);
 
       if (resData.mismatch_detected) {
-        await addStep("⚠️ Step 5: Headcount discrepancy detected (exceeds threshold)!", 600);
-        await addStep("🚨 Step 6: Activating Biometrics pipeline & extracting face encodings...", 800);
-        await addStep("🧬 Step 7: Performing face recognition against expected student vectors...", 1000);
+        await addStep("Step 5: Headcount discrepancy detected (exceeds threshold)!", 600);
+        await addStep("Step 6: Activating Biometrics pipeline & extracting face encodings...", 800);
+        await addStep("Step 7: Performing face recognition against expected student vectors...", 1000);
       } else {
-        await addStep("✅ Step 5: Headcount matches door records. Skipping biometric pass.", 600);
+        await addStep("Step 5: Headcount matches door records. Skipping biometric pass.", 600);
       }
 
-      await addStep("🏁 Step 8: Verification report compiled successfully!", 400);
+      await addStep("Step 8: Verification report compiled successfully!", 400);
       setResult(resData);
     } catch (err) {
       alert(err.message);
@@ -114,7 +114,7 @@ const AttendanceValidationTab = ({ halls, activeSessions, onSendAlert, onBulkNot
     doc.setTextColor(0);
     doc.text(`Door (QR) Scans: ${result.qr_count}`, 14, 55);
     doc.text(`AI Headcount: ${result.ai_headcount}`, 14, 62);
-    doc.text(`Validation Result: ${result.mismatch_detected ? 'Mismatch Detected ⚠️' : 'Verified ✅'}`, 14, 69);
+    doc.text(`Validation Result: ${result.mismatch_detected ? 'Mismatch Detected ' : 'Verified '}`, 14, 69);
 
     // Zone Breakdown
     const zoneTableData = Object.entries(result.zone_breakdown).map(([name, count]) => [name, count]);
@@ -176,7 +176,7 @@ const AttendanceValidationTab = ({ halls, activeSessions, onSendAlert, onBulkNot
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto' }}>
       <div style={cardStyle}>
-        <h3 style={{ color: '#1a237e', marginBottom: '20px' }}>🛡️ AI Zoned Headcount Validation</h3>
+        <h3 style={{ color: '#1a237e', marginBottom: '20px' }}>AI Zoned Headcount Validation</h3>
         <p style={{ fontSize: '14px', color: '#666' }}>මෙමගින් ශාලාවේ එක් එක් කලාප (Zones) වල සිටින සිසුන් ගණන QR දත්ත සමඟ සැසඳීම සිදු කරයි.</p>
         
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
@@ -207,7 +207,7 @@ const AttendanceValidationTab = ({ halls, activeSessions, onSendAlert, onBulkNot
 
       {loading && steps.length > 0 && (
         <div style={{ ...cardStyle, borderLeft: '10px solid #1a237e', backgroundColor: '#f5f7fb' }}>
-          <h4 style={{ color: '#1a237e', marginTop: 0, marginBottom: '15px' }}>🤖 Processing AI Validation Steps...</h4>
+          <h4 style={{ color: '#1a237e', marginTop: 0, marginBottom: '15px' }}>Processing AI Validation Steps...</h4>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {steps.map((step, idx) => (
               <div 
@@ -239,13 +239,13 @@ const AttendanceValidationTab = ({ halls, activeSessions, onSendAlert, onBulkNot
         <div style={{ ...cardStyle, borderLeft: `10px solid ${result.mismatch_detected ? '#f44336' : '#4caf50'}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h4 style={{ color: result.mismatch_detected ? '#d32f2f' : '#2e7d32', margin: 0 }}>
-              {result.mismatch_detected ? '⚠️ Attendance Discrepancy Found' : '✅ Attendance Verified'}
+              {result.mismatch_detected ? 'Attendance Discrepancy Found' : 'Attendance Verified'}
             </h4>
             <button 
               onClick={handleDownloadPDF}
               style={{ padding: '8px 15px', backgroundColor: '#455a64', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
             >
-              🖨️ PDF Report
+              PDF Report
             </button>
           </div>
           
@@ -255,7 +255,7 @@ const AttendanceValidationTab = ({ halls, activeSessions, onSendAlert, onBulkNot
           </div>
 
           <div style={{ backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px' }}>
-            <h5 style={{ marginTop: 0, marginBottom: '15px' }}>📷 Zone Breakdown (Headcount per Camera):</h5>
+            <h5 style={{ marginTop: 0, marginBottom: '15px' }}>Zone Breakdown (Headcount per Camera):</h5>
             {Object.entries(result.zone_breakdown).map(([name, count]) => {
               const details = result.verification_data?.zone_details?.[name];
               const imageUrl = details?.image_url;
@@ -267,7 +267,7 @@ const AttendanceValidationTab = ({ halls, activeSessions, onSendAlert, onBulkNot
                   </div>
                   {imageUrl && (
                     <div style={{ marginTop: '10px' }}>
-                      <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#555', fontWeight: '500' }}>📸 Captured Snapshot for Verification:</p>
+                      <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#555', fontWeight: '500' }}>Captured Snapshot for Verification:</p>
                       <img 
                         src={`${API_BASE}/${imageUrl}`} 
                         alt={`Snapshot for ${name}`} 
@@ -275,7 +275,7 @@ const AttendanceValidationTab = ({ halls, activeSessions, onSendAlert, onBulkNot
                       />
                       {details.status === "offline" ? (
                         <div style={{ fontSize: '12px', color: '#c53030', marginTop: '8px', backgroundColor: '#fff5f5', padding: '8px', borderRadius: '4px', border: '1px solid #feb2b2', fontWeight: '500' }}>
-                          ⚠️ Biometric Verification Engine is offline on this server. Snapshot saved for manual review.
+                          Biometric Verification Engine is offline on this server. Snapshot saved for manual review.
                         </div>
                       ) : (
                         details.total_faces_found !== undefined && (
@@ -296,19 +296,19 @@ const AttendanceValidationTab = ({ halls, activeSessions, onSendAlert, onBulkNot
           {result.verification_data?.unverified_students?.length > 0 && (
             <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#fff5f5', borderRadius: '8px', border: '1px solid #feb2b2' }}>
                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                 <h5 style={{ margin: 0, color: '#c53030' }}>🚫 හඳුනාගත නොහැකි වූ සිසුන් (Unverified Students):</h5>
+                 <h5 style={{ margin: 0, color: '#c53030' }}>හඳුනාගත නොහැකි වූ සිසුන් (Unverified Students):</h5>
                  <div style={{ display: 'flex', gap: '10px' }}>
                     <button 
                       onClick={() => onBulkNotify(result.verification_data.unverified_students.map(s => s.id), sessionId)}
                       style={{ padding: '6px 12px', backgroundColor: '#c53030', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
                     >
-                      🔔 Notify All Parents
+                      Notify All Parents
                     </button>
                     <button 
                       onClick={handleDownloadCSV}
                       style={{ padding: '6px 12px', backgroundColor: '#4a5568', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
                     >
-                      📥 Download CSV
+                      Download CSV
                     </button>
                  </div>
                </div>
@@ -323,14 +323,14 @@ const AttendanceValidationTab = ({ halls, activeSessions, onSendAlert, onBulkNot
                            onClick={() => onVerifyFace(s.id, sessionId)}
                            style={{ padding: '6px 12px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
                          >
-                           🧬 Verify Face
+                           Verify Face
                          </button>
                        )}
                        <button 
                          onClick={() => onSendAlert(s.id, sessionId)}
                          style={{ padding: '6px 12px', backgroundColor: '#e53e3e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
                        >
-                         🔔 Notify Parent
+                         Notify Parent
                        </button>
                      </div>
                    </li>

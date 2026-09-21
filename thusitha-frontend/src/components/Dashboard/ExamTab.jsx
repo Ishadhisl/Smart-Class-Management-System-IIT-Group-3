@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { request } from '../../services/api';
 import { useNotification } from '../../context/NotificationContext';
-import { Loader2, Upload, FileSpreadsheet, Plus, AlertCircle, Download, CheckCircle2 } from 'lucide-react';
+import { Loader2, Upload, FileSpreadsheet, Plus, AlertCircle, Download, CheckCircle2, GraduationCap, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import FormError from '../common/FormError';
 import { filterTextInput, TEXT_INVALID_MSG, validateText, validateNumber, validateDate, blockNegativeKeys, filterNonNegativeNumber, NUMBER_INVALID_MSG } from '../../utils/formValidation';
@@ -11,8 +11,16 @@ import { useFieldValidation } from '../../utils/useFieldValidation';
 const examInputClass = (invalid) =>
   `w-full p-3 rounded-xl border focus:ring-2 focus:border-transparent outline-none bg-gray-50 ${invalid ? 'border-danger focus:ring-danger/40' : 'border-gray-200 focus:ring-primary'}`;
 
-const ExamTab = ({ courses, role }) => {
-  const [selectedCourse, setSelectedCourse] = useState('');
+const ExamTab = ({ courses, role, autoSelect = false, preferredCourseId = '' }) => {
+  // Students (and teachers) open straight on their first class (or the one clicked on the
+  // home page) instead of an empty "පන්තිය තෝරන්න" picker.
+  const [selectedCourse, setSelectedCourse] = useState(() => preferredCourseId || (autoSelect && courses[0] ? String(courses[0].course_id) : ''));
+
+  useEffect(() => {
+    if (!autoSelect || selectedCourse || !courses.length) return undefined;
+    const timer = setTimeout(() => setSelectedCourse(String(courses[0].course_id)), 0);
+    return () => clearTimeout(timer);
+  }, [autoSelect, courses, selectedCourse]);
   const [exams, setExams] = useState([]);
   const [selectedExam, setSelectedExam] = useState(null);
   const [results, setResults] = useState([]);
@@ -89,7 +97,7 @@ const ExamTab = ({ courses, role }) => {
     <div className="bg-white p-6 rounded-2xl shadow-glass flex flex-col h-[calc(100vh-120px)]">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
-          <h3 className="text-2xl font-bold text-primary mb-2">📊 {isStudent ? 'මගේ විභාග සහ ප්‍රතිඵල' : 'විභාග සහ ලකුණු කළමනාකරණය'}</h3>
+          <h3 className="text-2xl font-bold text-primary mb-2">{isStudent ? 'මගේ විභාග සහ ප්‍රතිඵල' : 'විභාග සහ ලකුණු කළමනාකරණය'}</h3>
           <p className="text-gray-500">ශිෂ්‍ය ලකුණු දර්ශකය</p>
         </div>
 
@@ -109,7 +117,7 @@ const ExamTab = ({ courses, role }) => {
       <div className="flex-1 bg-gray-50 rounded-xl border border-gray-200 flex flex-col overflow-hidden relative">
         {!selectedCourse ? (
           <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8">
-            <div className="text-6xl mb-4">🎓</div>
+            <GraduationCap className="w-14 h-14 mb-4 text-gray-300" />
             <p className="text-lg font-medium">විභාග සහ ප්‍රතිඵල බැලීම සඳහා පන්තියක් තෝරන්න</p>
           </div>
         ) : (
@@ -305,7 +313,7 @@ const UploadModal = ({ examId, onClose, onSuccess, onDownloadTemplate }) => {
             <Upload className="w-5 h-5 text-primary" />
             ලකුණු උඩුගත කරන්න (Excel)
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 transition-colors">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-red-500 transition-colors"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="bg-blue-50 p-4 rounded-xl mb-6 border border-blue-100 text-sm text-blue-800">
@@ -466,6 +474,8 @@ const CreateExamModal = ({ courseId, onClose, onSuccess }) => {
 ExamTab.propTypes = {
   courses: PropTypes.arrayOf(PropTypes.object).isRequired,
   role: PropTypes.string,
+  autoSelect: PropTypes.bool,
+  preferredCourseId: PropTypes.string,
 };
 
 export default ExamTab;

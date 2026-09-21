@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaWhatsapp } from "react-icons/fa";
+import { LogIn, KeyRound, Clock, ShieldCheck, ArrowLeft } from "lucide-react";
 import { useNotification } from "../../context/NotificationContext";
 import { authService } from "../../services/authService";
 import { request } from "../../services/api";
@@ -92,7 +93,7 @@ const LoginPage = () => {
       }
     } catch (err) {
       if (err.message.includes("අගුලු දමා ඇත")) {
-        showNotification(`🚫 ${err.message}`, "error");
+        showNotification(`${err.message}`, "error");
       } else {
         showNotification(err.message || "සම්බන්ධතාවයේ දෝෂයකි.", "error");
       }
@@ -145,7 +146,7 @@ const LoginPage = () => {
       });
       setFpPhoneHint(res.phone_hint || "");
       setForgotStep(2);
-      showNotification("WhatsApp OTP code යවන ලදී! 📱");
+      showNotification("WhatsApp OTP code යවන ලදී! ");
     } catch (err) {
       showNotification(err.message || "OTP යැවීමේ දෝෂයකි.", "error");
     } finally {
@@ -195,7 +196,7 @@ const LoginPage = () => {
         body: { username: fpUsername, otp: fpOtp, newPassword: fpNewPw },
         noAuth: true,
       });
-      showNotification("🎉 මුරපදය සාර්ථකව නැවත සකසන ලදී!");
+      showNotification("මුරපදය සාර්ථකව නැවත සකසන ලදී!");
       setForgotStep(0);
       setFpUsername("");
       setFpOtp("");
@@ -454,7 +455,7 @@ const LoginPage = () => {
                     size="lg"
                     fullWidth
                     loading={loading}
-                    icon={<span className="text-xl">➡️</span>}
+                    icon={<LogIn size={18} />}
                   >
                     {loading ? "පරීක්ෂා කරමින්..." : "ඇතුළු වන්න"}
                   </Button>
@@ -501,7 +502,7 @@ const LoginPage = () => {
                     size="lg"
                     fullWidth
                     loading={changingPassword}
-                    icon={<span className="text-xl">🔑</span>}
+                    icon={<KeyRound size={18} />}
                   >
                     {changingPassword ? "සුරකිමින්..." : "මුරපදය සුරකින්න"}
                   </Button>
@@ -552,7 +553,7 @@ const LoginPage = () => {
                     fullWidth
                     className="mt-3"
                     onClick={() => setForgotStep(0)}
-                    icon={<span className="text-xl">←</span>}
+                    icon={<ArrowLeft size={16} />}
                   >
                     Login වෙත යන්න
                   </Button>
@@ -586,7 +587,7 @@ const LoginPage = () => {
                     />
                   </div>
                   <div className="flex items-center gap-2.5 p-3 rounded-xl bg-warning-light/20 text-warning-dark text-xs mb-6">
-                    <span className="shrink-0 text-xl">🕒</span>
+                    <Clock size={16} className="shrink-0" />
                     <span>
                       OTP code 10 මිනිත්තු ඇතුළත භාවිත නොකළ expire වේ.
                     </span>
@@ -598,7 +599,7 @@ const LoginPage = () => {
                     fullWidth
                     loading={fpLoading}
                     disabled={fpOtp.length !== 6}
-                    icon={<span className="text-xl">🛡️</span>}
+                    icon={<ShieldCheck size={18} />}
                   >
                     {fpLoading ? "Verifying..." : "OTP Verify කරන්න"}
                   </Button>
@@ -612,7 +613,7 @@ const LoginPage = () => {
                       setForgotStep(1);
                       setFpOtp("");
                     }}
-                    icon={<span className="text-xl">←</span>}
+                    icon={<ArrowLeft size={16} />}
                   >
                     OTP නැවත ලබාගන්න
                   </Button>
@@ -664,7 +665,7 @@ const LoginPage = () => {
                       size="lg"
                       fullWidth
                       loading={fpLoading}
-                      icon={<span className="text-xl">🔑</span>}
+                      icon={<KeyRound size={18} />}
                     >
                       {fpLoading ? "සුරකිමින්..." : "මුරපදය Reset කරන්න"}
                     </Button>

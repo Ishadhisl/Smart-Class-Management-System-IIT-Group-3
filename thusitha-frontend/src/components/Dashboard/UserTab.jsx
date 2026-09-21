@@ -54,7 +54,7 @@ const UserTab = ({ users, onResetPassword, onCreateUser, onDeleteUser }) => {
   return (
     <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <h3 style={{ color: '#1a237e', margin: 0 }}>📚 පද්ධති පරිශීලකයින් සහ පන්ති දත්ත</h3>
+        <h3 style={{ color: '#1a237e', margin: 0 }}>පද්ධති පරිශීලකයින් සහ පන්ති දත්ත</h3>
         <button
           onClick={() => setShowModal(true)}
           style={{
@@ -71,7 +71,7 @@ const UserTab = ({ users, onResetPassword, onCreateUser, onDeleteUser }) => {
             gap: '8px'
           }}
         >
-          ➕ නව කාර්ය මණ්ඩල සාමාජිකයෙක් එක් කරන්න
+          නව කාර්ය මණ්ඩල සාමාජිකයෙක් එක් කරන්න
         </button>
       </div>
 
@@ -101,7 +101,7 @@ const UserTab = ({ users, onResetPassword, onCreateUser, onDeleteUser }) => {
                   onClick={() => onResetPassword(cls.user_id || cls._id)}
                   style={{ background: '#3f51b5', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', marginRight: '8px' }}
                 >
-                  Reset Pass
+                  මුරපදය යළි පිහිටුවන්න
                 </button>
                 {cls.username !== 'admin' && (
                   <button
@@ -112,7 +112,7 @@ const UserTab = ({ users, onResetPassword, onCreateUser, onDeleteUser }) => {
                     }}
                     style={{ background: '#f44336', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
                   >
-                    Delete
+                    ඉවත් කරන්න
                   </button>
                 )}
               </td>

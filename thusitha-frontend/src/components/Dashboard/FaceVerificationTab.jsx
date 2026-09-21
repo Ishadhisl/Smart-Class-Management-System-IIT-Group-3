@@ -200,7 +200,7 @@ const FaceVerificationTab = ({ activeSessions, students }) => {
       <div style={cardStyle}>
         <h3 style={{ color: '#1a237e', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold' }}>
           <ShieldCheck size={24} className="text-primary" />
-          🧬 මුහුණු සත්‍යාපන අංශය (Face Verification Panel)
+          මුහුණු සත්‍යාපන අංශය (Face Verification Panel)
         </h3>
         <p style={{ fontSize: '14px', color: '#666', marginBottom: '25px' }}>
           පැමිණීමේ විසංවාදයක් (Mismatch) ඇති වූ විට, පන්තියේ සිටින ශිෂ්‍යයාගේ අනන්‍යතාවය වෙබ් කැමරාව මඟින් සත්‍යාපනය කිරීමට මෙම පිටුව භාවිතා කරන්න.
@@ -241,7 +241,7 @@ const FaceVerificationTab = ({ activeSessions, students }) => {
             </select>
             {sessionId && filteredStudents.length === 0 && (
               <span style={{ fontSize: '12px', color: '#2e7d32', marginTop: '5px', display: 'block' }}>
-                🎉 සියලුම සිසුන් සත්‍යාපනය වී ඇත!
+                සියලුම සිසුන් සත්‍යාපනය වී ඇත!
               </span>
             )}
           </div>
@@ -302,7 +302,7 @@ const FaceVerificationTab = ({ activeSessions, students }) => {
                   onClick={capturePhoto}
                   style={{ padding: '12px 24px', backgroundColor: '#d32f2f', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
                 >
-                  📸 ඡායාරූපය ගන්න (Capture Face)
+                  ඡායාරූපය ගන්න (Capture Face)
                 </button>
               )}
               {photo && (
@@ -322,7 +322,7 @@ const FaceVerificationTab = ({ activeSessions, students }) => {
                 disabled={verifying}
                 style={{ width: '100%', maxWidth: '480px', padding: '15px', backgroundColor: '#2e7d32', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginTop: '10px', boxShadow: '0 4px 10px rgba(46, 125, 50, 0.2)' }}
               >
-                {verifying ? 'මුහුණ පරීක්ෂා කරමින්...' : '🧬 අනන්‍යතාවය තහවුරු කරන්න (Verify Identity)'}
+                {verifying ? 'මුහුණ පරීක්ෂා කරමින්...' : 'අනන්‍යතාවය තහවුරු කරන්න (Verify Identity)'}
               </button>
             )}
           </div>
@@ -331,7 +331,7 @@ const FaceVerificationTab = ({ activeSessions, students }) => {
         {/* Mark Fraud Button for remaining students */}
         {sessionId && filteredStudents.length > 0 && !photo && (
           <div style={{ marginTop: '30px', padding: '20px', backgroundColor: '#ffebee', borderRadius: '12px', border: '1px solid #ef9a9a', textAlign: 'center' }}>
-            <h4 style={{ color: '#c62828', marginTop: 0, marginBottom: '10px' }}>⚠️ සත්‍යාපනය අවසන් කරන්න</h4>
+            <h4 style={{ color: '#c62828', marginTop: 0, marginBottom: '10px' }}>සත්‍යාපනය අවසන් කරන්න</h4>
             <p style={{ fontSize: '14px', color: '#b71c1c', marginBottom: '15px' }}>
               පන්තියේ සිටින සියලුම සිසුන් සත්‍යාපනය කර අවසන්ද? තවමත් ලැයිස්තුවේ සිසුන් {filteredStudents.length} ක් ඉතිරි වී ඇත. ඔවුන් නිවසේ සිට QR ස්කෑන් කළ සිසුන් (Fraud) ලෙස සලකා පද්ධතියේ සටහන් කරන්න.
             </p>

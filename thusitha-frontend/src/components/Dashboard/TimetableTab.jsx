@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { request } from '../../services/api';
-import { Loader2, AlertTriangle, ExternalLink, ClipboardList } from 'lucide-react';
+import { Loader2, AlertTriangle, ExternalLink, ClipboardList, Calendar } from 'lucide-react';
 
 const TimetableTab = ({ schedules, role }) => {
   const [embedUrl, setEmbedUrl] = useState('');
@@ -70,7 +70,7 @@ const TimetableTab = ({ schedules, role }) => {
     <div className="bg-white p-6 rounded-2xl shadow-glass flex flex-col min-h-screen">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-primary mb-2">📅 මගේ කාලසටහන (My Timetable)</h2>
+          <h2 className="text-2xl font-bold text-primary mb-2">මගේ කාලසටහන (My Timetable)</h2>
           <p className="text-gray-500">Moodle Calendar හරහා ක්‍රියාත්මක වේ (Powered by Moodle)</p>
         </div>
       </div>
@@ -100,7 +100,7 @@ const TimetableTab = ({ schedules, role }) => {
           />
         ) : newTabUrl ? (
           <div className="text-center px-6">
-            <div className="text-6xl mb-4">📅</div>
+            <Calendar className="w-14 h-14 mb-4 text-gray-300" />
             <p className="text-lg font-medium text-gray-700 mb-4">
               Moodle Calendar එක වෙනම tab එකකින් විවෘත වේ.
             </p>
@@ -115,7 +115,7 @@ const TimetableTab = ({ schedules, role }) => {
           </div>
         ) : !loading && !loadError && (
           <div className="text-gray-400 flex flex-col items-center">
-            <div className="text-6xl mb-4">📅</div>
+            <Calendar className="w-14 h-14 mb-4 text-gray-300" />
             <p className="text-lg font-medium">Moodle Calendar ලබා ගැනීමට නොහැකි විය.</p>
           </div>
         )}

@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { request, BASE_URL } from '../../services/api';
 import { SearchableSelect } from './Tabs/AchievementTab';
 import { generateReceiptPDF } from '../../utils/generateReceiptPDF';
+import { paymentMethodLabel } from '../../utils/paymentMethod';
 import FormError from '../common/FormError';
 import { validateRequired, validateNumber, blockNegativeKeys, filterNonNegativeNumber, NUMBER_INVALID_MSG } from '../../utils/formValidation';
 import { useFieldValidation } from '../../utils/useFieldValidation';
@@ -74,11 +75,17 @@ const PaymentTab = ({ students, courses, onRecordPayment, onSendReminders, role 
     onSendReminders(reminderData);
   };
 
+  // Teachers open this from the home page "ගෙවීම්" quick action: show THIS month's
+  // payments for their own classes by default (courses prop is already scoped).
+  const isTeacher = role === 'Teacher';
   const [filterCourse, setFilterCourse] = useState('');
-  const [filterMonth, setFilterMonth] = useState('');
+  const [filterMonth, setFilterMonth] = useState(() => (isTeacher ? ['January','February','March','April','May','June','July','August','September','October','November','December'][new Date().getMonth()] : ''));
   const [searchQuery, setSearchQuery] = useState('');
   const [paymentsList, setPaymentsList] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  // Students of the chosen class who have NOT paid for the chosen month.
+  const [unpaidList, setUnpaidList] = useState([]);
+  const [unpaidLoading, setUnpaidLoading] = useState(false);
 
   const fetchFilteredPayments = async () => {
     setSearchLoading(true);
@@ -99,6 +106,18 @@ const PaymentTab = ({ students, courses, onRecordPayment, onSendReminders, role 
   useEffect(() => {
     fetchFilteredPayments();
   }, [filterCourse, filterMonth]); // Auto fetch when dropdowns change
+
+  // Unpaid list needs both a class and a month to mean anything.
+  useEffect(() => {
+    if (!filterCourse || !filterMonth) { setUnpaidList([]); return undefined; }
+    let cancelled = false;
+    const timer = setTimeout(() => setUnpaidLoading(true), 0);
+    request(`/payments/reports/overdue?month=${encodeURIComponent(filterMonth)}&course_id=${filterCourse}`)
+      .then((rows) => { if (!cancelled) setUnpaidList(Array.isArray(rows) ? rows : []); })
+      .catch(() => { if (!cancelled) setUnpaidList([]); })
+      .finally(() => { if (!cancelled) setUnpaidLoading(false); });
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [filterCourse, filterMonth]);
 
   const handleVerify = async (paymentId, status) => {
     const comments = status === 'Completed' ? 'Approved by staff' : 'Rejected by staff';
@@ -122,7 +141,7 @@ const PaymentTab = ({ students, courses, onRecordPayment, onSendReminders, role 
       {role !== 'Teacher' && (
       <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', width: '100%' }}>
         <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', maxWidth: '600px', flex: 1.5 }}>
-        <h3 style={{ color: '#1a237e', marginBottom: '20px' }}>💰 ගෙවීම් සටහන් කිරීම (Record Payment)</h3>
+        <h3 style={{ color: '#1a237e', marginBottom: '20px' }}>ගෙවීම් සටහන් කිරීම (Record Payment)</h3>
         <form onSubmit={handleSubmit} noValidate>
           <label htmlFor="courseSelect" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>පන්තිය තෝරන්න *</label>
           <select id="courseSelect" style={errStyle(pv.errors.course_id)} value={formData.course_id} onChange={handleCourseChange} onBlur={() => pv.blur('course_id')}>
@@ -170,13 +189,32 @@ const PaymentTab = ({ students, courses, onRecordPayment, onSendReminders, role 
             type="submit"
             style={{ width: '100%', padding: '12px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}
           >
-            💾 ගෙවීම සුරකින්න
+            ගෙවීම සුරකින්න
           </button>
         </form>
         </div>
 
+        {/* Admin has the full reminder tool (compose + log) in the Communication Center, so this
+            card only links there. The Counter has no hub, so it keeps the send form. */}
+        {role === 'Admin' ? (
         <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', maxWidth: '400px', flex: 1, height: 'fit-content' }}>
-          <h3 style={{ color: '#25d366', marginBottom: '20px' }}>🔔 හිඟ මුදල් මතක් කිරීම</h3>
+          <h3 style={{ color: '#25d366', marginBottom: '12px' }}>හිඟ මුදල් මතක් කිරීම</h3>
+          <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>ගෙවීම් නොකළ සිසුන්ගේ මව්පියන්ට WhatsApp මතක් කිරීම් යැවීම සහ යවන ලද පණිවිඩ ලොගය සන්නිවේදන මධ්‍යස්ථානයේ ඇත.</p>
+          <button
+            type="button"
+            onClick={() => {
+              try { sessionStorage.setItem('hubSubTab', 'reminder'); } catch { /* private mode */ }
+              window.dispatchEvent(new CustomEvent('selectHubTab', { detail: 'reminder' }));
+              window.dispatchEvent(new CustomEvent('changeTab', { detail: 'admin_hub' }));
+            }}
+            style={{ width: '100%', padding: '12px', backgroundColor: '#25d366', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            සන්නිවේදන මධ්‍යස්ථානයට යන්න
+          </button>
+        </div>
+        ) : (
+        <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', maxWidth: '400px', flex: 1, height: 'fit-content' }}>
+          <h3 style={{ color: '#25d366', marginBottom: '20px' }}>හිඟ මුදල් මතක් කිරීම</h3>
           <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>තෝරාගත් පන්තියේ අදාළ මාසය සඳහා ගෙවීම් නොකළ සිසුන්ගේ මව්පියන්ට WhatsApp පණිවිඩ යැවීම.</p>
           <form onSubmit={handleReminderSubmit} noValidate>
             <label htmlFor="reminderCourse" style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>පන්තිය තෝරන්න *</label>
@@ -208,17 +246,18 @@ const PaymentTab = ({ students, courses, onRecordPayment, onSendReminders, role 
               type="submit"
               style={{ width: '100%', padding: '12px', backgroundColor: '#25d366', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
             >
-              💬 මතක් කිරීම් WhatsApp යවන්න
+              මතක් කිරීම් WhatsApp යවන්න
             </button>
           </form>
         </div>
+        )}
       </div>
       )}
 
-      {/* 🔍 SEARCH & FILTER PAYMENTS PANEL */}
+      {/* SEARCH & FILTER PAYMENTS PANEL */}
       <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', width: '100%', marginTop: '20px' }}>
         <h3 style={{ color: '#1a237e', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          🔍 ගෙවීම් විස්තර සෙවීම සහ තහවුරු කිරීම (Search & Manage Payments)
+          ගෙවීම් විස්තර සෙවීම සහ තහවුරු කිරීම (Search & Manage Payments)
         </h3>
 
         <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginBottom: '20px', alignItems: 'flex-end' }}>
@@ -272,18 +311,18 @@ const PaymentTab = ({ students, courses, onRecordPayment, onSendReminders, role 
             onClick={fetchFilteredPayments}
             style={{ padding: '12px 24px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
           >
-            සොයන්න (Search)
+            සොයන්න
           </button>
         </div>
 
         {searchLoading ? (
-          <p>Loading payments...</p>
+          <p style={{ color: '#666' }}>ගෙවීම් පූරණය වෙමින්...</p>
         ) : paymentsList.length === 0 ? (
           <p style={{ color: '#666', textAlign: 'center', padding: '20px' }}>ගෙවීම් දත්ත කිසිවක් හමු නොවීය.</p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'max(300px, calc(100vh - 380px))', border: '1px solid #e3e6f0', borderRadius: '10px' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
-              <thead>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                 <tr style={{ backgroundColor: '#f5f6fa', color: '#333', borderBottom: '2px solid #ddd' }}>
                   <th style={{ padding: '12px' }}>දිනය</th>
                   <th style={{ padding: '12px' }}>ශිෂ්‍යයා</th>
@@ -303,7 +342,7 @@ const PaymentTab = ({ students, courses, onRecordPayment, onSendReminders, role 
                     <td style={{ padding: '12px' }}>{p.course_name}</td>
                     <td style={{ padding: '12px' }}>{p.for_month}</td>
                     <td style={{ padding: '12px' }}>Rs. {p.amount_paid}</td>
-                    <td style={{ padding: '12px' }}>{p.payment_method}</td>
+                    <td style={{ padding: '12px' }}>{paymentMethodLabel(p.payment_method)}</td>
                     <td style={{ padding: '12px' }}>
                       <span style={{
                         padding: '4px 8px',
@@ -323,12 +362,12 @@ const PaymentTab = ({ students, courses, onRecordPayment, onSendReminders, role 
                             onClick={() => generateReceiptPDF(p)}
                             style={{ padding: '4px 8px', backgroundColor: '#4caf50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
                           >
-                            Receipt PDF
+                            රිසිට්පත (PDF)
                           </button>
                         )}
                         {p.confirmation_url && (
                           <a href={`${BASE_URL}${p.confirmation_url}`} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#0056b3', textDecoration: 'none', fontWeight: 'bold', border: '1px solid #0056b3', padding: '4px 8px', borderRadius: '4px' }}>
-                            View Slip
+                            බැංකු රිසිට් බලන්න
                           </a>
                         )}
                         {/* 'Pending' = PayHere checkout whose notify callback hasn't arrived (never will on a
@@ -339,13 +378,13 @@ const PaymentTab = ({ students, courses, onRecordPayment, onSendReminders, role 
                               onClick={() => handleVerify(p.payment_id, 'Completed')}
                               style={{ padding: '4px 8px', backgroundColor: '#2196f3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
                             >
-                              Approve
+                              අනුමත කරන්න
                             </button>
                             <button
                               onClick={() => handleVerify(p.payment_id, 'Rejected')}
                               style={{ padding: '4px 8px', backgroundColor: '#f44336', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
                             >
-                              Reject
+                              ප්‍රතික්ෂේප කරන්න
                             </button>
                           </>
                         )}
@@ -355,6 +394,43 @@ const PaymentTab = ({ students, courses, onRecordPayment, onSendReminders, role 
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Who still owes for the selected class + month */}
+        {filterCourse && filterMonth && (
+          <div style={{ marginTop: '25px' }}>
+            <h4 style={{ color: '#c62828', margin: '0 0 10px 0' }}>
+              {filterMonth} මාසයට ගෙවා නැති සිසුන් {unpaidLoading ? '' : `(${unpaidList.length})`}
+            </h4>
+            {unpaidLoading ? (
+              <p style={{ color: '#666' }}>සොයමින්...</p>
+            ) : unpaidList.length === 0 ? (
+              <p style={{ color: '#2e7d32', fontWeight: 'bold' }}>මෙම මාසයට සියලු දෙනා ගෙවා ඇත.</p>
+            ) : (
+              <div style={{ overflowY: 'auto', maxHeight: '420px', border: '1px solid #ffcdd2', borderRadius: '10px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                    <tr style={{ backgroundColor: '#fff5f5', color: '#333', borderBottom: '2px solid #ffcdd2' }}>
+                      <th style={{ padding: '10px 12px' }}>ශිෂ්‍යයා</th>
+                      <th style={{ padding: '10px 12px' }}>ශිෂ්‍ය අංකය</th>
+                      <th style={{ padding: '10px 12px' }}>මව්පිය</th>
+                      <th style={{ padding: '10px 12px' }}>දුරකථනය</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {unpaidList.map((u) => (
+                      <tr key={u.student_id} style={{ borderBottom: '1px solid #f5f5f5' }}>
+                        <td style={{ padding: '10px 12px', fontWeight: 'bold' }}>{u.student_name}</td>
+                        <td style={{ padding: '10px 12px', color: '#666' }}>{u.qr_code_key}</td>
+                        <td style={{ padding: '10px 12px' }}>{u.parent_name || '-'}</td>
+                        <td style={{ padding: '10px 12px' }}>{u.parent_phone || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>

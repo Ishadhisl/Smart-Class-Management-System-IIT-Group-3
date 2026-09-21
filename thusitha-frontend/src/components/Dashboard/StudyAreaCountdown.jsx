@@ -48,7 +48,7 @@ const StudyAreaCountdown = ({ expectedArrivalTime, bookingId, onExpire }) => {
 
   return (
     <span className="text-warning font-bold text-[10px]">
-      ⏳ {timeLeft}
+      {timeLeft}
     </span>
   );
 };

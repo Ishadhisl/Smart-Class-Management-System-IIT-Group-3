@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Mail, MessageCircle, Smartphone, Settings } from 'lucide-react';
 import PropTypes from 'prop-types';
 import ContactTab from './ContactTab';
 import SMSLogTab from './SMSLogTab';
@@ -32,7 +33,16 @@ const AdminHubTab = ({
   onDeleteSetting,
   onTriggerDrill,
 }) => {
-  const [subTab, setSubTab] = useState('inquiries');
+  // Other tabs (e.g. the Payments page reminder card) can open a specific sub-tab. The hub
+  // is not mounted while they are showing, so the request is parked in sessionStorage.
+  const [subTab, setSubTab] = useState(() => {
+    try { const t = sessionStorage.getItem('hubSubTab'); sessionStorage.removeItem('hubSubTab'); return t || 'inquiries'; } catch { return 'inquiries'; }
+  });
+  useEffect(() => {
+    const onSelect = (e) => { if (e?.detail) setSubTab(e.detail); };
+    window.addEventListener('selectHubTab', onSelect);
+    return () => window.removeEventListener('selectHubTab', onSelect);
+  }, []);
 
   const unreadCount = inquiries.filter(m => !m.is_read && m.status !== 'Spam').length;
   const failedSMSCount = smsLogs.filter(l => l.whatsapp_status === 'Failed' || l.status === 'Failed').length;
@@ -42,10 +52,10 @@ const AdminHubTab = ({
     .map(s => s.setting_value);
 
   const tabs = [
-    { key: 'inquiries',  label: 'වෙබ් විමසීම්',    icon: '✉️', badge: unreadCount },
-    { key: 'reminder',   label: 'WhatsApp Reminder', icon: '💬', badge: 0, activeColor: '#25d366' },
-    { key: 'sms_logs',   label: 'WhatsApp වාර්තා',  icon: '📱', badge: failedSMSCount, badgeColor: '#d32f2f' },
-    { key: 'settings',   label: 'පද්ධති සැකසුම්',   icon: '⚙️', badge: 0 },
+    { key: 'inquiries',  label: 'වෙබ් විමසීම්',    icon: <Mail size={16} />, badge: unreadCount },
+    { key: 'reminder',   label: 'WhatsApp මතක් කිරීම්', icon: <MessageCircle size={16} />, badge: 0, activeColor: '#25d366' },
+    { key: 'sms_logs',   label: 'WhatsApp වාර්තා',  icon: <Smartphone size={16} />, badge: failedSMSCount, badgeColor: '#d32f2f' },
+    { key: 'settings',   label: 'පද්ධති සැකසුම්',   icon: <Settings size={16} />, badge: 0 },
   ];
 
   return (
@@ -53,7 +63,7 @@ const AdminHubTab = ({
       {/* Header */}
       <div style={{ marginBottom: '8px' }}>
         <h2 style={{ margin: '0 0 4px 0', color: '#1a237e', fontSize: '22px', fontWeight: '800' }}>
-          📬 සන්නිවේදන මධ්‍යස්ථානය
+          සන්නිවේදන මධ්‍යස්ථානය
         </h2>
         <p style={{ margin: 0, color: '#888', fontSize: '13px' }}>
           වෙබ් විමසීම්, WhatsApp වාර්තා සහ පද්ධති සැකසුම් — එකම ස්ථානයකින් කළමනාකරණය කරන්න.
@@ -95,7 +105,7 @@ const AdminHubTab = ({
                 position: 'relative',
               }}
             >
-              <span>{tab.icon}</span>
+              <span className="inline-flex items-center">{tab.icon}</span>
               <span>{tab.label}</span>
               {tab.badge > 0 && (
                 <span style={{

@@ -96,7 +96,7 @@ const AttendanceTab = ({
             <AlertTriangle size={18} />
           </div>
           <div className="text-sm">
-            <h4 className="font-bold text-amber-900">⚠️ පැමිණීමේ නොගැලපීමක් හඳුනාගෙන ඇත! (AI headcount mismatch)</h4>
+            <h4 className="font-bold text-amber-900">පැමිණීමේ නොගැලපීමක් හඳුනාගෙන ඇත! (AI headcount mismatch)</h4>
             <p className="text-amber-700 mt-1">
               QR මගින් සටහන් වූ සංඛ්‍යාව: <strong className="text-indigo-950">{aiData.qr_count}</strong> |
               කැමරාව මගින් හඳුනාගත් සංඛ්‍යාව: <strong className="text-indigo-950">{aiData.ai_headcount}</strong>
@@ -109,7 +109,7 @@ const AttendanceTab = ({
       {/* Select Class Dropdown Container */}
       <div className="bg-gray-50/70 rounded-2xl p-5 border border-gray-100">
         <label htmlFor="attendanceCourse" className="block text-sm font-bold text-gray-700 mb-2">
-          පන්තිය තෝරන්න (Select Class)
+          පන්තිය තෝරන්න 
         </label>
         <select
           id="attendanceCourse"
@@ -117,7 +117,7 @@ const AttendanceTab = ({
           onChange={(e) => onCourseChange(e.target.value)}
           className="w-full max-w-md px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all shadow-sm"
         >
-          <option value="">-- පන්තියක් තෝරන්න (Select Class) --</option>
+          <option value="">-- පන්තියක් තෝරන්න  --</option>
           {courses.map((c) => (
             <option key={c.course_id} value={c.course_id}>
               {c.course_name}
@@ -132,7 +132,7 @@ const AttendanceTab = ({
           /* HISTORY LOGS SECTION */
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-extrabold text-indigo-950 text-base">📋 පැමිණීම් ඉතිහාසය (Attendance logs)</h3>
+              <h3 className="font-extrabold text-indigo-950 text-base">පැමිණීම් ඉතිහාසය (Attendance logs)</h3>
               <button
                 onClick={fetchLogs}
                 disabled={logsLoading}
@@ -188,7 +188,7 @@ const AttendanceTab = ({
           /* MANUAL MARKING SECTION */
           <div className="space-y-4">
             <p className="text-sm text-gray-500 font-semibold">
-              💡 අද දින පැමිණ සිටින සිසුන් ඉදිරියෙන් ඇති කොටුව සලකුණු කරන්න.
+              අද දින පැමිණ සිටින සිසුන් ඉදිරියෙන් ඇති කොටුව සලකුණු කරන්න.
             </p>
 
             {students.length > 0 ? (
@@ -201,7 +201,7 @@ const AttendanceTab = ({
                     className="flex items-center gap-1.5 px-4 py-2 bg-indigo-900 text-white hover:bg-indigo-950 text-xs font-bold rounded-xl transition-all shadow-sm"
                   >
                     <Check size={14} />
-                    සියල්ලන්ම සලකුණු කරන්න (Select All)
+                    සියල්ලන්ම සලකුණු කරන්න (සියල්ල තෝරන්න)
                   </button>
                   <button
                     type="button"
@@ -258,7 +258,7 @@ const AttendanceTab = ({
                     className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <Save size={16} />
-                    {loading ? 'සුරකිමින්...' : '💾 පැමිණීම සුරකින්න'}
+                    {loading ? 'සුරකිමින්...' : 'පැමිණීම සුරකින්න'}
                   </button>
                 </div>
               </>

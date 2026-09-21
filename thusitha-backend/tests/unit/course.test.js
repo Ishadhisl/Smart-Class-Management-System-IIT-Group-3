@@ -74,6 +74,7 @@ describe('CourseController Unit Tests', () => {
 
     it('should create course successfully', async () => {
       req.body = { course_name: 'Science', monthly_fee: 1000, teacher_id: 1, subject_id: 2 };
+      db.pool.query.mockResolvedValueOnce({ rows: [] }); // duplicate-name check
       db.pool.query.mockResolvedValueOnce({ rows: [{ course_id: 1, course_name: 'Science' }] });
 
       await courseController.createCourse(req, res);

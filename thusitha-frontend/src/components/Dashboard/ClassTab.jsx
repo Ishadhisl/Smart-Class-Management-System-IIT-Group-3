@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import PropTypes from 'prop-types';
 import FormError from '../common/FormError';
 import {
@@ -12,6 +13,16 @@ import { useFieldValidation } from '../../utils/useFieldValidation';
 // margin, so the error gets its own small margin instead).
 const Err = ({ msg }) => (msg ? <FormError className="mb-3">{msg}</FormError> : null);
 Err.propTypes = { msg: PropTypes.string };
+
+// day_of_week arrives as an array, a JSON string, a legacy Postgres literal ({"Friday"}) or a
+// plain "Monday" - normalise all of them to ['Monday', ...].
+const parseDays = (v) => {
+  if (Array.isArray(v)) return v;
+  const raw = String(v ?? '').trim();
+  if (!raw) return [];
+  try { const p = JSON.parse(raw); if (Array.isArray(p)) return p; } catch { /* not JSON */ }
+  return raw.replace(/^{|}$/g, '').split(',').map(s => s.trim().replace(/^"|"$/g, '')).filter(Boolean);
+};
 
 const ClassTab = ({
   courses, lecturers, subjects, halls, classSchedules,
@@ -47,8 +58,10 @@ const ClassTab = ({
   const [editingHallId, setEditingHallId] = useState(null);
 
 
+  const sameName = (a, b) => (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
   const courseRules = (d) => ({
-    course_name: () => validateText(d.course_name, { required: true, label: 'පන්තියේ නම', min: 3, max: 150 }),
+    course_name: () => validateText(d.course_name, { required: true, label: 'පන්තියේ නම', min: 3, max: 150 })
+      || (courses.some(c => sameName(c.course_name, d.course_name) && String(c.course_id) !== String(editingCourseId)) ? 'මේ නමින් පන්තියක් දැනටමත් ඇත.' : ''),
     monthly_fee: () => validateNumber(d.monthly_fee, { label: 'මාසික ගාස්තුව', min: 0 }),
   });
   const cv = useFieldValidation(newCourse, setNewCourse, courseRules, { course_name: 'course-name', monthly_fee: 'course-fee' });
@@ -77,7 +90,8 @@ const ClassTab = ({
   };
 
   const subjectRules = (d) => ({
-    subject_name: () => validateSubject(d.subject_name),
+    subject_name: () => validateSubject(d.subject_name)
+      || (subjects.some(s => sameName(s.subject_name, d.subject_name) && String(s.subject_id) !== String(editingSubjectId)) ? 'මේ නමින් විෂයයක් දැනටමත් ඇත.' : ''),
     description: () => validateText(d.description, { label: 'විස්තරය', max: 500 }),
   });
   const sv = useFieldValidation(newSubject, setNewSubject, subjectRules, { subject_name: 'subject-name', description: 'subject-desc' });
@@ -105,7 +119,8 @@ const ClassTab = ({
   };
 
   const hallRules = (d) => ({
-    hall_name: () => validateText(d.hall_name, { required: true, label: 'ශාලාවේ නම', min: 2, max: 100 }),
+    hall_name: () => validateText(d.hall_name, { required: true, label: 'ශාලාවේ නම', min: 2, max: 100 })
+      || (halls.some(h => sameName(h.hall_name, d.hall_name) && String(h.hall_id) !== String(editingHallId)) ? 'මේ නමින් ශාලාවක් දැනටමත් ඇත.' : ''),
     capacity: () => validateNumber(d.capacity, { label: 'ධාරිතාව', min: 1, max: 5000, integer: true }),
   });
   const hv = useFieldValidation(newHall, setNewHall, hallRules, { hall_name: 'hall-name', capacity: 'hall-capacity' });
@@ -162,15 +177,43 @@ const ClassTab = ({
     hall_id: 'hallSelect', start_time: 'startTime', end_time: 'endTime', capacity: 'capacity',
   });
 
+  // Same hall, overlapping time, a shared weekday -> already booked. Mirrors the backend
+  // check so the user sees it before pressing save (the server is still the authority).
+  const findHallClash = (d) => {
+    if (!d.hall_id || !d.start_time || !d.end_time || !(d.day_of_week || []).length) return null;
+    return (classSchedules || []).find(s =>
+      String(s.hall_id) === String(d.hall_id)
+      && String(s.schedule_id) !== String(editingScheduleId || '')
+      && parseDays(s.day_of_week).some(day => d.day_of_week.includes(day))
+      && d.start_time < String(s.end_time).slice(0, 5) && d.end_time > String(s.start_time).slice(0, 5)
+    ) || null;
+  };
+  const [hallClash, setHallClash] = useState('');
+  const clashMessage = (s) => `"${s.hall_name || 'මෙම ශාලාව'}" ශාලාව ${parseDays(s.day_of_week).join(', ')} ${String(s.start_time).slice(0, 5)}–${String(s.end_time).slice(0, 5)} ට "${s.course_name || s.class_name || 'වෙනත් පන්තියක්'}" පන්තිය සඳහා දැනටමත් වෙන් කර ඇත. වෙනත් වේලාවක් හෝ ශාලාවක් තෝරන්න.`;
+  useEffect(() => {
+    const clash = findHallClash(formData);
+    const timer = setTimeout(() => setHallClash(clash ? clashMessage(clash) : ''), 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.hall_id, formData.start_time, formData.end_time, formData.day_of_week, classSchedules, editingScheduleId]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!schv.validateAll()) return;
+    if (hallClash) { document.getElementById('hallSelect')?.focus(); return; }
     schv.clear();
-    if (editingScheduleId) {
-      await onUpdateClass(editingScheduleId, formData);
-      setEditingScheduleId(null);
-    } else {
-      await onCreateClass(formData);
+    try {
+      if (editingScheduleId) {
+        await onUpdateClass(editingScheduleId, formData);
+        setEditingScheduleId(null);
+      } else {
+        await onCreateClass(formData);
+      }
+    } catch (err) {
+      // 409 from the server (hall already booked) -> show under the hall field, keep the form
+      setHallClash(err?.message || 'මෙම ශාලාව එම වේලාවට දැනටමත් වෙන් කර ඇත.');
+      document.getElementById('hallSelect')?.focus();
+      return;
     }
     // Reset form after submission
     setFormData({
@@ -193,7 +236,7 @@ const ClassTab = ({
       subject_id: schedule.subject_id || '',
       lecturer_id: schedule.lecturer_id || '',
       hall_id: schedule.hall_id || '',
-      day_of_week: Array.isArray(schedule.day_of_week) ? schedule.day_of_week : [],
+      day_of_week: parseDays(schedule.day_of_week),
       start_time: schedule.start_time || '',
       end_time: schedule.end_time || '',
       class_name: schedule.class_name || '',
@@ -242,10 +285,10 @@ const ClassTab = ({
   return (
     <div style={{ backgroundColor: '#f9f9f9', padding: '20px', borderRadius: '10px' }}>
       <div style={{ display: 'flex', gap: '20px', marginBottom: '20px', borderBottom: '1px solid #ddd' }}>
-        <button style={tabStyle(activeSubTab === 'schedules')} onClick={() => setActiveSubTab('schedules')}>🗓️ කාලසටහන්</button>
-        <button style={tabStyle(activeSubTab === 'courses')} onClick={() => setActiveSubTab('courses')}>🎓 පන්ති</button>
-        <button style={tabStyle(activeSubTab === 'subjects')} onClick={() => setActiveSubTab('subjects')}>📚 විෂයයන්</button>
-        <button style={tabStyle(activeSubTab === 'halls')} onClick={() => setActiveSubTab('halls')}>🏢 ශාලා</button>
+        <button style={tabStyle(activeSubTab === 'schedules')} onClick={() => setActiveSubTab('schedules')}>කාලසටහන්</button>
+        <button style={tabStyle(activeSubTab === 'courses')} onClick={() => setActiveSubTab('courses')}>පන්ති</button>
+        <button style={tabStyle(activeSubTab === 'subjects')} onClick={() => setActiveSubTab('subjects')}>විෂයයන්</button>
+        <button style={tabStyle(activeSubTab === 'halls')} onClick={() => setActiveSubTab('halls')}>ශාලා</button>
       </div>
 
       {activeSubTab === 'schedules' && (
@@ -254,7 +297,7 @@ const ClassTab = ({
           <div style={{ flex: 1, minWidth: '400px', backgroundColor: 'white', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ color: '#1a237e', margin: 0 }}>
-                {editingScheduleId ? '🔄 කාලසටහන සංස්කරණය' : '📚 නව පන්ති කාලසටහනක්'}
+                {editingScheduleId ? 'කාලසටහන සංස්කරණය' : 'නව පන්ති කාලසටහනක්'}
               </h3>
               {editingScheduleId && (
                 <button onClick={() => { setEditingScheduleId(null); setFormData({ course_id: '', subject_id: '', lecturer_id: '', hall_id: '', day_of_week: [], start_time: '', end_time: '', class_name: '', capacity: '' }); }} style={{ background: 'none', border: 'none', color: '#d32f2f', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline' }}>අවලංගු කරන්න</button>
@@ -291,7 +334,7 @@ const ClassTab = ({
                 <option value="">-- ශාලාවක් තෝරන්න --</option>
                 {halls.map((h, idx) => <option key={h.hall_id || idx} value={h.hall_id}>{h.hall_name} (Capacity: {h.capacity})</option>)}
               </select>
-              <Err msg={schv.errors.hall_id} />
+              <Err msg={schv.errors.hall_id || hallClash} />
 
               <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
                 <legend style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>සතියේ දින</legend>
@@ -328,15 +371,15 @@ const ClassTab = ({
               <input id="capacity" type="number" min="1" placeholder="උදා: 50" style={errStyle(schv.errors.capacity)} value={formData.capacity} onKeyDown={blockNegativeKeys} onChange={(e) => schv.set('capacity', e.target.value, filterNonNegativeNumber, NUMBER_INVALID_MSG)} onBlur={() => schv.blur('capacity')} />
               <Err msg={schv.errors.capacity} />
 
-              <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
-                {editingScheduleId ? '💾 වෙනස්කම් සුරකින්න' : '💾 කාලසටහන සුරකින්න'}
+              <button type="submit" disabled={!!hallClash} title={hallClash || ''} style={{ width: '100%', padding: '12px', backgroundColor: hallClash ? '#9e9e9e' : '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: hallClash ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+                {editingScheduleId ? 'වෙනස්කම් සුරකින්න' : 'කාලසටහන සුරකින්න'}
               </button>
             </form>
           </div>
 
           {/* RIGHT: Existing Class Schedules */}
           <div style={{ flex: 2, minWidth: '500px', backgroundColor: 'white', padding: '25px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-            <h3 style={{ color: '#1a237e', marginBottom: '20px' }}>🗓️ පවතින පන්ති කාලසටහන් (Existing Schedules)</h3>
+            <h3 style={{ color: '#1a237e', marginBottom: '20px' }}>පවතින පන්ති කාලසටහන් (Existing Schedules)</h3>
             <input
               type="text"
               placeholder="පන්තියේ නම, දේශකයා, හෝ ශාලාව අනුව සොයන්න..."
@@ -364,20 +407,20 @@ const ClassTab = ({
                       <td style={{ padding: '12px' }}>{schedule.lecturer_name}</td>
                       <td style={{ padding: '12px' }}>{schedule.hall_name}</td>
                       <td style={{ padding: '12px' }}>{schedule.start_time} - {schedule.end_time}</td>
-                      <td style={{ padding: '12px' }}>{Array.isArray(schedule.day_of_week) ? schedule.day_of_week.join(', ') : (schedule.day_of_week || '')}</td>
+                      <td style={{ padding: '12px' }}>{parseDays(schedule.day_of_week).join(', ')}</td>
                       <td style={{ padding: '12px' }}>{schedule.capacity}</td>
                       <td style={{ padding: '12px' }}>
                         <button
                           onClick={() => handleEditClick(schedule)}
                           style={{ padding: '4px 8px', backgroundColor: '#fff8e1', color: '#f57f17', border: '1px solid #ffecb3', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
                         >
-                          Edit
+                          සංස්කරණය
                         </button>
                         <button
                           onClick={() => setConfirmDeleteId(schedule.schedule_id)}
                           style={{ padding: '4px 8px', backgroundColor: '#ffebee', color: '#d32f2f', border: '1px solid #ffcdd2', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', marginLeft: '5px' }}
                         >
-                          Delete
+                          ඉවත් කරන්න
                         </button>
                       </td>
                     </tr>
@@ -393,7 +436,7 @@ const ClassTab = ({
             {confirmDeleteId && (
               <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1200 }}>
                 <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '12px', width: '400px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
-                  <div style={{ fontSize: '40px', color: '#d32f2f', marginBottom: '15px' }}>⚠️</div>
+                  <div style={{ color: '#d32f2f', marginBottom: '15px', display: 'flex', justifyContent: 'center' }}><AlertTriangle size={40} /></div>
                   <h3 style={{ margin: '0 0 10px 0', color: '#1a237e' }}>කාලසටහන ඉවත් කිරීම ස්ථිරද?</h3>
                   <p style={{ color: '#666', fontSize: '14px', lineHeight: '1.5' }}>
                     මෙම ක්‍රියාව ආපසු හැරවිය නොහැක. මෙම කාලසටහනට අදාළ සියලුම දත්ත පද්ධතියෙන් ඉවත් වනු ඇත.
@@ -414,7 +457,7 @@ const ClassTab = ({
           <div style={{ flex: 1, minWidth: '300px', backgroundColor: 'white', padding: '25px', borderRadius: '10px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ color: '#1a237e', margin: 0 }}>
-                {editingCourseId ? '🔄 පන්තිය සංස්කරණය' : '➕ නව පන්තියක්'}
+                {editingCourseId ? 'පන්තිය සංස්කරණය' : 'නව පන්තියක්'}
               </h3>
               {editingCourseId && (
                 <button onClick={() => { setEditingCourseId(null); setNewCourse({ course_name: '', monthly_fee: '', teacher_id: '', subject_id: '' }); }} style={{ background: 'none', border: 'none', color: '#d32f2f', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline' }}>අවලංගු කරන්න</button>
@@ -422,7 +465,7 @@ const ClassTab = ({
             </div>
             <form onSubmit={handleSubmitCourse} noValidate>
               <label htmlFor="course-name">පන්තියේ නම *</label>
-              <input id="course-name" style={errStyle(cv.errors.course_name)} placeholder="උදා: Grade 11 Science - Batch A" maxLength={150} value={newCourse.course_name} onChange={e => cv.set('course_name', e.target.value, filterTextInput, TEXT_INVALID_MSG)} onBlur={() => cv.blur('course_name')} />
+              <input id="course-name" style={errStyle(cv.errors.course_name)} placeholder="උදා: Grade 11 Science - Batch A" maxLength={150} value={newCourse.course_name} onChange={e => cv.set('course_name', e.target.value, filterTextInput, TEXT_INVALID_MSG, { live: true })} onBlur={() => cv.blur('course_name')} />
               <Err msg={cv.errors.course_name} />
 
               <label htmlFor="course-fee">මාසික ගාස්තුව (Rs.) *</label>
@@ -441,7 +484,7 @@ const ClassTab = ({
                 {subjects.map(s => <option key={s.subject_id} value={s.subject_id}>{s.subject_name}</option>)}
               </select>
 
-              <button style={{ width: '100%', padding: '10px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>{editingCourseId ? '💾 වෙනස්කම් සුරකින්න' : '💾 පන්තිය සුරකින්න'}</button>
+              <button style={{ width: '100%', padding: '10px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>{editingCourseId ? 'වෙනස්කම් සුරකින්න' : 'පන්තිය සුරකින්න'}</button>
             </form>
           </div>
           <div style={{ flex: 2, minWidth: '400px', backgroundColor: 'white', padding: '25px', borderRadius: '10px' }}>
@@ -454,8 +497,8 @@ const ClassTab = ({
                     <td style={{ padding: '12px' }}>{c.course_name}</td>
                     <td style={{ padding: '12px', fontWeight: 'bold' }}>රු. {c.monthly_fee ? parseFloat(c.monthly_fee).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '0.00'}</td>
                     <td style={{ padding: '12px' }}>
-                      <button onClick={() => handleEditCourseClick(c)} style={{ padding: '5px 10px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold', marginRight: '5px' }}>Edit</button>
-                      <button onClick={() => onDeleteCourse(c.course_id)} style={{ padding: '5px 10px', background: '#ffebee', color: '#d32f2f', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold' }}>Delete</button>
+                      <button onClick={() => handleEditCourseClick(c)} style={{ padding: '5px 10px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold', marginRight: '5px' }}>සංස්කරණය</button>
+                      <button onClick={() => onDeleteCourse(c.course_id)} style={{ padding: '5px 10px', background: '#ffebee', color: '#d32f2f', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold' }}>ඉවත් කරන්න</button>
                     </td>
                   </tr>
                 ))}
@@ -470,7 +513,7 @@ const ClassTab = ({
           <div style={{ flex: 1, minWidth: '300px', backgroundColor: 'white', padding: '25px', borderRadius: '10px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ color: '#1a237e', margin: 0 }}>
-                {editingSubjectId ? '🔄 විෂය සංස්කරණය' : '➕ නව විෂයයක්'}
+                {editingSubjectId ? 'විෂය සංස්කරණය' : 'නව විෂයයක්'}
               </h3>
               {editingSubjectId && (
                 <button onClick={() => { setEditingSubjectId(null); setNewSubject({ subject_name: '', description: '' }); }} style={{ background: 'none', border: 'none', color: '#d32f2f', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline' }}>අවලංගු කරන්න</button>
@@ -478,13 +521,13 @@ const ClassTab = ({
             </div>
             <form onSubmit={handleSubmitSubject} noValidate>
               <label htmlFor="subject-name">විෂයෙහි නම *</label>
-              <input id="subject-name" style={errStyle(sv.errors.subject_name)} placeholder="උදා: ගණිතය (Mathematics)" maxLength={100} value={newSubject.subject_name} onChange={e => sv.set('subject_name', e.target.value, filterTextInput, TEXT_INVALID_MSG)} onBlur={() => sv.blur('subject_name')} />
+              <input id="subject-name" style={errStyle(sv.errors.subject_name)} placeholder="උදා: ගණිතය (Mathematics)" maxLength={100} value={newSubject.subject_name} onChange={e => sv.set('subject_name', e.target.value, filterTextInput, TEXT_INVALID_MSG, { live: true })} onBlur={() => sv.blur('subject_name')} />
               <Err msg={sv.errors.subject_name} />
 
               <label htmlFor="subject-desc">විස්තරය</label>
               <input id="subject-desc" style={errStyle(sv.errors.description)} placeholder="උදා: 10/11 ශ්‍රේණි සඳහා" maxLength={500} value={newSubject.description} onChange={e => sv.set('description', e.target.value, filterTextInput, TEXT_INVALID_MSG)} onBlur={() => sv.blur('description')} />
               <Err msg={sv.errors.description} />
-              <button style={{ width: '100%', padding: '10px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>{editingSubjectId ? '💾 වෙනස්කම් සුරකින්න' : '💾 සුරකින්න'}</button>
+              <button style={{ width: '100%', padding: '10px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>{editingSubjectId ? 'වෙනස්කම් සුරකින්න' : 'සුරකින්න'}</button>
             </form>
           </div>
           <div style={{ flex: 2, minWidth: '400px', backgroundColor: 'white', padding: '25px', borderRadius: '10px' }}>
@@ -497,8 +540,8 @@ const ClassTab = ({
                     <td style={{ padding: '12px' }}>{s.subject_name}</td>
                     <td style={{ padding: '12px' }}>{s.description || 'N/A'}</td>
                     <td style={{ padding: '12px' }}>
-                      <button onClick={() => handleEditSubjectClick(s)} style={{ padding: '5px 10px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold', marginRight: '5px' }}>Edit</button>
-                      <button onClick={() => onDeleteSubject(s.subject_id)} style={{ padding: '5px 10px', background: '#ffebee', color: '#d32f2f', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold' }}>Delete</button>
+                      <button onClick={() => handleEditSubjectClick(s)} style={{ padding: '5px 10px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold', marginRight: '5px' }}>සංස්කරණය</button>
+                      <button onClick={() => onDeleteSubject(s.subject_id)} style={{ padding: '5px 10px', background: '#ffebee', color: '#d32f2f', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold' }}>ඉවත් කරන්න</button>
                     </td>
                   </tr>
                 ))}
@@ -513,7 +556,7 @@ const ClassTab = ({
           <div style={{ flex: 1, minWidth: '300px', backgroundColor: 'white', padding: '25px', borderRadius: '10px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ color: '#1a237e', margin: 0 }}>
-                {editingHallId ? '🔄 ශාලාව සංස්කරණය' : '➕ නව ශාලාවක්'}
+                {editingHallId ? 'ශාලාව සංස්කරණය' : 'නව ශාලාවක්'}
               </h3>
               {editingHallId && (
                 <button onClick={() => { setEditingHallId(null); setNewHall({ hall_name: '', capacity: '' }); }} style={{ background: 'none', border: 'none', color: '#d32f2f', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline' }}>අවලංගු කරන්න</button>
@@ -521,12 +564,12 @@ const ClassTab = ({
             </div>
             <form onSubmit={handleSubmitHall} noValidate>
               <label htmlFor="hall-name">ශාලාවේ නම *</label>
-              <input id="hall-name" style={errStyle(hv.errors.hall_name)} placeholder="උදා: Main Hall A" maxLength={100} value={newHall.hall_name} onChange={e => hv.set('hall_name', e.target.value, filterTextInput, TEXT_INVALID_MSG)} onBlur={() => hv.blur('hall_name')} />
+              <input id="hall-name" style={errStyle(hv.errors.hall_name)} placeholder="උදා: Main Hall A" maxLength={100} value={newHall.hall_name} onChange={e => hv.set('hall_name', e.target.value, filterTextInput, TEXT_INVALID_MSG, { live: true })} onBlur={() => hv.blur('hall_name')} />
               <Err msg={hv.errors.hall_name} />
               <label htmlFor="hall-capacity">ධාරිතාව *</label>
               <input id="hall-capacity" style={errStyle(hv.errors.capacity)} type="number" min="1" placeholder="උදා: 150" value={newHall.capacity} onKeyDown={blockNegativeKeys} onChange={e => hv.set('capacity', e.target.value, filterNonNegativeNumber, NUMBER_INVALID_MSG)} onBlur={() => hv.blur('capacity')} />
               <Err msg={hv.errors.capacity} />
-              <button style={{ width: '100%', padding: '10px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>{editingHallId ? '💾 වෙනස්කම් සුරකින්න' : '💾 සුරකින්න'}</button>
+              <button style={{ width: '100%', padding: '10px', backgroundColor: '#1a237e', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>{editingHallId ? 'වෙනස්කම් සුරකින්න' : 'සුරකින්න'}</button>
             </form>
           </div>
           <div style={{ flex: 2, minWidth: '400px', backgroundColor: 'white', padding: '25px', borderRadius: '10px' }}>
@@ -539,8 +582,8 @@ const ClassTab = ({
                     <td style={{ padding: '12px' }}>{h.hall_name}</td>
                     <td style={{ padding: '12px', fontWeight: 'bold' }}>{h.capacity}</td>
                     <td style={{ padding: '12px' }}>
-                      <button onClick={() => handleEditHallClick(h)} style={{ padding: '5px 10px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold', marginRight: '5px' }}>Edit</button>
-                      <button onClick={() => onDeleteHall(h.hall_id)} style={{ padding: '5px 10px', background: '#ffebee', color: '#d32f2f', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold' }}>Delete</button>
+                      <button onClick={() => handleEditHallClick(h)} style={{ padding: '5px 10px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold', marginRight: '5px' }}>සංස්කරණය</button>
+                      <button onClick={() => onDeleteHall(h.hall_id)} style={{ padding: '5px 10px', background: '#ffebee', color: '#d32f2f', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 'bold' }}>ඉවත් කරන්න</button>
                     </td>
                   </tr>
                 ))}

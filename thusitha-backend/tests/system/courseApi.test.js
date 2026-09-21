@@ -43,6 +43,7 @@ describe('Course API System Tests', () => {
   });
 
   it('POST /courses - should create course with valid data', async () => {
+    db.pool.query.mockResolvedValueOnce({ rows: [] }); // duplicate-name check
     db.pool.query.mockResolvedValueOnce({ 
       rows: [{ course_id: 1, course_name: 'Math', monthly_fee: 1000 }] 
     });
@@ -57,6 +58,15 @@ describe('Course API System Tests', () => {
     expect(res.statusCode).toEqual(201);
     expect(res.body.message).toEqual('පාඨමාලාව සාර්ථකව එකතු කළා!');
     expect(res.body.course).toHaveProperty('course_name', 'Math');
+  });
+
+  it('POST /courses - should reject a duplicate course name (case-insensitive)', async () => {
+    db.pool.query.mockResolvedValueOnce({ rows: [{ course_id: 7 }] }); // duplicate-name check hits
+    const res = await request(app)
+      .post('/courses')
+      .send({ course_name: 'math', monthly_fee: 1000 });
+    expect(res.statusCode).toEqual(409);
+    expect(res.body.message).toMatch(/දැනටමත් ඇත/);
   });
 
   it('DELETE /courses/:id - should soft delete course', async () => {

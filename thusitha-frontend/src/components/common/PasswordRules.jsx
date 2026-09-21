@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types';
+import { CheckCircle, Circle } from 'lucide-react';
 import { passwordChecks } from '../../utils/formValidation';
 
 /**
@@ -11,7 +12,7 @@ const PasswordRules = ({ value, className = '' }) => (
     <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-0.5">
       {passwordChecks(value).map((r) => (
         <li key={r.key} className={r.ok ? 'text-green-700' : 'text-slate-500'}>
-          <span className="inline-block w-4">{r.ok ? '✅' : '○'}</span> {r.label}
+          <span className="inline-flex w-4">{r.ok ? <CheckCircle size={13} /> : <Circle size={13} />}</span> {r.label}
         </li>
       ))}
     </ul>

@@ -5,7 +5,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, P
 import { motion } from 'framer-motion';
 import {
   Users, BookOpen, TrendingUp, CheckCircle, GraduationCap, Calendar,
-  Sparkles, Zap, Clock, CreditCard, ClipboardList, BarChart2, Activity
+  Zap, Clock, CreditCard, ClipboardList, BarChart2
 } from 'lucide-react';
 import { API_URL } from '../../services/api';
 
@@ -14,9 +14,9 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElemen
 // Time-based greeting helper
 const getGreeting = () => {
   const hour = new Date().getHours();
-  if (hour < 12) return { text: 'සුභ උදෑසනක්', emoji: '🌅', period: 'morning' };
-  if (hour < 17) return { text: 'සුභ දවසක්', emoji: '☀️', period: 'afternoon' };
-  return { text: 'සුභ සන්ධ්‍යාවක්', emoji: '🌙', period: 'evening' };
+  if (hour < 12) return { text: 'සුභ උදෑසනක්', period: 'morning' };
+  if (hour < 17) return { text: 'සුභ දවසක්', period: 'afternoon' };
+  return { text: 'සුභ සන්ධ්‍යාවක්', period: 'evening' };
 };
 
 const getImageUrl = (path) => {
@@ -28,7 +28,15 @@ const getImageUrl = (path) => {
   return `${API_URL}${prefix}${cleanPath}`;
 };
 
-const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, revenueData, currentMonthRevenue, attendanceData, profilePhotoPath }) => {
+const HomeTab = ({ username, displayName, role, studentCount, userCount, enrolledCourses, revenueData, currentMonthRevenue, attendanceData, profilePhotoPath }) => {
+  // Greet people by their name (student "Ishadhi Upeksha", not login id "ST10001").
+  const shownName = displayName || username;
+  // Home-page class card -> Materials tab with that class pre-selected (CustomEvent only
+  // carries `detail`, so the course goes in its own event first).
+  const openCourseMaterials = (courseId) => {
+    window.dispatchEvent(new CustomEvent('selectCourse', { detail: String(courseId) }));
+    window.dispatchEvent(new CustomEvent('changeTab', { detail: 'materials' }));
+  };
   const isStudent = role === 'Student';
   const isParent = role === 'Parent';
   const greeting = useMemo(() => getGreeting(), []);
@@ -47,7 +55,7 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
               <img src="/Project%20LOGO.png" alt="Logo" className="w-12 h-12 object-contain" />
             </div>
             <div>
-              <h2 className="m-0 text-2xl font-bold text-primary-dark">ආයුබෝවන්, {username}! 👋</h2>
+              <h2 className="m-0 text-2xl font-bold text-primary-dark">ආයුබෝවන්, {shownName}! </h2>
               <p className="text-gray-500 text-sm mt-1 font-semibold">මව්පිය ද්වාරය වෙත සාදරයෙන් පිළිගනිමු.</p>
             </div>
           </div>
@@ -55,7 +63,7 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
 
         {/* Info Card */}
         <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-lg border border-white/60 text-center max-w-2xl mx-auto">
-          <div className="text-5xl mb-4">👨‍👩‍👧‍👦</div>
+          <Users className="w-12 h-12 mb-4 text-white/70" />
           <h3 className="text-xl font-bold text-primary-dark mb-4">ඔබේ දරුවන්ගේ අධ්‍යයන කටයුතු නිරීක්ෂණය කරන්න</h3>
           <p className="text-gray-600 mb-6 leading-relaxed">
             පැමිණීමේ වාර්තා, විභාග ලකුණු සහ මාසික පන්ති ගාස්තු ගෙවීම් පත්‍රිකා උඩුගත කිරීම ඇතුළු සියලුම සේවාවන් සඳහා වම්පස ඇති <strong>"මගේ දරුවන්"</strong> ටැබ් එක භාවිතා කරන්න.
@@ -130,8 +138,8 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
               )}
             </div>
             <div>
-              <p className="text-white/70 text-sm font-medium">{greeting.text} {greeting.emoji}</p>
-              <h2 className="m-0 text-2xl font-bold text-white">ආයුබෝවන්, {username}! 👋</h2>
+              <p className="text-white/70 text-sm font-medium">{greeting.text}</p>
+              <h2 className="m-0 text-2xl font-bold text-white">ආයුබෝවන්, {shownName}! </h2>
               <p className="text-white/80 text-sm mt-1">ඔබගේ ඉගෙනුම් ස්ථානය සූදානම්!</p>
             </div>
           </div>
@@ -149,7 +157,12 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
                 <motion.div
                   key={course.course_id || idx}
                   whileHover={{ y: -3 }}
-                  className="bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100 p-5 rounded-2xl"
+                  role="button"
+                  tabIndex={0}
+                  title="මෙම පන්තියේ ඉගෙනුම් ද්‍රව්‍ය බලන්න"
+                  onClick={() => openCourseMaterials(course.course_id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') openCourseMaterials(course.course_id); }}
+                  className="bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100 p-5 rounded-2xl cursor-pointer hover:border-indigo-300 hover:shadow-md transition"
                 >
                   <div className="flex items-start gap-3">
                     <div className="bg-primary/10 p-3 rounded-xl text-primary shrink-0">
@@ -158,7 +171,7 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
                     <div>
                       <h4 className="font-bold text-gray-800 m-0">{course.course_name}</h4>
                       {course.teacher_name && (
-                        <p className="text-sm text-gray-500 mt-1">👨‍🏫 {course.teacher_name}</p>
+                        <p className="text-sm text-gray-500 mt-1">{course.teacher_name}</p>
                       )}
                       {course.schedule_day && (
                         <p className="text-sm text-indigo-600 mt-1 flex items-center gap-1">
@@ -187,12 +200,21 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
   // =============================================
 
   // Quick action items based on role
-  const quickActions = [
-    { icon: Users, label: 'ශිෂ්‍ය ලේඛනය', tab: 'students', gradient: 'from-blue-500 to-indigo-600' },
-    { icon: ClipboardList, label: 'පැමිණීම', tab: 'attendance', gradient: 'from-green-500 to-emerald-600' },
-    { icon: CreditCard, label: 'ගෙවීම්', tab: 'payments', gradient: 'from-purple-500 to-violet-600' },
-    { icon: BookOpen, label: 'පන්ති', tab: 'class_management', gradient: 'from-orange-500 to-amber-600' },
-  ];
+  // Quick actions only point at tabs this role actually has. A Teacher's "ගෙවීම්" opens
+  // the payments view scoped to their own classes; "පන්ති" opens their timetable.
+  const quickActions = role === 'Teacher'
+    ? [
+      { icon: Users, label: 'ශිෂ්‍ය ලේඛනය', tab: 'students', gradient: 'from-blue-500 to-indigo-600' },
+      { icon: ClipboardList, label: 'පැමිණීම', tab: 'attendance', gradient: 'from-green-500 to-emerald-600' },
+      { icon: CreditCard, label: 'ගෙවීම්', tab: 'payments', gradient: 'from-purple-500 to-violet-600' },
+      { icon: Calendar, label: 'මගේ කාලසටහන', tab: 'my_timetable', gradient: 'from-orange-500 to-amber-600' },
+    ]
+    : [
+      { icon: Users, label: 'ශිෂ්‍ය ලේඛනය', tab: 'students', gradient: 'from-blue-500 to-indigo-600' },
+      { icon: ClipboardList, label: 'පැමිණීම', tab: 'attendance', gradient: 'from-green-500 to-emerald-600' },
+      { icon: CreditCard, label: 'ගෙවීම්', tab: 'payments', gradient: 'from-purple-500 to-violet-600' },
+      { icon: BookOpen, label: 'පන්ති', tab: role === 'Admin' ? 'class_management' : 'enrollment', gradient: 'from-orange-500 to-amber-600' },
+    ];
 
   // Today's date formatted
   const today = new Date().toLocaleDateString('si-LK', {
@@ -227,13 +249,6 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
         {/* Decorative elements */}
         <div className="absolute top-0 right-0 w-60 h-60 bg-white/5 rounded-full -mr-20 -mt-20" />
         <div className="absolute bottom-0 left-1/3 w-40 h-40 bg-white/5 rounded-full -mb-20" />
-        <motion.div
-          animate={{ y: [0, -10, 0], rotate: [0, 5, 0] }}
-          transition={{ duration: 4, repeat: Infinity }}
-          className="absolute top-6 right-10 text-white/10"
-        >
-          <Sparkles size={60} />
-        </motion.div>
 
         <div className="relative z-10 p-8 md:p-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-5">
@@ -249,10 +264,10 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
             </motion.div>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-white/60 text-sm font-medium">{greeting.text} {greeting.emoji}</span>
+                <span className="text-white/60 text-sm font-medium">{greeting.text}</span>
                 <span className="bg-white/15 text-white/80 text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">{role}</span>
               </div>
-              <h2 className="m-0 text-3xl font-extrabold text-white">ආයුබෝවන්, {username}!</h2>
+              <h2 className="m-0 text-3xl font-extrabold text-white">ආයුබෝවන්, {shownName}!</h2>
               <div className="flex items-center gap-2 mt-2 text-white/60 text-sm">
                 <Clock size={14} />
                 <span>{today}</span>
@@ -312,11 +327,11 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
         })}
       </div>
 
-      {/* Quick Actions */}
+      {/* ඉක්මන් ක්‍රියා */}
       <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-6 shadow-lg border border-white/60">
         <div className="flex items-center gap-2 mb-5">
           <Zap size={20} className="text-amber-500" />
-          <h3 className="text-lg font-bold text-primary-dark m-0">Quick Actions</h3>
+          <h3 className="text-lg font-bold text-primary-dark m-0">ඉක්මන් ක්‍රියා</h3>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {quickActions.map((action, i) => {
@@ -351,11 +366,8 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-primary-dark m-0">මාසික ආදායම් විශ්ලේෂණය</h3>
-                  <p className="text-gray-400 text-xs mt-0.5">Revenue Analytics</p>
+                  <p className="text-gray-400 text-xs mt-0.5">මාසික ආදායම</p>
                 </div>
-              </div>
-              <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                <Activity size={12} /> Live
               </div>
             </div>
             {hasRevenueData ? (
@@ -397,7 +409,7 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
             </div>
             <div>
               <h3 className="text-xl font-bold text-primary-dark m-0">අද පැමිණීම</h3>
-              <p className="text-gray-400 text-xs mt-0.5">Today's Attendance</p>
+              <p className="text-gray-400 text-xs mt-0.5">අද පැමිණි සිසුන්</p>
             </div>
           </div>
           {hasAttendanceData ? (
@@ -429,6 +441,7 @@ const HomeTab = ({ username, role, studentCount, userCount, enrolledCourses, rev
 };
 
 HomeTab.propTypes = {
+  displayName: PropTypes.string,
   username: PropTypes.string.isRequired,
   role: PropTypes.string,
   studentCount: PropTypes.number.isRequired,

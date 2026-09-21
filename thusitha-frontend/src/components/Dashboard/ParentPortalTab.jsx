@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { request, BASE_URL, getImageUrl } from '../../services/api';
 import { useNotification } from '../../context/NotificationContext';
 import { generateReceiptPDF } from '../../utils/generateReceiptPDF';
-import { Download, Calendar, FileText, Wallet, QrCode, Upload, Eye } from 'lucide-react';
+import { Download, Calendar, FileText, Wallet, QrCode, Upload, Eye, User } from 'lucide-react';
 
 const badgeClasses = (status) => {
   if (status === 'Pending' || status === 'Absent') {
@@ -68,7 +68,7 @@ const ParentPortalTab = ({ myChildren, onRefresh }) => {
   return (
     <div className="flex flex-col gap-6">
 
-      {/* 👤 Children Selector Row */}
+      {/* Children Selector Row */}
       <div className="flex gap-4 overflow-x-auto pb-1 -mx-1 px-1">
         {myChildren.map((child) => {
           const isActive = selectedChildId === child.student_id;
@@ -90,7 +90,7 @@ const ParentPortalTab = ({ myChildren, onRefresh }) => {
                 />
               ) : (
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold shrink-0 ${isActive ? 'bg-white/20' : 'bg-indigo-50 text-primary-dark'}`}>
-                  {child.student_name?.charAt(0)?.toUpperCase() || '👤'}
+                  {child.student_name?.charAt(0)?.toUpperCase() || <User size={20} />}
                 </div>
               )}
               <div className="min-w-0">
@@ -104,7 +104,7 @@ const ParentPortalTab = ({ myChildren, onRefresh }) => {
 
       <div className="flex gap-6 flex-wrap items-start">
 
-        {/* 💳 Child Info & QR Code Card */}
+        {/* Child Info & QR Code Card */}
         <motion.div
           key={activeChild.student_id}
           initial={{ opacity: 0, y: 10 }}
@@ -122,7 +122,7 @@ const ParentPortalTab = ({ myChildren, onRefresh }) => {
               />
             ) : (
               <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-4xl mx-auto shadow-lg ring-4 ring-white/50 relative z-10">
-                🎓
+                
               </div>
             )}
           </div>
@@ -145,7 +145,7 @@ const ParentPortalTab = ({ myChildren, onRefresh }) => {
           </div>
         </motion.div>
 
-        {/* 📊 Details Panels (Attendance, Exams, Payments) */}
+        {/* Details Panels (Attendance, Exams, Payments) */}
         <div className="flex-[2] min-w-[420px] bg-white rounded-2xl shadow-glass border border-white/50 p-6">
 
           {/* Sub Navigation */}
@@ -171,7 +171,7 @@ const ParentPortalTab = ({ myChildren, onRefresh }) => {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.18 }}
             >
-              {/* 📅 SUB TAB: Attendance */}
+              {/* SUB TAB: Attendance */}
               {activeSubTab === 'attendance' && (
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
@@ -205,7 +205,7 @@ const ParentPortalTab = ({ myChildren, onRefresh }) => {
                 </div>
               )}
 
-              {/* 📝 SUB TAB: Exam Results */}
+              {/* SUB TAB: Exam Results */}
               {activeSubTab === 'exams' && (
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
@@ -243,7 +243,7 @@ const ParentPortalTab = ({ myChildren, onRefresh }) => {
                 </div>
               )}
 
-              {/* 💰 SUB TAB: Payments */}
+              {/* SUB TAB: Payments */}
               {activeSubTab === 'payments' && (
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
