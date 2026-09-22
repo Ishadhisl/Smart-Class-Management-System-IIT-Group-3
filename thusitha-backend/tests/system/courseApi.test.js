@@ -38,7 +38,7 @@ describe('Course API System Tests', () => {
     expect(res.statusCode).toEqual(200);
     expect(res.body).toEqual(mockCourses);
     expect(db.pool.query).toHaveBeenCalledWith(
-      expect.stringContaining('WHERE is_active = true')
+      expect.stringContaining('WHERE c.is_active = true')
     );
   });
 

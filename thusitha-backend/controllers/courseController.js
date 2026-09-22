@@ -3,14 +3,35 @@ const auditService = require('../utils/auditService');
 const { sanitizeText } = require('../utils/validators');
 
 // ඩේටාබේස් එකෙන් සියලුම පන්ති ලබා දීම (active only by default)
+// Also used by the public course-listing page (route: GET /courses/public), which needs
+// the teacher/subject name and weekly schedule alongside the raw Courses row - plain
+// `SELECT * FROM Courses` left those as undefined, showing "විස්තර ලබා ගත නොහැක" there.
+// LEFT JOINs (not JOIN) so a course with a dangling/missing subject or teacher link still
+// shows up instead of silently disappearing from the list.
 exports.getAllCourses = async (req, res) => {
   try {
     const includeInactive = req.query.include_inactive === 'true';
-    const query = includeInactive
-      ? 'SELECT * FROM Courses ORDER BY course_name ASC'
-      : "SELECT * FROM Courses WHERE is_active = true ORDER BY course_name ASC";
+    const query = `
+      SELECT
+        c.*,
+        s.subject_name,
+        l.teacher_name AS lecturer_name,
+        (
+          SELECT string_agg(
+            cs.day_of_week || ' ' || to_char(cs.start_time, 'HH24:MI') || '-' || to_char(cs.end_time, 'HH24:MI'),
+            ', ' ORDER BY cs.start_time
+          )
+          FROM Class_Schedules cs
+          WHERE cs.course_id = c.course_id
+        ) AS schedule_text
+      FROM Courses c
+      LEFT JOIN Subjects s ON c.subject_id = s.subject_id
+      LEFT JOIN Teachers l ON c.teacher_id = l.teacher_id
+      ${includeInactive ? '' : 'WHERE c.is_active = true'}
+      ORDER BY c.course_name ASC
+    `;
     const result = await db.pool.query(query);
-    
+
     res.status(200).json(result.rows);
   } catch (error) {
     console.error('❌ Get All Courses Error:', error.message);

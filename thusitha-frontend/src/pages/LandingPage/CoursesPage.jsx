@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, GraduationCap, User, FlaskConical, Atom, Monitor, Calculator, Globe, Microscope, Camera, Award, BookOpen } from 'lucide-react';
 import { request } from '../../services/api';
 import { useNotification } from '../../context/NotificationContext';
+import StudentRegisterModal from './StudentRegisterModal';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -44,6 +45,12 @@ const CoursesPage = () => {
   const { showNotification } = useNotification();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Student Registration State (opens the shared modal right here, pre-selecting whichever
+  // course's "ලියාපදිංචි වන්න" button was clicked - previously this routed the visitor away
+  // to the home page instead, where the modal often opened without the course pre-selected)
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState(null);
 
   // Teacher Registration State
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
@@ -185,6 +192,11 @@ const CoursesPage = () => {
                       <div className="text-primary text-lg font-bold">{course.lecturer_name || 'විස්තර ලබා ගත නොහැක'}</div>
                     </div>
 
+                    <div className="mb-4">
+                      <small className="text-slate-400 font-bold block">පන්ති කාලසටහන</small>
+                      <div className="text-slate-600 text-sm font-medium">{course.schedule_text || 'කාලසටහන ලබා ගත නොහැක'}</div>
+                    </div>
+
                     <div className="flex justify-between items-center mt-5 pt-4 border-t border-slate-100">
                       <div>
                         <small className="text-slate-400 font-bold block">මාසික ගාස්තුව</small>
@@ -194,7 +206,10 @@ const CoursesPage = () => {
                         variant="primary"
                         size="sm"
                         className="!rounded-full"
-                        onClick={() => navigate('/', { state: { openRegister: true, courseId: course.course_id } })}
+                        onClick={() => {
+                          setSelectedCourseId(course.course_id);
+                          setIsRegisterModalOpen(true);
+                        }}
                       >
                         ලියාපදිංචි වන්න
                       </Button>
@@ -208,6 +223,14 @@ const CoursesPage = () => {
           </div>
         )}
       </main>
+
+      {/* Student Registration Modal */}
+      <StudentRegisterModal
+        open={isRegisterModalOpen}
+        onClose={() => setIsRegisterModalOpen(false)}
+        courses={courses}
+        initialCourseId={selectedCourseId}
+      />
 
       {/* Teacher Registration Modal */}
       <Modal open={isTeacherModalOpen} onClose={closeTeacherModal} title="දේශකයා (Teacher) ලියාපදිංචිය" maxWidth="max-w-lg">
