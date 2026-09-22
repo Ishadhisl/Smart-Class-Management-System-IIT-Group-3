@@ -17,5 +17,9 @@ export const authService = {
     }
 
     return data;
-  }
+  },
+
+  // Best-effort server-side session revocation. Callers should clear sessionStorage and
+  // navigate away regardless of whether this call succeeds (token may already be expired).
+  logout: () => request('/auth/logout', { method: 'POST' })
 };

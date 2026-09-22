@@ -1,7 +1,13 @@
 const authMiddleware = require('../../middleware/authMiddleware');
 const jwt = require('jsonwebtoken');
+const db = require('../../db');
 
 jest.mock('jsonwebtoken');
+jest.mock('../../db', () => ({
+  pool: {
+    query: jest.fn(),
+  },
+}));
 
 describe('AuthMiddleware Unit Tests', () => {
   let req, res, next;
@@ -26,23 +32,48 @@ describe('AuthMiddleware Unit Tests', () => {
       expect(next).not.toHaveBeenCalled();
     });
 
-    it('should return 401 if token is invalid', () => {
+    it('should return 401 if token is invalid', async () => {
       req.headers['authorization'] = 'Bearer invalidtoken';
-      jwt.verify.mockImplementation((token, secret, callback) => callback(new Error('Invalid token')));
+      jwt.verify.mockImplementation(() => { throw new Error('Invalid token'); });
 
-      authMiddleware.verifyToken(req, res, next);
+      await authMiddleware.verifyToken(req, res, next);
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith({ message: 'Failed to authenticate token.' });
     });
 
-    it('should call next if token is valid', () => {
+    it('should call next if token is valid', async () => {
       req.headers['authorization'] = 'Bearer validtoken';
+      // No jti - simulates a token issued before session tracking existed, which skips the
+      // DB-backed session check entirely (see authMiddleware.js backward-compat comment).
       const decodedUser = { id: 1, role: 'Admin', username: 'admin1' };
-      jwt.verify.mockImplementation((token, secret, callback) => callback(null, decodedUser));
+      jwt.verify.mockReturnValue(decodedUser);
 
-      authMiddleware.verifyToken(req, res, next);
-      expect(req.user).toEqual({ userId: 1, role: 'Admin', username: 'admin1' });
+      await authMiddleware.verifyToken(req, res, next);
+      expect(req.user).toEqual({ userId: 1, role: 'Admin', username: 'admin1', jti: undefined });
       expect(next).toHaveBeenCalled();
+    });
+
+    it('should call next and refresh last_active_at if the session is still active', async () => {
+      req.headers['authorization'] = 'Bearer validtoken';
+      const decodedUser = { id: 1, role: 'Admin', username: 'admin1', jti: 'session-jti-1' };
+      jwt.verify.mockReturnValue(decodedUser);
+      db.pool.query.mockResolvedValueOnce({ rows: [{ session_id: 5 }] });
+
+      await authMiddleware.verifyToken(req, res, next);
+      expect(db.pool.query).toHaveBeenCalledWith(expect.any(String), ['session-jti-1']);
+      expect(req.user).toEqual({ userId: 1, role: 'Admin', username: 'admin1', jti: 'session-jti-1' });
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('should return 401 if the session has been revoked or expired', async () => {
+      req.headers['authorization'] = 'Bearer validtoken';
+      const decodedUser = { id: 1, role: 'Admin', username: 'admin1', jti: 'session-jti-2' };
+      jwt.verify.mockReturnValue(decodedUser);
+      db.pool.query.mockResolvedValueOnce({ rows: [] });
+
+      await authMiddleware.verifyToken(req, res, next);
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(next).not.toHaveBeenCalled();
     });
   });
 

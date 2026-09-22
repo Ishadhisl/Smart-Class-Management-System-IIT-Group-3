@@ -37,6 +37,14 @@ exports.resetPassword = async (req, res) => {
       [hashedPassword, id]
     );
 
+    // Admin-forced password reset - kill every active session for that account so the old
+    // password's tokens stop working immediately instead of drifting for up to a day.
+    await db.pool.query(
+      `UPDATE Sessions SET revoked_at = NOW(), revoked_reason = 'password_reset_by_admin'
+       WHERE user_id = $1 AND revoked_at IS NULL`,
+      [id]
+    );
+
     await auditService.logAction(req.user?.userId, req.user?.role, 'RESET_PASSWORD', 'User', id, `Reset password to role default for user ${id}`);
     res.status(200).json({ message: `Password reset to default (${defaultPw}) successfully!` });
   } catch (error) {
@@ -82,6 +90,45 @@ exports.createUser = async (req, res) => {
   } catch (error) {
     console.error('❌ Create User Error:', error.message);
     res.status(500).json({ message: "පරිශීලකයා ඇතුළත් කිරීමට නොහැකි විය.", error: error.message });
+  }
+};
+
+// සියලුම පරිශීලකයන්ගේ සක්‍රීය සැසි (Admin: every active login session across all users)
+exports.getAllActiveSessions = async (req, res) => {
+  try {
+    const result = await db.pool.query(
+      `SELECT s.session_id, s.user_id, u.username, u.role, s.device_info, s.ip_address,
+              s.created_at, s.last_active_at, s.expires_at
+       FROM Sessions s
+       JOIN Users u ON u.user_id = s.user_id
+       WHERE s.revoked_at IS NULL AND s.expires_at > NOW()
+       ORDER BY s.last_active_at DESC`
+    );
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error('❌ Get Active Sessions Error:', error.message);
+    res.status(500).json({ message: "සක්‍රීය සැසි ලබා ගැනීමට නොහැකි විය.", error: error.message });
+  }
+};
+
+// Admin: වෙනත් පරිශීලකයෙකුගේ සැසියක් බලෙන් අවසන් කිරීම (force-logout a device)
+exports.revokeUserSession = async (req, res) => {
+  const { sessionId } = req.params;
+  try {
+    const result = await db.pool.query(
+      `UPDATE Sessions SET revoked_at = NOW(), revoked_reason = 'admin_revoked'
+       WHERE session_id = $1 AND revoked_at IS NULL
+       RETURNING user_id`,
+      [sessionId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'සැසිය හමු නොවුණි.' });
+    }
+    await auditService.logAction(req.user?.userId, req.user?.role, 'ADMIN_REVOKE_SESSION', 'User', result.rows[0].user_id, `Admin force-logged-out session ${sessionId}`);
+    res.status(200).json({ message: 'සැසිය සාර්ථකව අවසන් කළා.' });
+  } catch (error) {
+    console.error('❌ Revoke User Session Error:', error.message);
+    res.status(500).json({ message: "සැසිය අවසන් කිරීමට නොහැකි විය.", error: error.message });
   }
 };
 

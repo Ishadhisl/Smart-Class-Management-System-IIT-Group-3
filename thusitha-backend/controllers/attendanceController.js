@@ -1380,7 +1380,34 @@ exports.markFraud = async (req, res) => {
       );
     }
 
-    res.status(200).json({ message: "හොර පැමිණීම් සාර්ථකව සටහන් කරන ලදී. (Fraud successfully marked)" });
+    // 4. Tell the parents right away - this used to just flip DB flags with no
+    // notification, so a confirmed fraud sat silently until someone opened the
+    // Communication Center and noticed. sendDiscrepancySMS also writes the
+    // WhatsApp_Logs row the Communication Center reads, so it shows up there too.
+    let notifiedCount = 0;
+    if (unverified_student_ids.length > 0) {
+      const parentsRes = await db.pool.query(
+        `SELECT s.student_id, s.student_name, p.parent_phone, c.course_name
+         FROM Students s
+         JOIN Parents p ON s.parent_id = p.parent_id
+         JOIN Course_Enrollments ce ON s.student_id = ce.student_id
+         JOIN Courses c ON ce.course_id = c.course_id
+         JOIN Class_Schedules cs ON c.course_id = cs.course_id
+         WHERE s.student_id = ANY($1) AND cs.schedule_id = $2`,
+        [unverified_student_ids, session_id]
+      );
+      for (const row of parentsRes.rows) {
+        if (!row.parent_phone) continue;
+        await smsService.sendDiscrepancySMS(row.parent_phone, row.student_name, row.course_name);
+        notifiedCount++;
+      }
+    }
+
+    res.status(200).json({
+      message: notifiedCount > 0
+        ? `හොර පැමිණීම් සාර්ථකව සටහන් කරන ලදී. මව්පියන් ${notifiedCount} දෙනෙකුට WhatsApp දැනුම්දීමක් යවන ලදී.`
+        : "හොර පැමිණීම් සාර්ථකව සටහන් කරන ලදී. (Fraud successfully marked)"
+    });
   } catch (error) {
     console.error('❌ markFraud error:', error.message);
     res.status(500).json({ error: 'හොර පැමිණීම් සටහන් කිරීම අසාර්ථකයි.' });

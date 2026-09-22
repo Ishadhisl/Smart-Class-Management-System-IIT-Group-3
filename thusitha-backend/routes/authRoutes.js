@@ -19,4 +19,9 @@ router.post('/change-password', verifyToken, authController.changePassword);
 // Protected route for logout
 router.post('/logout', verifyToken, authController.logout);
 
+// Session management - view/revoke my own active devices, or log out everywhere else
+router.get('/sessions', verifyToken, authController.getMySessions);
+router.delete('/sessions/:sessionId', verifyToken, authController.revokeSession);
+router.post('/logout-all', verifyToken, authController.logoutAllDevices);
+
 module.exports = router;

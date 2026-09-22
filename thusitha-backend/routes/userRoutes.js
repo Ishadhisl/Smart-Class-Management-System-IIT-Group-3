@@ -16,4 +16,8 @@ router.delete('/:id', verifyToken, checkRole(['Admin']), userController.deleteUs
 // Reset password route
 router.post('/reset-password/:id', verifyToken, checkRole(['Admin']), userController.resetPassword);
 
+// Session management (Admin: view/force-logout any user's active login sessions)
+router.get('/sessions/active', verifyToken, checkRole(['Admin']), userController.getAllActiveSessions);
+router.delete('/sessions/:sessionId', verifyToken, checkRole(['Admin']), userController.revokeUserSession);
+
 module.exports = router;

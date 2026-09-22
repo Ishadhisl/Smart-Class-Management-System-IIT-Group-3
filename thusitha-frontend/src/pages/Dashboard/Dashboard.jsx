@@ -6,6 +6,7 @@ import { studentService } from '../../services/studentService';
 import { classService } from '../../services/classService';
 import { attendanceService } from '../../services/attendanceService';
 import { request } from '../../services/api';
+import { authService } from '../../services/authService';
 import { useNotification } from '../../context/NotificationContext';
 import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
@@ -1326,6 +1327,9 @@ const Dashboard = () => {
 
 
   const handleLogout = () => {
+    // Best-effort: revoke the session server-side, but never block the actual logout on it
+    // (token may already be expired/invalid, or the request may fail on a flaky network).
+    authService.logout().catch(() => {});
     sessionStorage.clear();
     navigate('/login');
   };

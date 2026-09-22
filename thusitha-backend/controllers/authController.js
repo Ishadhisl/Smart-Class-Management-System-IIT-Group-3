@@ -1,6 +1,7 @@
 const db = require('../db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const auditService = require('../utils/auditService');
 const { sendWhatsAppMessage } = require('../utils/whatsappService');
 const { isUsingDefaultPassword } = require('../utils/authDefaults');
@@ -8,6 +9,16 @@ const { passwordPolicyError } = require('../utils/validators');
 
 const MAX_LOGIN_ATTEMPTS = 3;
 const LOCKOUT_MINUTES = 5;
+
+// Parses a JWT_EXPIRY-style duration ("30m", "12h", "1d") into milliseconds, so the
+// Sessions row's expires_at stays in sync with the JWT's own expiry. Falls back to 1 day
+// for anything unrecognised (e.g. jsonwebtoken's numeric-seconds or "2 days" forms).
+function parseExpiryToMs(expiry) {
+  const match = /^(\d+)([smhd])$/.exec(String(expiry || '').trim());
+  if (!match) return 24 * 60 * 60 * 1000;
+  const unitMs = { s: 1000, m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
+  return Number(match[1]) * unitMs[match[2]];
+}
 
 // පරිශීලක ඇතුළත් වීම (Login)
 exports.login = async (req, res) => {
@@ -56,10 +67,21 @@ exports.login = async (req, res) => {
       await db.pool.query('UPDATE Users SET failed_login_attempts = 0, locked_until = NULL WHERE user_id = $1', [user.user_id]);
     }
 
+    const jwtExpiry = process.env.JWT_EXPIRY || '1d';
+    const jti = crypto.randomUUID();
     const token = jwt.sign(
-      { id: user.user_id, username: user.username, role: user.role },
+      { id: user.user_id, username: user.username, role: user.role, jti },
       process.env.JWT_SECRET,
-      { expiresIn: '1d' }
+      { expiresIn: jwtExpiry }
+    );
+
+    // Track this login as a revocable server-side session (real logout, password-change
+    // invalidation, admin force-logout, "my active devices" list).
+    const sessionExpiresAt = new Date(Date.now() + parseExpiryToMs(jwtExpiry));
+    await db.pool.query(
+      `INSERT INTO Sessions (user_id, jti, device_info, ip_address, expires_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [user.user_id, jti, (req.headers?.['user-agent'] || '').slice(0, 255), req.ip || null, sessionExpiresAt]
     );
 
     // Nudge any user still on their role's default password to personalise it.
@@ -97,7 +119,16 @@ exports.resetPassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(newPassword, salt);
     await db.pool.query('UPDATE Users SET password_hash = $1 WHERE user_id = $2', [passwordHash, userId]);
-    
+
+    // A password change likely means the old password may have leaked - kill every OTHER
+    // active session for this account (the one making this request stays alive so the
+    // user isn't logged out of the tab they just used to change it).
+    await db.pool.query(
+      `UPDATE Sessions SET revoked_at = NOW(), revoked_reason = 'password_changed'
+       WHERE user_id = $1 AND revoked_at IS NULL AND jti != $2`,
+      [userId, req.user.jti]
+    );
+
     await auditService.logAction(userId, req.user.role, 'UPDATE', 'User', userId, 'පරිශීලකයා විසින් මුරපදය වෙනස් කරන ලදී.');
     res.json({ message: 'මුරපදය සාර්ථකව වෙනස් කළා!' });
   } catch (err) {
@@ -108,15 +139,74 @@ exports.resetPassword = async (req, res) => {
 
 // පද්ධතියෙන් ඉවත් වීම (Logout)
 exports.logout = async (req, res) => {
-  // Since JWT is stateless, the frontend should remove the token.
-  // We just log the action here.
   try {
     const userId = req.user?.userId;
+    const jti = req.user?.jti;
+    if (jti) {
+      await db.pool.query(
+        `UPDATE Sessions SET revoked_at = NOW(), revoked_reason = 'logout'
+         WHERE jti = $1 AND revoked_at IS NULL`,
+        [jti]
+      );
+    }
     if (userId) {
       await auditService.logAction(userId, req.user?.role, 'LOGOUT', 'User', userId, 'පරිශීලකයා පද්ධතියෙන් ඉවත් විය.');
     }
     res.json({ success: true, message: 'සාර්ථකව පද්ධතියෙන් ඉවත් විය.' });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// පරිශීලකයාගේ සක්‍රීය සැසි ලැයිස්තුව (My active sessions / devices)
+exports.getMySessions = async (req, res) => {
+  try {
+    const result = await db.pool.query(
+      `SELECT session_id, jti, device_info, ip_address, created_at, last_active_at, expires_at
+       FROM Sessions
+       WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > NOW()
+       ORDER BY last_active_at DESC`,
+      [req.user.userId]
+    );
+    const sessions = result.rows.map(({ jti, ...s }) => ({ ...s, is_current: jti === req.user.jti }));
+    res.json(sessions);
+  } catch (err) {
+    console.error('❌ Get My Sessions Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// තමන්ගේම උපාංගයක සැසියක් අවසන් කිරීම (Revoke one of my own sessions)
+exports.revokeSession = async (req, res) => {
+  try {
+    const result = await db.pool.query(
+      `UPDATE Sessions SET revoked_at = NOW(), revoked_reason = 'user_revoked'
+       WHERE session_id = $1 AND user_id = $2 AND revoked_at IS NULL
+       RETURNING session_id`,
+      [req.params.sessionId, req.user.userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'සැසිය හමු නොවුණි.' });
+    }
+    res.json({ success: true, message: 'උපාංගයෙන් සාර්ථකව ඉවත් කළා.' });
+  } catch (err) {
+    console.error('❌ Revoke Session Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// සියලුම වෙනත් උපාංග වලින් ඉවත් වීම (Logout from all OTHER devices, current one stays live)
+exports.logoutAllDevices = async (req, res) => {
+  try {
+    await db.pool.query(
+      `UPDATE Sessions SET revoked_at = NOW(), revoked_reason = 'logout_all'
+       WHERE user_id = $1 AND revoked_at IS NULL AND jti != $2`,
+      [req.user.userId, req.user.jti]
+    );
+    await auditService.logAction(req.user.userId, req.user.role, 'LOGOUT_ALL_DEVICES', 'User', req.user.userId, 'සියලුම වෙනත් උපාංග වලින් ඉවත් විය.');
+    res.json({ success: true, message: 'වෙනත් සියලුම උපාංග වලින් සාර්ථකව ඉවත් කළා.' });
+  } catch (err) {
+    console.error('❌ Logout All Devices Error:', err.message);
     res.status(500).json({ error: err.message });
   }
 };
@@ -254,6 +344,14 @@ exports.resetWithOtp = async (req, res) => {
     await db.pool.query('UPDATE Users SET password_hash = $1 WHERE username = $2', [passwordHash, username]);
     // Mark OTP as used
     await db.pool.query('UPDATE OTP_Store SET used = TRUE WHERE username = $1 AND otp_code = $2', [username, otp]);
+    // No "current session" to protect here (this flow runs before login) - kill every
+    // existing session for the account, since a forgot-password reset implies the old
+    // password (and anything logged in with it) may no longer be trusted.
+    await db.pool.query(
+      `UPDATE Sessions SET revoked_at = NOW(), revoked_reason = 'password_reset_otp'
+       WHERE user_id = $1 AND revoked_at IS NULL`,
+      [userId]
+    );
     await auditService.logAction(userId, userRes.rows[0]?.role, 'RESET_PASSWORD_OTP', 'User', userId, `Password reset via OTP for ${username}`);
     res.json({ success: true, message: 'මුරපදය සාර්ඥකව වේනස් කලා! ලොගින් වීමට යෝමු වේ.' });
   } catch (err) {
@@ -272,7 +370,13 @@ exports.changePassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(newPassword, salt);
     await db.pool.query('UPDATE Users SET password_hash = $1 WHERE user_id = $2', [passwordHash, userId]);
-    
+
+    await db.pool.query(
+      `UPDATE Sessions SET revoked_at = NOW(), revoked_reason = 'password_changed'
+       WHERE user_id = $1 AND revoked_at IS NULL AND jti != $2`,
+      [userId, req.user.jti]
+    );
+
     await auditService.logAction(userId, req.user.role, 'UPDATE', 'User', userId, 'පරිශීලකයා විසින් මුරපදය වෙනස් කරන ලදී.');
     res.json({ message: 'මුරපදය සාර්ථකව වෙනස් කළා!' });
   } catch (err) {

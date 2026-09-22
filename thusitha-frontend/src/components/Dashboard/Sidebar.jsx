@@ -229,8 +229,6 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, role, mobileOpen = false, 
           {(isAdmin || isTeacher) && renderButton('ai_panel', <Camera size={20}/>, 'AI නිරීක්ෂණය')}
           {(isAdmin || isCounterPerson) && renderButton('face_verification', <ShieldCheck size={20}/>, 'මුහුණු සත්‍යාපනය')}
 
-
-
         </nav>
       </div>
       

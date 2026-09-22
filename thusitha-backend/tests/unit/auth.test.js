@@ -57,17 +57,25 @@ describe('AuthController Unit Tests', () => {
 
     it('should login successfully and return token', async () => {
       req.body = { username: 'testuser', password: 'password123' };
+      req.headers = { 'user-agent': 'jest-test-agent' };
+      req.ip = '127.0.0.1';
       const user = { user_id: 1, username: 'testuser', password_hash: 'hash', role: 'Teacher' };
-      db.pool.query.mockResolvedValueOnce({ rows: [user] });
+      db.pool.query
+        .mockResolvedValueOnce({ rows: [user] }) // user lookup
+        .mockResolvedValueOnce({}); // Sessions insert
       bcrypt.compare.mockResolvedValueOnce(true);
       jwt.sign.mockReturnValue('mocked-token');
 
       await authController.login(req, res);
 
       expect(jwt.sign).toHaveBeenCalledWith(
-        { id: 1, username: 'testuser', role: 'Teacher' },
+        { id: 1, username: 'testuser', role: 'Teacher', jti: expect.any(String) },
         process.env.JWT_SECRET,
         { expiresIn: '1d' }
+      );
+      expect(db.pool.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO Sessions'),
+        expect.arrayContaining([1, expect.any(String), 'jest-test-agent', '127.0.0.1'])
       );
       expect(auditService.logAction).toHaveBeenCalled();
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
