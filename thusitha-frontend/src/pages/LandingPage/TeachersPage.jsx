@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, CalendarDays } from 'lucide-react';
-import { request, API_URL } from '../../services/api';
+import { request, getImageUrl } from '../../services/api';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -12,18 +12,6 @@ const TeachersPage = () => {
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-
-  const getImageUrl = (path) => {
-    if (!path) return null;
-    // path from the DB (e.g. '/uploads/photo-....png') already carries a leading slash -
-    // blindly inserting another '/' here produced a double-slash URL that 404'd (Express's
-    // static mount doesn't collapse it), which is why Sandaruwan's photo stayed a "?"
-    // placeholder even after the substring-match fix. See LandingPage.jsx's getImageUrl.
-    const normalizedPath = path.replace(/\\/g, '/');
-    const baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
-    const finalPath = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
-    return `${baseUrl}${finalPath}`;
-  };
 
   useEffect(() => {
     // Reset scroll and root styles

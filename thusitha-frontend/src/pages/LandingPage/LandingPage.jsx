@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin,
@@ -83,6 +83,7 @@ const NAV_LINKS = [
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { showNotification } = useNotification();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [courses, setCourses] = useState([]);
@@ -132,6 +133,25 @@ const LandingPage = () => {
       .then((data) => setCourses(data || []))
       .catch((err) => console.error("Error fetching courses:", err));
   }, []);
+
+  // CoursesPage's "ලියාපදිංචි වන්න" button navigates here with
+  // state: { openRegister, courseId } (there's no registration form on that page itself) -
+  // open the pre-registration modal with that course pre-selected, then drop the state so
+  // a refresh/back-navigation doesn't silently reopen it.
+  useEffect(() => {
+    if (location.state?.openRegister) {
+      setFormData((prev) => ({
+        ...prev,
+        course_id:
+          location.state.courseId != null
+            ? String(location.state.courseId)
+            : prev.course_id,
+      }));
+      setIsModalOpen(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   const EMPTY_REG_FORM = {
     student_name: "",
