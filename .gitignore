@@ -69,3 +69,6 @@ thusitha-backend/whatsapp-session/
 # Leftover from the old whatsapp-web.js library (since replaced by Baileys)
 thusitha-backend/whatsapp-session-test/
 thusitha-backend/.wwebjs_cache/
+
+# AI coding-assistant worktrees / local state
+.kilo/

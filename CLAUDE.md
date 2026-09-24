@@ -42,7 +42,7 @@ There is no frontend test runner configured.
 pip install -r requirements.txt
 python main.py     # runs uvicorn on port 8000
 ```
-Requires a C++ build toolchain (dlib/face-recognition compiles native extensions) — see `QUICK_START.md` if setup fails on Windows.
+Requires a C++ build toolchain (dlib/face-recognition compiles native extensions) — see `docs/SETUP.md` if setup fails on Windows.
 
 ### First-time environment setup
 ```bash

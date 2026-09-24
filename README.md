@@ -1,251 +1,161 @@
-# Smart Class Management System (SCMS) — Thusitha Smart Academy
+<div align="center">
 
-A classroom management platform for a Sri Lankan tutoring institute: student/teacher records, QR-based attendance with AI-assisted CCTV headcount and face verification, payments (bank receipt + Stripe), exams, learning materials, promotions, and SMS/WhatsApp notifications — integrated with a Moodle LMS for course content and enrollment sync.
+# 🎓 Smart Class Management System (SCMS)
 
-This document reflects the codebase directly (routes, controllers, `.env.example`, `package.json`, `vite.config.js`, `create_tables.js`/`import_database.js`) as of **August 2026**. Older docs in this repo (`QUICK_START.md`, `SETUP_REQUIREMENTS.md`, the previous `README.md`) reference a Docker setup, package versions, and URLs that no longer match the actual code — this file supersedes them for local setup.
+**An AI-powered class management platform for a real tutoring institute in Sri Lanka — with 3-layer, proxy-proof attendance.**
 
----
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-scms--frontend--lac.vercel.app-4f46e5?style=for-the-badge&logo=vercel)](https://scms-frontend-lac.vercel.app)
 
-## 1. Architecture
+![React](https://img.shields.io/badge/React_19-20232A?style=flat&logo=react&logoColor=61DAFB)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-06B6D4?style=flat&logo=tailwindcss&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express-000000?style=flat&logo=express&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
+![YOLOv8](https://img.shields.io/badge/YOLOv8-111F68?style=flat&logo=ultralytics&logoColor=white)
+![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?style=flat&logo=opencv&logoColor=white)
+![Moodle](https://img.shields.io/badge/Moodle-F98012?style=flat&logo=moodle&logoColor=white)
+![Jest](https://img.shields.io/badge/Jest-C21325?style=flat&logo=jest&logoColor=white)
 
-Five moving pieces, two databases:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Browser                                                         │
-│  https://localhost:5173  (React 19 + Vite SPA)                   │
-└───────────────┬─────────────────────────────────┬────────────────┘
-                │ REST (axios)                     │ same-origin proxy
-                ▼                                  ▼
-┌───────────────────────────────┐   ┌─────────────────────────────┐
-│ thusitha-backend               │   │ Moodle (PHP, under XAMPP)    │
-│ Node/Express — https://:5000   │◄──┤ course content, enrollment   │
-│ talks to Postgres directly     │   │ http://localhost/moodle      │
-└───────────┬─────────────┬──────┘   └──────────────┬────────────────┘
-            │             │ auto-spawns              │
-            ▼             ▼                          ▼
-  ┌──────────────────┐  ┌─────────────────────┐  ┌─────────────────┐
-  │ PostgreSQL         │  │ fastapi_service       │  │ MySQL/MariaDB    │
-  │ thusithaedu_db     │  │ Python — :8000         │  │ (Moodle's own DB, │
-  │ app data           │  │ face recognition +     │  │ via XAMPP)        │
-  │                    │  │ YOLOv8 headcount        │  │                  │
-  └──────────────────┘  └─────────────────────┘  └─────────────────┘
-```
-
-- **Two databases, two different systems.** PostgreSQL holds everything this app owns (students, payments, attendance, exams). Moodle is a separate third-party LMS with its own MySQL/MariaDB database — the backend never touches Moodle's DB directly, only its REST web-service API (`utils/moodleService.js`).
-- **The AI service isn't started manually.** `thusitha-backend/server.js`'s `checkAndStartAIServer()` spawns `python fastapi_service/main.py` automatically on backend startup if nothing is already listening on port 8000.
-- **The dev frontend/backend both run over HTTPS**, using a self-signed cert pair at `certs/dev-*.pem` — required because webcam access (`navigator.mediaDevices`, used for live face verification) only works in a secure browser context.
+</div>
 
 ---
 
-## 2. Prerequisites — exact versions
+## 📖 About
 
-Checked against each project's official site on **2026-08-13/14**. Pick the version in **bold**; alternatives are also fine.
+**SCMS** was built for **Thusitha Academy**, a tutoring institute in Sri Lanka. It replaces paper attendance registers, manual fee tracking and phone calls to parents with one web platform for **admins, teachers, counter staff, students and parents**.
 
-| Tool | Recommended | Also fine | Download | Why this one |
-|---|---|---|---|---|
-| **Node.js** | **v24.19.0** (LTS "Krypton") | v22.23.2 (LTS "Jod") | [nodejs.org](https://nodejs.org/) | **Not v20** — Node 20 ("Iron") reached end-of-life on **2026-03-24**, so it no longer receives security patches even though older docs (including earlier versions of this one) recommended it. |
-| **npm** | bundled with Node | — | — | Installed automatically with Node.js above. |
-| **Python** | **3.12.14** | 3.11.16 | [python.org](https://www.python.org/downloads/) | For `fastapi_service`. Tick **"Add Python to PATH"** during install. Avoid anything newer than 3.12 for now — `dlib`/`face-recognition` (used for face encoding) are slow to get prebuilt wheels for brand-new Python releases, which risks a failed/very slow build from source. |
-| **PostgreSQL** | **16.15** | 15.19, 17.11, 18.6 | [postgresql.org/download/windows](https://www.postgresql.org/download/windows/) | Any recent version works — the schema uses no version-specific features. 16.x is a safe, mature default. |
-| **XAMPP** | **8.2.12** (bundles PHP 8.2.12) | 8.1.25 (PHP 8.1.25) | [apachefriends.org](https://www.apachefriends.org/download.html) | Only needed if you're also restoring/running Moodle locally. Moodle 4.5 (this project's LMS version — see `moodle/version.php`) needs PHP in the 8.1–8.3 range; 8.2 sits safely in the middle. |
-| **Visual Studio Build Tools** | **2022**, "Desktop development with C++" workload | — | [visualstudio.microsoft.com/downloads](https://visualstudio.microsoft.com/downloads/) | Windows only. Compiles `dlib` from source for face recognition. **Restart your PC after installing.** |
-| **Git** | any recent version | — | [git-scm.com](https://git-scm.com/) | For cloning the repo. |
+Tutoring classes often have 100+ students, and "proxy" attendance (a friend scanning or signing for an absent student) is a real problem. So we made attendance the heart of the system and **verified it with AI**.
 
-### Verify after installing
-```powershell
-node -v
-npm -v
-python --version
-psql --version
-git --version
-```
+> 🧑‍💻 Group project: 3rd year, 2nd semester (3.2) · Industrial Information Technology · Uva Wellassa University of Sri Lanka
 
 ---
 
-## 3. Project structure
+## ✨ Our novelty: 3-layer AI-verified attendance
 
-```
-Smart Class Manegemnt System/
-├── certs/                       # Dev HTTPS cert pair — REQUIRED, see §5
-│   ├── dev-cert.pem
-│   └── dev-key.pem
-├── database/                    # SQL schema + migration files, applied manually
-│   ├── schema.sql
-│   ├── migration_phase2.sql
-│   ├── migration_qr_attendance.sql
-│   └── migration_2026_06_19_promotions_teacher_profile_photo.sql
-├── deploy/                      # Deployment guides + scripts — see deploy/DEPLOY.md
-├── thusitha-backend/            # Node/Express API — port 5000
-│   ├── .env.example
-│   ├── server.js
-│   ├── create_tables.js         # Idempotent CREATE TABLE IF NOT EXISTS
-│   ├── import_database.js       # Creates DB + runs schema.sql + migration_phase2.sql + seeds test data
-│   ├── seed_srilankan_data.js
-│   ├── routes/  controllers/  middleware/  utils/
-│   └── uploads/                 # Student/teacher photos, receipts, materials (gitignored, kept via .gitkeep)
-├── thusitha-frontend/           # React 19 + Vite SPA — port 5173
-│   ├── vite.config.js           # Hardcoded HTTPS, Moodle same-origin proxy
-│   └── src/
-├── fastapi_service/              # Python FastAPI — port 8000, AI/CV
-│   ├── requirements.txt
-│   └── main.py
-└── moodle/  moodledata/          # Pre-configured Moodle LMS (restore into XAMPP's htdocs)
+```mermaid
+flowchart LR
+    A["📱 1. QR Attendance<br/>Students scan a live,<br/>session-specific QR code"] --> B["🎥 2. AI CCTV Headcount<br/>YOLOv8 counts the people<br/>actually in the classroom"]
+    B --> C{"QR count<br/>= AI count?"}
+    C -- "✅ Match" --> D["Attendance confirmed"]
+    C -- "⚠️ Mismatch" --> E["🙂 3. Face Verification<br/>Teacher verifies suspected<br/>students via live webcam"]
+    E --> D
 ```
 
-**Not in this repo, despite what older docs say:** there is no `docker-compose.yml` or `Dockerfile` in this project — ignore any Docker instructions in `QUICK_START.md`/`DOCKER_GUIDE.md`.
+1. **QR attendance:** each class session gets a time-limited QR code. Students scan it with their phone camera.
+2. **AI CCTV headcount:** a CCTV image or video of the classroom goes to our Python AI service. **YOLOv8** detects every person, while a dual-engine face detector (**dlib HOG + MediaPipe**, merged by IoU) finds each face — matched across 15 sampled video frames so a blink or head turn doesn't cause a false result.
+3. **Mismatch → face verification:** if the number of QR scans doesn't match the number of people the AI counted, the system raises an alert. The teacher can then verify students one by one with **live face recognition** (128-D dlib face encodings, Euclidean distance < 0.45, matched against each student's enrolled face profile).
+
+**Result:** no more proxy attendance, and teachers can trust the numbers.
+
+<div align="center">
+  <img src="docs/screenshots/demo-ai-attendance.gif" alt="Demo: AI detects a mismatch between QR scans and headcount, then face verification confirms the student" width="760"/>
+  <br/><sub>AI detects a mismatch (1 QR scan vs 4 people in class), then face verification confirms the student</sub>
+</div>
+
+📄 Technical deep-dive: [`ai_implementation_explanation.md`](ai_implementation_explanation.md)
 
 ---
 
-## 4. Setup, step by step
+## 🧩 Features
 
-### 4.1 Get the code
-```bash
-git clone <repo-url> scms
-cd scms
-```
-If you received this as a **zip** instead of a git clone, extract it and confirm you have `thusitha-backend/`, `thusitha-frontend/`, `fastapi_service/`, **and** `certs/` — the zip should include `certs/` since it's a raw folder copy, but git clones will not (see §5).
-
-### 4.2 Install Node dependencies
-```bash
-cd thusitha-backend && npm install
-cd ../thusitha-frontend && npm install
-```
-Skipping this makes every later step fail — `import_database.js` needs the `pg` package, and `npm start`/`npm run dev` need their respective frameworks installed.
-
-### 4.3 Set up the dev HTTPS certificates
-
-`*.pem` files are gitignored (see `.gitignore`), so a fresh `git clone` will **not** include `certs/dev-cert.pem`/`dev-key.pem` even though `vite.config.js` and `server.js` expect them. Two paths:
-
-- **You got a zip that already includes `certs/`:** nothing to do.
-- **You cloned via git and `certs/` is missing or empty:** generate your own with [mkcert](https://github.com/FiloSottile/mkcert):
-  ```powershell
-  winget install FiloSottile.mkcert
-  mkcert -install
-  mkdir certs
-  mkcert -key-file certs/dev-key.pem -cert-file certs/dev-cert.pem localhost 127.0.0.1 ::1
-  ```
-  Without this, `npm run dev` in the frontend crashes on startup (`vite.config.js` reads these files with no fallback). The backend degrades more gracefully — it falls back to plain HTTP if the certs are missing — but then it no longer matches the frontend's HTTPS scheme, which breaks webcam-dependent features.
-
-### 4.4 Configure the backend `.env`
-
-```bash
-cd thusitha-backend
-cp .env.example .env
-```
-
-**Edit `.env` and change these two lines** — the defaults in `.env.example` (`DB_NAME=smartclass_db`, `DB_PASSWORD=password123`) do **not** match the database name this project's own scripts and migration files expect:
-
-```env
-DB_PASSWORD=Thusitha@2026
-DB_NAME=thusithaedu_db
-```
-(`DB_USER=smartclass` is already correct in the example — no change needed there.)
-
-Also fill in, if you'll use these features:
-| Variable | Notes |
+| Area | What it does |
 |---|---|
-| `JWT_SECRET` | Any long random string for local dev |
-| `FRONTEND_URL` | Not in `.env.example` but read by `server.js`'s CORS check — set to `https://localhost:5173` |
-| `STRIPE_SECRET_KEY` | Test-mode key from your Stripe dashboard, if testing payments |
-| `MOODLE_URL` / `MOODLE_TOKEN` | Only needed if running Moodle locally too — see §4.7 |
-| `TWILIO_*` | Only needed for SMS testing |
+| 🧑‍🎓 **Students & Teachers** | Registration, profiles, QR ID cards, face-encoding enrolment, class enrolment |
+| ✅ **Attendance** | QR attendance, AI CCTV headcount, mismatch alerts, face verification, validation reports |
+| 💳 **Payments** | Online payments via **PayHere**, bank-receipt upload & approval, fee reminders |
+| 📚 **Learning (Moodle LMS)** | Course materials, enrolment sync and single sign-on with Moodle |
+| 📝 **Exams & Timetables** | Exam management, results, class timetables, study area with countdowns |
+| 👨‍👩‍👧 **Parent Portal** | Parents follow their child's attendance, payments and results |
+| 🔔 **Notifications** | Automated WhatsApp alerts to parents (attendance, payments, reminders) with message logs |
+| 📣 **Promotions & Achievements** | Institute promotions and student achievements on the public landing page |
+| 🔐 **Security** | JWT auth, role-based access (Admin, Teacher, Counter Person, Student, Parent), login lockout, OTP, audit logs |
 
-### 4.5 Create the PostgreSQL role (if it doesn't already exist)
-```sql
-psql -U postgres
-CREATE USER smartclass WITH PASSWORD 'Thusitha@2026';
-ALTER USER smartclass CREATEDB;
-\q
-```
-
-### 4.6 Create the database and apply all migrations
-
-From `thusitha-backend/`:
-```bash
-node import_database.js
-```
-This creates `thusithaedu_db` if it doesn't exist, runs `database/schema.sql`, runs `database/migration_phase2.sql`, and seeds sample test data via `seed_srilankan_data.js`.
-
-**It does not apply the other two migration files** — run these manually right after, or QR attendance and teacher/promo photo columns will be missing:
-```bash
-psql -U smartclass -d thusithaedu_db -f ../database/migration_qr_attendance.sql
-psql -U smartclass -d thusithaedu_db -f ../database/migration_2026_06_19_promotions_teacher_profile_photo.sql
-```
-
-### 4.7 (Optional) Restore Moodle locally
-
-Only needed if you're testing Moodle-integrated features (course sync, SSO). See `moodle_setup.md` for the full restore procedure — in short: install XAMPP (§2), copy `moodle/` into XAMPP's `htdocs/`, copy `moodledata/` alongside it, and restore the provided `database/moodle.backup` into XAMPP's MySQL. The restored install already has its web-service token configured — put that token in the backend's `MOODLE_TOKEN`.
-
-### 4.8 Set up the AI microservice
-```bash
-cd ../fastapi_service
-python -m venv venv
-.\venv\Scripts\activate        # Mac/Linux: source venv/bin/activate
-pip install -r requirements.txt
-```
-Expect **10–20 minutes** — `dlib` compiles from C++ source. This is why Visual Studio Build Tools (§2) has to be installed first.
-
-You don't need to run this service yourself — the backend auto-launches `python fastapi_service/main.py` on startup (§1). Only run it directly (`python main.py`) if you're debugging the AI pipeline and want to see its logs live.
+The UI is in **Sinhala and English**, made for the institute's staff and students.
 
 ---
 
-## 5. Running the project
+## 📸 Screenshots
 
-Two terminals:
+| Admin Dashboard | QR Attendance |
+|:---:|:---:|
+| <img src="docs/screenshots/01-dashboard.png" alt="Admin dashboard" width="420"/> | <img src="docs/screenshots/02-qr-attendance.png" alt="QR attendance" width="420"/> |
+| **AI Mismatch Alert** | **CCTV Analysis** |
+| <img src="docs/screenshots/03-ai-mismatch.png" alt="AI mismatch alert" width="420"/> | <img src="docs/screenshots/04-cctv-analysis.png" alt="CCTV analysis" width="420"/> |
+| **Face Verification** | **Identity Verified** |
+| <img src="docs/screenshots/05-face-verification.png" alt="Face verification" width="420"/> | <img src="docs/screenshots/06-verified.png" alt="Identity verified" width="420"/> |
 
-**Terminal 1 — backend**
+---
+
+## 🏗️ Architecture
+
+```mermaid
+flowchart TB
+    U["🌐 Browser<br/>React 19 + Vite SPA"] -->|REST / JWT| B["⚙️ Node.js / Express API"]
+    B -->|SQL| P[("🐘 PostgreSQL")]
+    B -->|HTTP| AI["🤖 Python FastAPI<br/>YOLOv8 · dlib · MediaPipe · OpenCV"]
+    B -->|REST web services| M["📚 Moodle LMS"]
+    B --> PH["💳 PayHere"]
+    B --> N["🔔 WhatsApp"]
+```
+
+| Layer | Technology |
+|---|---|
+| **Frontend** | React 19, Vite, Tailwind CSS 4, Axios |
+| **Backend** | Node.js, Express, JWT, raw parameterised SQL (`pg`) |
+| **AI service** | Python, FastAPI, YOLOv8 (Ultralytics), dlib `face_recognition`, MediaPipe, OpenCV |
+| **Database** | PostgreSQL |
+| **Integrations** | Moodle LMS, PayHere, WhatsApp (Baileys) |
+| **Testing** | Jest + Supertest (unit, system and use-case tests) |
+| **Deployment** | Vercel (frontend) · Render + Docker (backend + AI) · Neon (PostgreSQL) |
+
+---
+
+## 🚀 Getting started
+
+**You'll need:** Node.js 22/24, Python 3.12, PostgreSQL 16, and (on Windows) Visual Studio Build Tools for `dlib`.
+
 ```bash
+git clone https://github.com/Ishadhisl/Smart-Class-Management-System-IIT-Group-3.git
+cd Smart-Class-Management-System-IIT-Group-3
+
+# Backend (also auto-starts the Python AI service)
 cd thusitha-backend
+cp .env.example .env        # then fill in DB credentials, JWT secret, etc.
+npm install
+node import_database.js     # creates the database + sample data
 npm start
-```
-Wait for:
-```
-✅ Database Connection Pool established
-🚀 Server is running on https://localhost:5000
-```
 
-**Terminal 2 — frontend**
-```bash
+# Frontend (in a second terminal)
 cd thusitha-frontend
-npm run dev
+npm install
+npm run dev                 # open https://localhost:5173
 ```
 
-**Open the app:** `https://localhost:5173` — **not** `http://`. The dev server only speaks TLS (self-signed cert from §4.3); plain HTTP won't connect. Your browser will show a "connection not private" warning on first visit — that's expected for a self-signed dev certificate. Click **Advanced → Proceed to localhost**.
+📘 Full step-by-step guide (HTTPS certificates, migrations, Moodle, troubleshooting): **[`docs/SETUP.md`](docs/SETUP.md)**
 
-To stop either process: `Ctrl+C` in its terminal.
-
----
-
-## 6. Troubleshooting
-
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `Cannot find module 'pg'` (or similar) | Skipped §4.2 | Run `npm install` in `thusitha-backend`/`thusitha-frontend` |
-| Frontend crashes on `npm run dev` with an `ENOENT` on a `.pem` file | Missing `certs/` folder | See §4.3 |
-| `psql: FATAL: database "thusithaedu_db" does not exist` when running the migration commands | `.env` still has `DB_NAME=smartclass_db`, or §4.6's `node import_database.js` wasn't run first | Fix `.env` (§4.4), re-run in order |
-| Browser can't reach `http://localhost:5173` | Wrong scheme | Use `https://localhost:5173` |
-| `EADDRINUSE :::5000` or `:::5173` | Another instance (yours or a teammate's) already running | Close the other process, or change `PORT` in `.env` |
-| `pip install -r requirements.txt` fails compiling `dlib` | Visual Studio Build Tools not installed, or PC not restarted after | Install the "Desktop development with C++" workload (§2), restart, retry |
-| QR attendance or teacher/promo photo uploads error out | The two extra migration files from §4.6 weren't applied | Run the two `psql -f` commands in §4.6 |
+### More documentation
+- 🤖 [AI attendance subsystem](ai_implementation_explanation.md)
+- 🗄️ [Database](DATABASE.md)
+- 🔐 [Security measures](SECURITY.md)
+- 📚 [Moodle setup](moodle_setup.md)
+- ☁️ [Deployment](deploy/DEPLOY.md)
 
 ---
 
-## 7. Production deployment
+## 👥 Team
 
-This README covers **local development only**. For hosting a real deployment, see
-`deploy/DEPLOY.md` — this project's plan: Neon/Render Postgres + Render backend + Vercel
-frontend, all free managed tiers, zero server admin. Read its "why this plan is limited"
-section before deploying — WhatsApp OTP and AI face-recognition attendance don't survive
-Render's free tier reliably (need a local run for a live demo of those two specifically),
-and the Materials/Timetable tab has no Moodle host in this plan.
+| Member | GitHub |
+|---|---|
+| Ishadhi Paranage | [@Ishadhisl](https://github.com/Ishadhisl) |
+| Lasitha Priyasad | [@Priyasad010](https://github.com/Priyasad010) |
+| Parami Pramodya | [@ParamiPramodya](https://github.com/ParamiPramodya) |
+| Dilini Kavushalya | [@diliniCoder](https://github.com/diliniCoder) |
 
 ---
 
-## 8. Security notes (before any real deployment)
-
-- Never commit `.env` — it's gitignored, keep it that way.
-- Generate a fresh, long `JWT_SECRET` — don't reuse the local-dev one.
-- Use a real, non-default PostgreSQL password in production, not `Thusitha@2026`.
-- The dev HTTPS cert in `certs/` is self-signed and **only** for local development — production (`deploy/DEPLOY.md`) gets HTTPS from Render/Vercel automatically instead.
-- Switch `STRIPE_SECRET_KEY` to a live-mode key only when actually ready to accept real payments.
+<div align="center">
+  <sub>Built with ❤️ for Thusitha Academy by IIT Group 3</sub>
+</div>
